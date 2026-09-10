@@ -1,0 +1,644 @@
+/* SF Pro is used wherever the system provides it (see --font-sans below);
+   Inter is the fallback everywhere else. Imported here rather than via a
+   <head> tag or next/font so the root layout stays head-free and the build
+   never depends on reaching Google Fonts. */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+
+/* ============================================================================
+   KOINONIA VERIFIED TRANSPORTATION NETWORK — DESIGN TOKENS
+   Single source of truth for colour, type, spacing, radii, shadow and motion.
+   Do not introduce colours outside this file.
+   ========================================================================= */
+
+@layer theme {
+  :root {
+    /* --- Brand: deep forest green ------------------------------------- */
+    --kx-forest-50: #eef4f2;
+    --kx-forest-100: #d6e5e0;
+    --kx-forest-200: #adc9c1;
+    --kx-forest-300: #7ea79c;
+    --kx-forest-400: #4d7d70;
+    --kx-forest-500: #2c5b50;
+    --kx-forest-600: #1c3330;
+    --kx-forest-700: #173632;
+    --kx-forest-800: #102c28;
+    --kx-forest-900: #0c211e;
+    --kx-forest-950: #071513;
+
+    /* --- Brand: graphite ---------------------------------------------- */
+    --kx-graphite-700: #2a3230;
+    --kx-graphite-800: #1e2525;
+    --kx-graphite-900: #171c19;
+    --kx-graphite-950: #111513;
+
+    /* --- Accent: warm gold -------------------------------------------- */
+    --kx-gold-50: #fdf8ea;
+    --kx-gold-100: #f9edc9;
+    --kx-gold-200: #f2da95;
+    --kx-gold-300: #e9c45c;
+    --kx-gold-400: #e0ad28;
+    --kx-gold-500: #d6a527;
+    --kx-gold-600: #c99923;
+    --kx-gold-700: #a37a1c;
+    --kx-gold-800: #7c5c17;
+    --kx-gold-900: #5c4413;
+
+    /* --- Accent: restrained lilac (analytics / professional) ---------- */
+    --kx-lilac-50: #f1f0f7;
+    --kx-lilac-100: #e3e0f6;
+    --kx-lilac-200: #c8c2ef;
+    --kx-lilac-300: #a79ded;
+    --kx-lilac-400: #8476ef;
+    --kx-lilac-500: #786ce8;
+    --kx-lilac-600: #6559e8;
+    --kx-lilac-700: #5347c4;
+    --kx-lilac-800: #423a97;
+    --kx-lilac-900: #332d72;
+
+    /* --- Neutrals ------------------------------------------------------ */
+    --kx-warm-white: #fafaf8;
+    --kx-soft-grey: #f4f5f3;
+    --kx-cool-mist: #edf2f1;
+    --kx-lilac-grey: #f1f0f7;
+    --kx-neutral-200: #e3e5e2;
+    --kx-neutral-300: #cdd1ce;
+    --kx-neutral-400: #a3a9a5;
+    --kx-neutral-500: #7b827e;
+    --kx-neutral-600: #5b625e;
+    --kx-neutral-700: #414744;
+    --kx-neutral-800: #2b302e;
+
+    /* --- Status -------------------------------------------------------- */
+    --kx-success-50: #eaf6ef;
+    --kx-success-500: #2e8b57;
+    --kx-success-600: #247045;
+    --kx-success-700: #1d5a38;
+
+    --kx-pending-50: #fdf6e6;
+    --kx-pending-500: #c98a12;
+    --kx-pending-700: #8a5d0b;
+
+    --kx-danger-50: #fdeeee;
+    --kx-danger-500: #b4443f;
+    --kx-danger-600: #9b3a35;
+    --kx-danger-700: #7d2f2b;
+
+    --kx-sos-50: #fdeaea;
+    --kx-sos-500: #d93a34;
+    --kx-sos-600: #c22f29;
+    --kx-sos-700: #9c2620;
+
+    /* --- Semantic surfaces (light) ------------------------------------- */
+    --kx-bg: var(--kx-warm-white);
+    --kx-bg-subtle: var(--kx-soft-grey);
+    --kx-bg-mist: var(--kx-cool-mist);
+    --kx-surface: #ffffff;
+    --kx-surface-nested: var(--kx-soft-grey);
+    --kx-surface-elevated: #ffffff;
+    --kx-surface-inverse: var(--kx-forest-800);
+    --kx-overlay: rgb(12 33 30 / 0.42);
+
+    --kx-border: rgb(16 44 40 / 0.09);
+    --kx-border-strong: rgb(16 44 40 / 0.16);
+    --kx-border-inverse: rgb(255 255 255 / 0.12);
+
+    --kx-text: #16211f;
+    --kx-text-secondary: #4c5551;
+    --kx-text-muted: #7b827e;
+    --kx-text-inverse: #f5f5f2;
+    --kx-text-inverse-muted: rgb(245 245 242 / 0.66);
+
+    /* Map surface tokens */
+    --kx-map-land: #eef1ee;
+    --kx-map-land-2: #e4e9e6;
+    --kx-map-water: #dbe6e6;
+    --kx-map-road: #ffffff;
+    --kx-map-road-minor: #f6f7f5;
+    --kx-map-road-stroke: #dfe3e0;
+    --kx-map-park: #e3ece4;
+    --kx-map-label: #8b918d;
+    --kx-map-route: var(--kx-gold-500);
+    --kx-map-route-alt: rgb(123 130 126 / 0.35);
+
+    /* --- Radii ---------------------------------------------------------- */
+    --kx-radius-xs: 8px;
+    --kx-radius-sm: 12px;
+    --kx-radius-md: 16px;
+    --kx-radius-lg: 20px;
+    --kx-radius-xl: 28px;
+    --kx-radius-2xl: 32px;
+    --kx-radius-full: 999px;
+
+    /* --- Shadows: layered, low opacity, never thick black -------------- */
+    --kx-shadow-xs: 0 1px 2px rgb(16 44 40 / 0.04), 0 1px 1px rgb(16 44 40 / 0.03);
+    --kx-shadow-sm: 0 1px 2px rgb(16 44 40 / 0.04), 0 2px 6px rgb(16 44 40 / 0.05);
+    --kx-shadow-md: 0 1px 2px rgb(16 44 40 / 0.04), 0 6px 16px -4px rgb(16 44 40 / 0.08);
+    --kx-shadow-lg: 0 2px 4px rgb(16 44 40 / 0.03), 0 12px 32px -8px rgb(16 44 40 / 0.11);
+    --kx-shadow-xl: 0 4px 8px rgb(16 44 40 / 0.04), 0 24px 56px -12px rgb(16 44 40 / 0.16);
+    --kx-shadow-sheet: 0 -2px 6px rgb(16 44 40 / 0.04), 0 -18px 48px -12px rgb(16 44 40 / 0.18);
+    --kx-shadow-gold: 0 2px 10px -2px rgb(214 165 39 / 0.35);
+    --kx-inner-highlight: inset 0 1px 0 rgb(255 255 255 / 0.6);
+
+    /* --- Motion --------------------------------------------------------- */
+    --kx-duration-instant: 120ms;
+    --kx-duration-quick: 165ms;
+    --kx-duration-card: 250ms;
+    --kx-duration-page: 380ms;
+    --kx-duration-map: 900ms;
+    --kx-ease-standard: cubic-bezier(0.32, 0.72, 0, 1);
+    --kx-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --kx-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  }
+
+  .dark {
+    --kx-bg: var(--kx-graphite-950);
+    --kx-bg-subtle: #141917;
+    --kx-bg-mist: #151b19;
+    --kx-surface: var(--kx-graphite-900);
+    --kx-surface-nested: #1d2420;
+    --kx-surface-elevated: #1d2420;
+    --kx-surface-inverse: #f4f5f3;
+    --kx-overlay: rgb(4 8 7 / 0.62);
+
+    --kx-border: rgb(255 255 255 / 0.08);
+    --kx-border-strong: rgb(255 255 255 / 0.16);
+    --kx-border-inverse: rgb(16 44 40 / 0.12);
+
+    --kx-text: #f5f5f2;
+    --kx-text-secondary: rgb(245 245 242 / 0.72);
+    --kx-text-muted: rgb(245 245 242 / 0.48);
+    --kx-text-inverse: #16211f;
+    --kx-text-inverse-muted: rgb(22 33 31 / 0.66);
+
+    --kx-map-land: #171c1a;
+    --kx-map-land-2: #1b211e;
+    --kx-map-water: #141b1c;
+    --kx-map-road: #262d2a;
+    --kx-map-road-minor: #1f2623;
+    --kx-map-road-stroke: #2f3733;
+    --kx-map-park: #18211c;
+    --kx-map-label: #6c736f;
+    --kx-map-route: var(--kx-gold-400);
+    --kx-map-route-alt: rgb(245 245 242 / 0.18);
+
+    --kx-shadow-xs: 0 1px 2px rgb(0 0 0 / 0.3);
+    --kx-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 6px rgb(0 0 0 / 0.28);
+    --kx-shadow-md: 0 1px 2px rgb(0 0 0 / 0.3), 0 6px 16px -4px rgb(0 0 0 / 0.4);
+    --kx-shadow-lg: 0 2px 4px rgb(0 0 0 / 0.3), 0 12px 32px -8px rgb(0 0 0 / 0.5);
+    --kx-shadow-xl: 0 4px 8px rgb(0 0 0 / 0.3), 0 24px 56px -12px rgb(0 0 0 / 0.6);
+    --kx-shadow-sheet: 0 -2px 6px rgb(0 0 0 / 0.3), 0 -18px 48px -12px rgb(0 0 0 / 0.55);
+    --kx-inner-highlight: inset 0 1px 0 rgb(255 255 255 / 0.05);
+  }
+}
+
+/* ============================================================================
+   TAILWIND THEME MAPPING
+   ========================================================================= */
+
+@theme inline {
+  --color-forest-50: var(--kx-forest-50);
+  --color-forest-100: var(--kx-forest-100);
+  --color-forest-200: var(--kx-forest-200);
+  --color-forest-300: var(--kx-forest-300);
+  --color-forest-400: var(--kx-forest-400);
+  --color-forest-500: var(--kx-forest-500);
+  --color-forest-600: var(--kx-forest-600);
+  --color-forest-700: var(--kx-forest-700);
+  --color-forest-800: var(--kx-forest-800);
+  --color-forest-900: var(--kx-forest-900);
+  --color-forest-950: var(--kx-forest-950);
+
+  --color-graphite-700: var(--kx-graphite-700);
+  --color-graphite-800: var(--kx-graphite-800);
+  --color-graphite-900: var(--kx-graphite-900);
+  --color-graphite-950: var(--kx-graphite-950);
+
+  --color-gold-50: var(--kx-gold-50);
+  --color-gold-100: var(--kx-gold-100);
+  --color-gold-200: var(--kx-gold-200);
+  --color-gold-300: var(--kx-gold-300);
+  --color-gold-400: var(--kx-gold-400);
+  --color-gold-500: var(--kx-gold-500);
+  --color-gold-600: var(--kx-gold-600);
+  --color-gold-700: var(--kx-gold-700);
+  --color-gold-800: var(--kx-gold-800);
+  --color-gold-900: var(--kx-gold-900);
+
+  --color-lilac-50: var(--kx-lilac-50);
+  --color-lilac-100: var(--kx-lilac-100);
+  --color-lilac-200: var(--kx-lilac-200);
+  --color-lilac-300: var(--kx-lilac-300);
+  --color-lilac-400: var(--kx-lilac-400);
+  --color-lilac-500: var(--kx-lilac-500);
+  --color-lilac-600: var(--kx-lilac-600);
+  --color-lilac-700: var(--kx-lilac-700);
+  --color-lilac-800: var(--kx-lilac-800);
+  --color-lilac-900: var(--kx-lilac-900);
+
+  --color-success-50: var(--kx-success-50);
+  --color-success-500: var(--kx-success-500);
+  --color-success-700: var(--kx-success-700);
+  --color-pending-50: var(--kx-pending-50);
+  --color-pending-500: var(--kx-pending-500);
+  --color-pending-700: var(--kx-pending-700);
+  --color-danger-50: var(--kx-danger-50);
+  --color-danger-500: var(--kx-danger-500);
+  --color-danger-600: var(--kx-danger-600);
+  --color-danger-700: var(--kx-danger-700);
+  --color-sos-50: var(--kx-sos-50);
+  --color-sos-500: var(--kx-sos-500);
+  --color-sos-600: var(--kx-sos-600);
+  --color-sos-700: var(--kx-sos-700);
+
+  --color-canvas: var(--kx-bg);
+  --color-canvas-subtle: var(--kx-bg-subtle);
+  --color-canvas-mist: var(--kx-bg-mist);
+  --color-surface: var(--kx-surface);
+  --color-surface-nested: var(--kx-surface-nested);
+  --color-surface-elevated: var(--kx-surface-elevated);
+  --color-surface-inverse: var(--kx-surface-inverse);
+
+  --color-line: var(--kx-border);
+  --color-line-strong: var(--kx-border-strong);
+  --color-line-inverse: var(--kx-border-inverse);
+
+  --color-ink: var(--kx-text);
+  --color-ink-secondary: var(--kx-text-secondary);
+  --color-ink-muted: var(--kx-text-muted);
+  --color-ink-inverse: var(--kx-text-inverse);
+  --color-ink-inverse-muted: var(--kx-text-inverse-muted);
+
+  --radius-xs: var(--kx-radius-xs);
+  --radius-sm: var(--kx-radius-sm);
+  --radius-md: var(--kx-radius-md);
+  --radius-lg: var(--kx-radius-lg);
+  --radius-xl: var(--kx-radius-xl);
+  --radius-2xl: var(--kx-radius-2xl);
+
+  --shadow-xs: var(--kx-shadow-xs);
+  --shadow-sm: var(--kx-shadow-sm);
+  --shadow-md: var(--kx-shadow-md);
+  --shadow-lg: var(--kx-shadow-lg);
+  --shadow-xl: var(--kx-shadow-xl);
+  --shadow-sheet: var(--kx-shadow-sheet);
+  --shadow-gold: var(--kx-shadow-gold);
+
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    Inter, Geist, Manrope, "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+  --breakpoint-xs: 26rem;
+
+  --ease-standard: var(--kx-ease-standard);
+  --ease-gentle: var(--kx-ease-out);
+}
+
+/* ============================================================================
+   BASE
+   ========================================================================= */
+
+@layer base {
+  * {
+    border-color: var(--kx-border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--kx-bg);
+    color: var(--kx-text);
+    font-family: var(--font-sans);
+    font-synthesis-weight: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  ::selection {
+    background-color: var(--kx-gold-200);
+    color: var(--kx-forest-900);
+  }
+
+  /* Visible, consistent focus ring — never removed. */
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--kx-gold-500);
+    outline-offset: 2px;
+    border-radius: var(--kx-radius-xs);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  /* Hide number spinners */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}
+
+/* ============================================================================
+   TYPE SCALE — editorial, calm, tight tracking on large sizes
+   ========================================================================= */
+
+@layer components {
+  .type-display {
+    font-size: clamp(2rem, 1.1rem + 4.4vw, 4.5rem);
+    line-height: 1.03;
+    font-weight: 640;
+    letter-spacing: -0.04em;
+  }
+
+  .type-page-title {
+    font-size: clamp(1.75rem, 1.3rem + 1.8vw, 2.375rem);
+    line-height: 1.12;
+    font-weight: 620;
+    letter-spacing: -0.032em;
+  }
+
+  .type-section-title {
+    font-size: clamp(1.375rem, 1.15rem + 1vw, 1.75rem);
+    line-height: 1.2;
+    font-weight: 600;
+    letter-spacing: -0.026em;
+  }
+
+  .type-card-title {
+    font-size: 1rem;
+    line-height: 1.35;
+    font-weight: 600;
+    letter-spacing: -0.014em;
+  }
+
+  .type-body {
+    font-size: 0.9375rem;
+    line-height: 1.62;
+    letter-spacing: -0.006em;
+  }
+
+  .type-body-lg {
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    letter-spacing: -0.011em;
+  }
+
+  .type-meta {
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    font-weight: 500;
+    letter-spacing: -0.002em;
+  }
+
+  .type-micro {
+    font-size: 0.6875rem;
+    line-height: 1.35;
+    font-weight: 600;
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+  }
+
+  /* Tabular figures for money, ETA, counters */
+  .type-numeric {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+    letter-spacing: -0.02em;
+  }
+
+  /* Surface recipes */
+  .surface-card {
+    background-color: var(--kx-surface);
+    border: 1px solid var(--kx-border);
+    box-shadow: var(--kx-shadow-sm), var(--kx-inner-highlight);
+  }
+
+  .surface-nested {
+    background-color: var(--kx-surface-nested);
+    border: 1px solid var(--kx-border);
+  }
+
+  .surface-glass {
+    background-color: color-mix(in srgb, var(--kx-surface) 72%, transparent);
+    backdrop-filter: blur(20px) saturate(1.6);
+    -webkit-backdrop-filter: blur(20px) saturate(1.6);
+    border: 1px solid var(--kx-border-strong);
+    box-shadow: var(--kx-shadow-lg);
+  }
+
+  .surface-dark {
+    background-color: var(--kx-forest-800);
+    color: var(--kx-text-inverse);
+    border: 1px solid rgb(255 255 255 / 0.08);
+  }
+
+  .kx-hairline {
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      var(--kx-border-strong) 18%,
+      var(--kx-border-strong) 82%,
+      transparent
+    );
+    height: 1px;
+  }
+}
+
+/* ============================================================================
+   UTILITIES
+   ========================================================================= */
+
+@layer utilities {
+  .kx-scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--kx-neutral-300) transparent;
+  }
+
+  .kx-scroll-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .kx-scroll-thin::-webkit-scrollbar-thumb {
+    background-color: color-mix(in srgb, var(--kx-text-muted) 40%, transparent);
+    border-radius: 999px;
+  }
+
+  /*
+    Extends a small control's touch target to 44x44 without changing how it
+    looks or how the layout flows. The pseudo-element belongs to the control,
+    so a tap anywhere inside it activates the control itself.
+  */
+  .kx-tap {
+    position: relative;
+  }
+
+  .kx-tap::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    width: 100%;
+    height: 100%;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .kx-no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .kx-no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Safe-area padding for mobile bottom nav / sheets */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .mb-safe {
+    margin-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .h-safe-bottom {
+    height: env(safe-area-inset-bottom, 0px);
+  }
+
+  .kx-text-gradient-gold {
+    background-image: linear-gradient(
+      100deg,
+      var(--kx-gold-600),
+      var(--kx-gold-300) 55%,
+      var(--kx-gold-600)
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .kx-grain {
+    position: relative;
+  }
+
+  .kx-grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.35;
+    background-image: radial-gradient(
+      circle at 1px 1px,
+      color-mix(in srgb, var(--kx-text) 6%, transparent) 1px,
+      transparent 0
+    );
+    background-size: 22px 22px;
+  }
+}
+
+/* ============================================================================
+   KEYFRAMES — all gated by prefers-reduced-motion below
+   ========================================================================= */
+
+@keyframes kx-shimmer {
+  0% {
+    background-position: -160% 0;
+  }
+  100% {
+    background-position: 260% 0;
+  }
+}
+
+@keyframes kx-pulse-ring {
+  0% {
+    transform: scale(0.62);
+    opacity: 0.55;
+  }
+  70% {
+    opacity: 0;
+  }
+  100% {
+    transform: scale(2.1);
+    opacity: 0;
+  }
+}
+
+@keyframes kx-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes kx-dash {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes kx-marquee-dash {
+  to {
+    stroke-dashoffset: -32;
+  }
+}
+
+.kx-skeleton {
+  background-color: color-mix(in srgb, var(--kx-text) 7%, transparent);
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--kx-text) 5%, transparent) 45%,
+    transparent
+  );
+  background-size: 220% 100%;
+  animation: kx-shimmer 1.65s ease-in-out infinite;
+  border-radius: var(--kx-radius-xs);
+}
+
+/* ============================================================================
+   REDUCED MOTION — respected globally
+   ========================================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .kx-skeleton {
+    animation: none;
+  }
+}
