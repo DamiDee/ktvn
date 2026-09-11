@@ -11,8 +11,7 @@ export function MarketingFooter() {
             <Link href="/" className="kx-tap inline-flex items-center gap-2.5">
               <KoinoniaMark className="size-6 text-forest-800 dark:text-gold-400" />
               <span className="text-[0.9375rem] font-semibold tracking-[-0.02em] text-ink">
-                Koinonia
-                <span className="ml-1.5 font-normal text-ink-muted">VTN</span>
+                K-Rides
               </span>
             </Link>
 
@@ -45,7 +44,7 @@ export function MarketingFooter() {
 
         <div className="mt-12 flex flex-col gap-3 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="type-meta text-ink-muted">
-            © {new Date().getFullYear()} Koinonia Verified Transportation Network
+            © {new Date().getFullYear()} K-Rides
           </p>
           <p className="type-meta max-w-xl text-ink-muted sm:text-right">
             Verification reduces risk; it does not guarantee a safe journey. The

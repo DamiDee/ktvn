@@ -4,7 +4,7 @@ import { PasswordResetFlow } from "@/features/auth/password-reset-flow";
 
 export const metadata: Metadata = {
   title: "Reset password",
-  description: "Reset the password for your Koinonia VTN account.",
+  description: "Reset the password for your K-Rides account.",
 };
 
 export default function ForgotPasswordPage() {

@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import {
   ArrowRight,
   BadgeCheck,
+  ChevronDown,
   Check,
   HandHeart,
   Receipt,
@@ -71,37 +72,46 @@ function TrackCard({
           <Icon className="size-5" strokeWidth={1.7} aria-hidden />
         </span>
         <VerifiedBadge
-          label="Same verification standard"
+          label="Same safety standard"
           tone={isVolunteer ? "gold" : "lilac"}
         />
       </div>
 
-      <p className="type-micro mt-6 text-ink-muted">{eyebrow}</p>
+      <p className="type-micro mt-5 text-ink-muted">{eyebrow}</p>
       <h3 className="type-section-title mt-2 text-ink">{title}</h3>
       <p className="type-body mt-3 text-ink-secondary">{description}</p>
 
-      <ul className="mt-6 space-y-3">
-        {points.map((point) => {
-          const PointIcon = point.icon;
-          return (
-            <li key={point.label} className="flex items-center gap-3">
-              <span
-                className={cn(
-                  "inline-flex size-6 shrink-0 items-center justify-center rounded-full",
-                  isVolunteer
-                    ? "bg-gold-500/14 text-gold-700 dark:text-gold-300"
-                    : "bg-lilac-500/14 text-lilac-700 dark:text-lilac-300",
-                )}
-              >
-                <PointIcon className="size-3.5" strokeWidth={1.9} aria-hidden />
-              </span>
-              <span className="type-body text-ink-secondary">{point.label}</span>
-            </li>
-          );
-        })}
-      </ul>
+      <details className="group mt-5 rounded-[var(--kx-radius-md)] border border-line bg-surface/75">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-[var(--kx-radius-md)] px-4 py-3.5 outline-none transition-colors hover:bg-surface-nested focus-visible:ring-2 focus-visible:ring-gold-500 focus-visible:ring-inset [&::-webkit-details-marker]:hidden">
+          <span className="type-meta font-semibold text-ink">What&rsquo;s included</span>
+          <ChevronDown
+            className="size-4 text-ink-muted transition-transform duration-200 group-open:rotate-180"
+            aria-hidden
+          />
+        </summary>
+        <ul className="space-y-2.5 border-t border-line px-4 py-4">
+          {points.map((point) => {
+            const PointIcon = point.icon;
+            return (
+              <li key={point.label} className="flex items-center gap-3">
+                <span
+                  className={cn(
+                    "inline-flex size-6 shrink-0 items-center justify-center rounded-full",
+                    isVolunteer
+                      ? "bg-gold-500/14 text-gold-700 dark:text-gold-300"
+                      : "bg-lilac-500/14 text-lilac-700 dark:text-lilac-300",
+                  )}
+                >
+                  <PointIcon className="size-3.5" strokeWidth={1.9} aria-hidden />
+                </span>
+                <span className="type-meta text-ink-secondary">{point.label}</span>
+              </li>
+            );
+          })}
+        </ul>
+      </details>
 
-      <div className="mt-8 pt-2">
+      <div className="mt-5">
         <ButtonLink
           href={cta.href}
           variant={isVolunteer ? "secondary" : "secondary"}
@@ -118,19 +128,18 @@ function TrackCard({
 
 export function TrackCards() {
   return (
-    <div className="mt-12 grid gap-5 sm:mt-16 lg:grid-cols-2">
+    <div className="mt-9 grid gap-5 sm:mt-11 lg:grid-cols-2">
       <TrackCard
         tone="volunteer"
         eyebrow="Track A · Volunteer"
         title="Ride through service"
-        description="Verified members offer the seats they already have. Nothing is charged, nothing is owed — the journey is given."
+        description="Verified members offer spare seats at no charge."
         icon={HandHeart}
         points={[
           { icon: Check, label: "No fare and no payment prompt" },
           { icon: BadgeCheck, label: "Verified driver and vehicle" },
           { icon: Route, label: "Tracked from departure to destination" },
-          { icon: Star, label: "Two-way ratings after every journey" },
-          { icon: BadgeCheck, label: "Ministry oversight on every ride" },
+          { icon: Star, label: "Two-way ratings" },
         ]}
         cta={{ href: "/signup", label: "Explore Volunteer Rides" }}
       />
@@ -139,14 +148,14 @@ export function TrackCards() {
         tone="professional"
         eyebrow="Track B · Professional"
         title="Reliable paid transportation"
-        description="Verified professional drivers provide paid journeys with the fare agreed before you travel — no surprises at the end."
+        description="Paid journeys with the fare agreed before you travel."
         icon={Wallet}
         points={[
           { icon: Check, label: "Fare shown upfront, before you request" },
           { icon: Route, label: "Private or shared, up to three riders" },
-          { icon: Receipt, label: "A receipt for every completed journey" },
+          { icon: Receipt, label: "Receipt after every journey" },
           { icon: BadgeCheck, label: "Verified driver and vehicle" },
-          { icon: Star, label: "Live tracking throughout the trip" },
+          { icon: Star, label: "Live trip tracking" },
         ]}
         cta={{ href: "/signup", label: "Explore Professional Rides" }}
         delay={0.1}

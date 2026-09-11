@@ -43,12 +43,11 @@ export function AuthShell({
           <Link
             href="/"
             className="kx-tap mb-8 inline-flex items-center gap-2.5 lg:hidden"
-            aria-label="Koinonia VTN — home"
+            aria-label="K-Rides — home"
           >
             <KoinoniaMark className="size-6 text-forest-800 dark:text-gold-400" />
             <span className="text-[0.9375rem] font-semibold tracking-[-0.02em] text-ink">
-              Koinonia
-              <span className="ml-1.5 font-normal text-ink-muted">VTN</span>
+              K-Rides
             </span>
           </Link>
 
@@ -88,12 +87,11 @@ function AuthVisual({
         <Link
           href="/"
           className="inline-flex w-fit items-center gap-2.5"
-          aria-label="Koinonia VTN — home"
+          aria-label="K-Rides — home"
         >
           <KoinoniaMark className="size-7 text-gold-400" />
           <span className="text-[1rem] font-semibold tracking-[-0.02em] text-white">
-            Koinonia
-            <span className="ml-1.5 font-normal text-white/55">VTN</span>
+            K-Rides
           </span>
         </Link>
 

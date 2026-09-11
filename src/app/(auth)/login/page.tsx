@@ -4,7 +4,7 @@ import { LoginForm } from "@/features/auth/login-form";
 
 export const metadata: Metadata = {
   title: "Sign in",
-  description: "Sign in to the Koinonia Verified Transportation Network.",
+  description: "Sign in to K-Rides.",
 };
 
 export default function LoginPage() {

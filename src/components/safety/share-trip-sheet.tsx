@@ -63,7 +63,7 @@ export function ShareTripSheet({
   }
 
   function shareVia(channel: "whatsapp" | "sms", label: string) {
-    const message = `I'm on a Koinonia VTN journey. Follow it live: ${shareUrl}`;
+    const message = `I'm on a K-Rides journey. Follow it live: ${shareUrl}`;
     const href =
       channel === "whatsapp"
         ? `https://wa.me/?text=${encodeURIComponent(message)}`

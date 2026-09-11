@@ -5,12 +5,12 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Koinonia Verified Transportation Network",
-    template: "%s · Koinonia VTN",
+    default: "K-Rides",
+    template: "%s · K-Rides",
   },
   description:
     "A verified transportation network built for the Koinonia community. Find trusted volunteer or professional drivers, travel with live trip visibility, and stay connected from departure to destination.",
-  applicationName: "Koinonia VTN",
+  applicationName: "K-Rides",
 };
 
 export const viewport: Viewport = {

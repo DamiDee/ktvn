@@ -1,4 +1,4 @@
-# Koinonia Verified Transportation Network — Frontend
+# K-Rides — Frontend
 
 A members-only verified transportation platform connecting Koinonia members
 with verified drivers, across two tracks that share one safety standard.

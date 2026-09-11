@@ -5,7 +5,7 @@ import { SignUpForm } from "@/features/auth/signup-form";
 export const metadata: Metadata = {
   title: "Create account",
   description:
-    "Join the Koinonia Verified Transportation Network as a verified member.",
+    "Join K-Rides as a verified member.",
 };
 
 export default function SignUpPage() {

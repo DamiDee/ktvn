@@ -16,7 +16,7 @@ import { LiquidBackdrop } from "@/components/ui/liquid-backdrop";
 export const metadata: Metadata = {
   title: "Move together. Travel with confidence.",
   description:
-    "A verified transportation network built for the Koinonia community. Find trusted volunteer or professional drivers, travel with live trip visibility, and stay connected from departure to destination.",
+    "Verified volunteer and professional rides for the Koinonia community.",
 };
 
 export default function LandingPage() {
@@ -26,7 +26,7 @@ export default function LandingPage() {
 
       <main id="main">
         {/* Hero */}
-        <section className="relative overflow-hidden px-4 pt-28 pb-20 sm:px-6 sm:pt-36 sm:pb-28">
+        <section className="relative overflow-hidden px-4 pt-28 pb-16 sm:px-6 sm:pt-32 sm:pb-22">
           <LiquidBackdrop className="-z-10 opacity-80" />
           <div
             className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[520px] bg-[radial-gradient(72%_60%_at_50%_0%,color-mix(in_srgb,var(--kx-forest-200)_45%,transparent),transparent_70%)] dark:bg-[radial-gradient(72%_60%_at_50%_0%,color-mix(in_srgb,var(--kx-forest-500)_18%,transparent),transparent_70%)]"
@@ -48,13 +48,8 @@ export default function LandingPage() {
         <Section id="trust">
           <SectionHeader
             eyebrow="Verification"
-            title={
-              <>
-                Verification isn&rsquo;t a badge.
-                <br className="hidden sm:block" /> It&rsquo;s the foundation.
-              </>
-            }
-            description="Every driver passes the same five checks before carrying a single member — whether they drive as a volunteer or professionally."
+            title="Verified before the first ride."
+            description="Every driver completes five checks."
           />
           <TrustSequence />
         </Section>
@@ -64,7 +59,7 @@ export default function LandingPage() {
           <SectionHeader
             eyebrow="Two transportation tracks"
             title="One network. Two ways to travel."
-            description="Both tracks share the same verification, the same live tracking and the same oversight. What differs is whether the journey is given or paid for."
+            description="Choose a volunteer seat or a paid professional ride."
           />
           <TrackCards />
         </Section>
@@ -74,7 +69,7 @@ export default function LandingPage() {
           <SectionHeader
             eyebrow="Safety"
             title="Every journey stays visible."
-            description="From the moment a driver is matched to the moment you arrive, the trip is on a map, shareable with someone you trust, and reachable by the safety team."
+            description="Live tracking, trusted contacts and help when you need it."
             tone="inverse"
           />
           <SafetyShowcase />
@@ -85,12 +80,7 @@ export default function LandingPage() {
                 <Activity className="size-5" strokeWidth={1.8} aria-hidden />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="type-card-title text-white">Human oversight, when it matters.</p>
-                <p className="type-meta mt-1 text-white/60">
-                  The safety team can see active journeys, respond to alerts and
-                  review unusual route activity without exposing unnecessary
-                  member details.
-                </p>
+                <p className="type-card-title text-white">Human oversight for active alerts.</p>
               </div>
               <span className="inline-flex shrink-0 items-center gap-2 rounded-full bg-white/8 px-3 py-2 text-[0.75rem] font-medium text-white/70 ring-1 ring-inset ring-white/10">
                 <ShieldCheck className="size-3.5 text-gold-400" aria-hidden />
@@ -104,15 +94,15 @@ export default function LandingPage() {
         <Section id="drivers">
           <SectionHeader
             eyebrow="For drivers"
-            title="Already heading there? Take someone with you."
-            description="Whether you drive in service or professionally, the application, the verification and the standard are the same."
+            title="Drive with K-Rides."
+            description="Volunteer your spare seats or drive professionally."
           />
           <DriverPreview />
 
           <Reveal delay={0.2}>
             <div className="mt-10 flex flex-wrap gap-3">
               <ButtonLink href="/driver/apply" variant="primary" size="lg" iconRight={ArrowRight}>
-                Start an application
+                Apply to drive
               </ButtonLink>
               <ButtonLink href="/#tracks" variant="secondary" size="lg">
                 Compare the tracks
@@ -121,29 +111,6 @@ export default function LandingPage() {
           </Reveal>
         </Section>
 
-        {/* Final CTA */}
-        <Section id="get-started">
-          <Reveal>
-            <div className="kx-grain relative overflow-hidden rounded-[var(--kx-radius-2xl)] border border-line bg-gradient-to-br from-surface to-canvas-mist px-6 py-14 text-center sm:px-12 sm:py-20 dark:to-forest-900/40">
-              <h2 className="type-display mx-auto max-w-3xl text-ink">
-                Transportation built around trust.
-              </h2>
-              <p className="type-body-lg mx-auto mt-5 max-w-xl text-ink-secondary">
-                Join the members already travelling together to and from
-                ministry events.
-              </p>
-
-              <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
-                <ButtonLink href="/signup" variant="gold" size="xl" pill>
-                  Request a Ride
-                </ButtonLink>
-                <ButtonLink href="/driver/apply" variant="secondary" size="xl" pill>
-                  Become a Driver
-                </ButtonLink>
-              </div>
-            </div>
-          </Reveal>
-        </Section>
       </main>
 
       <MarketingFooter />

@@ -42,9 +42,8 @@ export function HeroCopy() {
       </motion.h1>
 
       <motion.p variants={item} className="type-body-lg mt-5 max-w-lg text-ink-secondary">
-        A verified transportation network built for the Koinonia community.
-        Find trusted volunteer or professional drivers, travel with live trip
-        visibility, and stay connected from departure to destination.
+        Verified rides for the Koinonia community—volunteer or professional,
+        with every journey visible from pickup to arrival.
       </motion.p>
 
       <motion.div variants={item} className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -56,28 +55,6 @@ export function HeroCopy() {
         </ButtonLink>
       </motion.div>
 
-      <motion.dl
-        variants={item}
-        className="mt-10 grid max-w-md grid-cols-3 gap-6 border-t border-line pt-6"
-      >
-        {[
-          { value: "128", label: "Verified drivers" },
-          { value: "5", label: "Verification checks" },
-          { value: "3", label: "Riders per shared trip" },
-        ].map((stat) => (
-          <div key={stat.label}>
-            <dt className="sr-only">{stat.label}</dt>
-            <dd>
-              <span className="type-numeric block text-[1.5rem] leading-none font-semibold text-ink">
-                {stat.value}
-              </span>
-              <span className="type-meta mt-1.5 block text-ink-muted">
-                {stat.label}
-              </span>
-            </dd>
-          </div>
-        ))}
-      </motion.dl>
     </motion.div>
   );
 }

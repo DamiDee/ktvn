@@ -20,7 +20,7 @@ export function Section({
     <section
       id={id}
       className={cn(
-        "relative scroll-mt-24 px-4 py-20 sm:px-6 sm:py-28",
+        "relative scroll-mt-24 px-4 py-12 sm:px-6 sm:py-18",
         tone === "subtle" && "bg-canvas-subtle",
         tone === "dark" && "bg-forest-900 text-ink-inverse",
         className,

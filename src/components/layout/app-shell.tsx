@@ -63,13 +63,12 @@ export function AppShell({
             collapsed && "justify-center px-0",
           )}
         >
-          <Link href="/" aria-label="Koinonia VTN — home" className="shrink-0">
+          <Link href="/" aria-label="K-Rides — home" className="shrink-0">
             <KoinoniaMark className="size-7 text-gold-400" />
           </Link>
           {!collapsed ? (
             <span className="truncate text-[0.9375rem] font-semibold tracking-[-0.02em] text-white">
-              Koinonia
-              <span className="ml-1.5 font-normal text-white/45">VTN</span>
+              K-Rides
             </span>
           ) : null}
         </div>
@@ -151,11 +150,11 @@ export function AppShell({
           <Link
             href="/"
             className="kx-tap flex items-center gap-2.5"
-            aria-label="Koinonia VTN — home"
+            aria-label="K-Rides — home"
           >
             <KoinoniaMark className="size-6 text-forest-800 dark:text-gold-400" />
             <span className="text-[0.9375rem] font-semibold tracking-[-0.02em] text-ink">
-              Koinonia
+              K-Rides
             </span>
           </Link>
 

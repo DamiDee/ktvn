@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import {
   BadgeCheck,
   Car,
+  ChevronDown,
   FileCheck2,
   IdCard,
   Wrench,
@@ -40,86 +41,57 @@ const STAGES: { icon: LucideIcon; label: string; detail: string }[] = [
   },
 ];
 
-/** Checkmarks activate as the sequence scrolls into view. */
+/** Secondary verification detail stays available without lengthening the page. */
 export function TrustSequence() {
   return (
-    <ol className="relative mt-12 grid gap-4 sm:mt-16 lg:grid-cols-5">
-      {STAGES.map((stage, index) => {
-        const Icon = stage.icon;
-        const isFinal = index === STAGES.length - 1;
+    <motion.details
+      initial={{ opacity: 0, y: 18 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={viewportOnce}
+      transition={{ duration: 0.5 }}
+      className="group mt-9 overflow-hidden rounded-[var(--kx-radius-xl)] border border-line bg-surface shadow-sm sm:mt-11"
+    >
+      <summary className="flex cursor-pointer list-none items-center gap-4 p-5 outline-none transition-colors hover:bg-surface-nested focus-visible:ring-2 focus-visible:ring-gold-500 focus-visible:ring-inset sm:p-6 [&::-webkit-details-marker]:hidden">
+        <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-gold-500 text-forest-950">
+          <BadgeCheck className="size-5" strokeWidth={1.9} aria-hidden />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="type-card-title block text-ink">See the five verification checks</span>
+          <span className="type-meta mt-1 block text-ink-muted">
+            Identity, licence, documents, inspection and approval.
+          </span>
+        </span>
+        <ChevronDown
+          className="size-5 shrink-0 text-ink-muted transition-transform duration-200 group-open:rotate-180"
+          aria-hidden
+        />
+      </summary>
 
-        return (
-          <motion.li
-            key={stage.label}
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={viewportOnce}
-            transition={{ duration: 0.5, delay: index * 0.12 }}
-            className="relative"
-          >
-            {/* Connector between stages on wide screens */}
-            {!isFinal ? (
-              <motion.span
-                initial={{ scaleX: 0 }}
-                whileInView={{ scaleX: 1 }}
-                viewport={viewportOnce}
-                transition={{ duration: 0.4, delay: index * 0.12 + 0.28 }}
-                className="absolute top-9 -right-2 hidden h-px w-4 origin-left bg-line-strong lg:block"
-                aria-hidden
-              />
-            ) : null}
-
-            <div
+      <ol className="grid gap-px border-t border-line bg-line sm:grid-cols-2 lg:grid-cols-5">
+        {STAGES.map((stage, index) => {
+          const Icon = stage.icon;
+          const isFinal = index === STAGES.length - 1;
+          return (
+            <li
+              key={stage.label}
               className={cn(
-                "flex h-full flex-col rounded-[var(--kx-radius-lg)] border p-5",
-                isFinal
-                  ? "border-gold-300/70 bg-gold-50/70 dark:border-gold-600/40 dark:bg-gold-500/8"
-                  : "border-line bg-surface",
+                "bg-surface p-4 sm:p-5",
+                isFinal && "bg-gold-50/70 dark:bg-gold-500/8",
               )}
             >
-              <div className="flex items-center justify-between gap-3">
-                <span
-                  className={cn(
-                    "inline-flex size-9 items-center justify-center rounded-full",
-                    isFinal
-                      ? "bg-gold-500 text-forest-950"
-                      : "bg-surface-nested text-ink-secondary",
-                  )}
-                >
-                  <Icon className="size-4.5" strokeWidth={1.7} aria-hidden />
+              <div className="flex items-center gap-2.5">
+                <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-surface-nested text-ink-secondary">
+                  <Icon className="size-4" strokeWidth={1.8} aria-hidden />
                 </span>
-
-                <motion.span
-                  initial={{ scale: 0, opacity: 0 }}
-                  whileInView={{ scale: 1, opacity: 1 }}
-                  viewport={viewportOnce}
-                  transition={{
-                    type: "spring",
-                    stiffness: 320,
-                    damping: 20,
-                    delay: index * 0.12 + 0.34,
-                  }}
-                  className="inline-flex size-5 items-center justify-center rounded-full bg-forest-600 text-white dark:bg-forest-500"
-                  aria-hidden
-                >
-                  <svg viewBox="0 0 16 16" className="size-3" fill="none">
-                    <path
-                      d="M3.5 8.5 6.5 11.5 12.5 5"
-                      stroke="currentColor"
-                      strokeWidth="2.4"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </motion.span>
+                <span className="type-meta font-semibold text-ink">{stage.label}</span>
               </div>
-
-              <p className="type-card-title mt-4 text-ink">{stage.label}</p>
-              <p className="type-meta mt-1.5 text-ink-secondary">{stage.detail}</p>
-            </div>
-          </motion.li>
-        );
-      })}
-    </ol>
+              <p className="mt-2 text-[0.8125rem] leading-relaxed text-ink-muted">
+                {stage.detail}
+              </p>
+            </li>
+          );
+        })}
+      </ol>
+    </motion.details>
   );
 }

@@ -46,12 +46,11 @@ export function MarketingHeader() {
         <Link
           href="/"
           className="kx-tap flex shrink-0 items-center gap-2.5"
-          aria-label="Koinonia Verified Transportation Network — home"
+          aria-label="K-Rides — home"
         >
           <KoinoniaMark className="size-6 text-forest-800 dark:text-gold-400" />
-          <span className="hidden text-[0.9375rem] font-semibold tracking-[-0.02em] text-ink sm:block">
-            Koinonia
-            <span className="ml-1.5 font-normal text-ink-muted">VTN</span>
+          <span className="text-[0.9375rem] font-semibold tracking-[-0.02em] text-ink">
+            K-Rides
           </span>
         </Link>
 
