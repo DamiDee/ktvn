@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ArrowRight } from "lucide-react";
+import { Activity, ArrowRight, ShieldCheck } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { MarketingHeader } from "@/components/marketing/marketing-header";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
@@ -8,10 +8,10 @@ import { Section, SectionHeader, Reveal } from "@/components/marketing/section";
 import { TrustSequence } from "@/components/marketing/trust-sequence";
 import { TrackCards } from "@/components/marketing/track-cards";
 import { SafetyShowcase } from "@/components/marketing/safety-showcase";
-import { SharedRidesSection } from "@/components/marketing/shared-rides-section";
 import { DriverPreview } from "@/components/marketing/driver-preview";
-import { OversightPanel } from "@/components/marketing/oversight-panel";
 import { HeroCopy } from "@/components/marketing/hero-copy";
+import { CommunityStory } from "@/components/marketing/community-story";
+import { LiquidBackdrop } from "@/components/ui/liquid-backdrop";
 
 export const metadata: Metadata = {
   title: "Move together. Travel with confidence.",
@@ -26,7 +26,8 @@ export default function LandingPage() {
 
       <main id="main">
         {/* Hero */}
-        <section className="relative overflow-hidden px-4 pt-28 pb-16 sm:px-6 sm:pt-36 sm:pb-24">
+        <section className="relative overflow-hidden px-4 pt-28 pb-20 sm:px-6 sm:pt-36 sm:pb-28">
+          <LiquidBackdrop className="-z-10 opacity-80" />
           <div
             className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[520px] bg-[radial-gradient(72%_60%_at_50%_0%,color-mix(in_srgb,var(--kx-forest-200)_45%,transparent),transparent_70%)] dark:bg-[radial-gradient(72%_60%_at_50%_0%,color-mix(in_srgb,var(--kx-forest-500)_18%,transparent),transparent_70%)]"
             aria-hidden
@@ -38,8 +39,13 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* The people and gathering the network exists to serve */}
+        <Section id="community" tone="subtle" className="overflow-hidden">
+          <CommunityStory />
+        </Section>
+
         {/* Trust */}
-        <Section id="trust" tone="subtle">
+        <Section id="trust">
           <SectionHeader
             eyebrow="Verification"
             title={
@@ -72,16 +78,26 @@ export default function LandingPage() {
             tone="inverse"
           />
           <SafetyShowcase />
-        </Section>
 
-        {/* Shared rides */}
-        <Section id="shared" tone="subtle">
-          <SectionHeader
-            eyebrow="Shared rides"
-            title="Share the journey, not the uncertainty."
-            description="Up to three passengers travel together along the same route. On the professional track the fare divides between whoever is riding."
-          />
-          <SharedRidesSection />
+          <Reveal delay={0.18}>
+            <div className="mt-8 flex flex-col gap-4 rounded-[var(--kx-radius-xl)] border border-white/10 bg-white/[0.055] p-5 sm:flex-row sm:items-center sm:p-6">
+              <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-gold-500 text-forest-950">
+                <Activity className="size-5" strokeWidth={1.8} aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="type-card-title text-white">Human oversight, when it matters.</p>
+                <p className="type-meta mt-1 text-white/60">
+                  The safety team can see active journeys, respond to alerts and
+                  review unusual route activity without exposing unnecessary
+                  member details.
+                </p>
+              </div>
+              <span className="inline-flex shrink-0 items-center gap-2 rounded-full bg-white/8 px-3 py-2 text-[0.75rem] font-medium text-white/70 ring-1 ring-inset ring-white/10">
+                <ShieldCheck className="size-3.5 text-gold-400" aria-hidden />
+                Privacy-aware monitoring
+              </span>
+            </div>
+          </Reveal>
         </Section>
 
         {/* Drivers */}
@@ -103,17 +119,6 @@ export default function LandingPage() {
               </ButtonLink>
             </div>
           </Reveal>
-        </Section>
-
-        {/* Oversight */}
-        <Section id="oversight" tone="dark">
-          <SectionHeader
-            eyebrow="Oversight"
-            title="Someone is always watching the network."
-            description="The oversight team sees active journeys, the verification queue and any raised alert. Individual member details stay private."
-            tone="inverse"
-          />
-          <OversightPanel />
         </Section>
 
         {/* Final CTA */}

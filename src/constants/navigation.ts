@@ -101,7 +101,7 @@ export const MARKETING_NAV = [
   { href: "/#tracks", label: "How it works" },
   { href: "/#safety", label: "Safety" },
   { href: "/#drivers", label: "Drivers" },
-  { href: "/#oversight", label: "Oversight" },
+  { href: "/#community", label: "Community" },
 ] as const;
 
 export const FOOTER_LINKS: { heading: string; items: { href: string; label: string }[] }[] =

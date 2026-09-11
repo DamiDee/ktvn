@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowRight, Share2, X } from "lucide-react";
+import { ArrowRight, KeyRound, Share2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/badge";
 import { RouteLoader } from "@/components/ui/route-loader";
@@ -17,6 +17,7 @@ import { rideService } from "@/services";
 import { NEARBY_DRIVER_POSITIONS } from "@/mocks/people";
 import { useRideStore } from "@/stores/ride-store";
 import { useSessionStore } from "@/stores/session-store";
+import { useSafetyStore } from "@/stores/safety-store";
 import { DriverTrack, RideStatus, RideType } from "@/types/enums";
 import { RIDE_STATUS_PRESENTATION } from "@/constants/status-presentation";
 import { shortName } from "@/lib/format";
@@ -46,7 +47,10 @@ export function MatchingScreen() {
   const setTrack = useRideStore((state) => state.setTrack);
   const setRideType = useRideStore((state) => state.setRideType);
   const setEta = useRideStore((state) => state.setEta);
+  const setSharing = useRideStore((state) => state.setSharing);
   const setActiveRide = useSessionStore((state) => state.setActiveRide);
+  const autoShare = useSafetyStore((state) => state.autoShare);
+  const selectedContactIds = useSafetyStore((state) => state.selectedContactIds);
 
   const [confirmCancel, setConfirmCancel] = useState(false);
   /** Bumped to run the search again; also the effect's only trigger. */
@@ -115,10 +119,21 @@ export function MatchingScreen() {
     router.replace("/passenger/request");
   }
 
-  function beginJourney() {
+  function beginJourney(forceSharing = false) {
     if (!driver) return;
+    const shouldShare = forceSharing || (autoShare && selectedContactIds.length > 0);
+    setSharing(shouldShare);
     setActiveRide("active", route?.durationMinutes);
     transition(RideStatus.DRIVER_APPROACHING);
+    if (shouldShare) {
+      toast({
+        title: forceSharing ? "Trip sharing is ready" : "Safety circle notified",
+        description: forceSharing
+          ? "Your live link will stay active for this journey."
+          : `${selectedContactIds.length} trusted ${selectedContactIds.length === 1 ? "contact has" : "contacts have"} the live link.`,
+        tone: "success",
+      });
+    }
     router.push("/passenger/trip");
   }
 
@@ -288,13 +303,25 @@ export function MatchingScreen() {
                 <DriverCard driver={driver} />
               </div>
 
+              <div className="mt-4 flex items-start gap-2.5 rounded-[var(--kx-radius-md)] border border-line bg-surface-nested px-3.5 py-3">
+                <KeyRound
+                  className="mt-0.5 size-4 shrink-0 text-forest-700 dark:text-gold-400"
+                  strokeWidth={1.9}
+                  aria-hidden
+                />
+                <p className="type-meta text-ink-secondary">
+                  Your four-digit boarding PIN appears when the driver arrives.
+                  Confirm the car and plate before sharing it.
+                </p>
+              </div>
+
               <div className="mt-6 space-y-2.5">
                 <Button
                   variant="primary"
                   size="lg"
                   block
                   iconRight={ArrowRight}
-                  onClick={beginJourney}
+                  onClick={() => beginJourney()}
                 >
                   View Journey
                 </Button>
@@ -303,7 +330,7 @@ export function MatchingScreen() {
                   size="lg"
                   block
                   icon={Share2}
-                  onClick={beginJourney}
+                  onClick={() => beginJourney(true)}
                 >
                   Share Trip
                 </Button>

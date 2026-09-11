@@ -30,7 +30,7 @@ export default function RootLayout({
     // No manual <head>: the App Router builds it from the Metadata API, and
     // hand-writing one makes React trip over Next's injected runtime scripts.
     // The Inter fallback is imported at the top of globals.css instead.
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body>
         <a
           href="#main"

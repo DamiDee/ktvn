@@ -19,13 +19,13 @@ import { CURRENT_PASSENGER, DRIVERS, PASSENGERS } from "./people";
 const [chinedu, emeka, blessing, ifeanyi] = DRIVERS;
 
 export const UPCOMING_EVENT: Event = {
-  id: "evt-midweek",
-  name: "Midweek Service",
+  id: "evt-sunday-service",
+  name: "Sunday Service",
   venue: "Koinonia Centre, Lugbe",
   location: LOCATIONS.koinoniaCentre,
-  startsAt: "2026-09-09T17:00:00.000Z",
-  endsAt: "2026-09-09T19:30:00.000Z",
-  expectedAttendance: 4200,
+  startsAt: "2026-09-13T07:00:00.000Z",
+  endsAt: "2026-09-13T11:30:00.000Z",
+  expectedAttendance: 5600,
 };
 
 /** Completed professional private ride with a settled payment. */

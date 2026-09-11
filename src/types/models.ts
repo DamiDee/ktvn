@@ -38,6 +38,18 @@ export interface RideLocation extends Coordinates {
   area?: string;
 }
 
+/** A stewarded meeting point used to keep post-event pickups orderly. */
+export interface PickupZone {
+  id: string;
+  label: string;
+  code: string;
+  landmark: string;
+  walkingMinutes: number;
+  recommended?: boolean;
+  accessible?: boolean;
+  location: RideLocation;
+}
+
 export interface RoutePath {
   /** Ordered polyline points from origin to destination. */
   points: Coordinates[];

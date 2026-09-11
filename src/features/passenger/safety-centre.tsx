@@ -13,7 +13,7 @@ import {
 import { Card, CardHeader, NestedTile } from "@/components/ui/card";
 import { Button, IconButton } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
-import { Input } from "@/components/ui/input";
+import { Checkbox, Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { StatusChip } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/states";
@@ -24,6 +24,7 @@ import { queryKeys } from "@/constants/query-keys";
 import { userService } from "@/services";
 import { PermissionState } from "@/types/enums";
 import { createId } from "@/services/api-client";
+import { useSafetyStore } from "@/stores/safety-store";
 import type { TrustedContact } from "@/types/models";
 
 /**
@@ -45,8 +46,12 @@ export function SafetyCentre() {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState({ name: "", phone: "", relationship: "" });
 
-  const [autoShare, setAutoShare] = useState(false);
-  const [shareArrival, setShareArrival] = useState(true);
+  const autoShare = useSafetyStore((state) => state.autoShare);
+  const setAutoShare = useSafetyStore((state) => state.setAutoShare);
+  const shareArrival = useSafetyStore((state) => state.shareArrival);
+  const setShareArrival = useSafetyStore((state) => state.setShareArrival);
+  const selectedContactIds = useSafetyStore((state) => state.selectedContactIds);
+  const toggleContact = useSafetyStore((state) => state.toggleContact);
   const [location, setLocation] = useState<PermissionState>(
     PermissionState.GRANTED,
   );
@@ -188,8 +193,31 @@ export function SafetyCentre() {
                 });
               }}
               label="Share every journey automatically"
-              description="Your first trusted contact gets a live link as soon as a ride starts."
+              description="The people you choose get a live link as soon as a ride starts."
             />
+
+            {autoShare && list.length > 0 ? (
+              <div className="rounded-[var(--kx-radius-md)] border border-line bg-surface-nested p-4">
+                <p className="type-micro mb-3 text-ink-muted">
+                  Share automatically with
+                </p>
+                <div className="space-y-2.5">
+                  {list.map((contact) => (
+                    <Checkbox
+                      key={contact.id}
+                      checked={selectedContactIds.includes(contact.id)}
+                      onChange={() => toggleContact(contact.id)}
+                      label={
+                        <span>
+                          <span className="font-medium text-ink">{contact.name}</span>
+                          {contact.relationship ? ` · ${contact.relationship}` : ""}
+                        </span>
+                      }
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             <div className="kx-hairline" role="presentation" />
 

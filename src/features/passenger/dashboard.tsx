@@ -1,13 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
   CalendarClock,
-  ChevronRight,
   LifeBuoy,
-  MapPin,
   Route as RouteIcon,
   Share2,
   ShieldCheck,
@@ -21,17 +20,35 @@ import { EmptyState } from "@/components/ui/states";
 import { RideCardSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/app-shell";
 import { RideCard } from "@/components/rides/ride-card";
+import { DestinationSearch } from "@/components/rides/destination-search";
 import { queryKeys } from "@/constants/query-keys";
 import { rideService, userService } from "@/services";
 import {
   MEMBERSHIP_PRESENTATION,
   RIDE_STATUS_PRESENTATION,
 } from "@/constants/status-presentation";
-import { greetingForHour, formatTime, shortName } from "@/lib/format";
+import {
+  greetingForHour,
+  formatDate,
+  formatTime,
+  shortName,
+} from "@/lib/format";
 import { isRideTerminal } from "@/lib/state-machines";
 import { MembershipStatus } from "@/types/enums";
+import { LOCATIONS } from "@/mocks/locations";
+import { DEFAULT_PICKUP_ZONE } from "@/mocks/pickup-zones";
+import { useRideStore } from "@/stores/ride-store";
+import { useSafetyStore } from "@/stores/safety-store";
+import type { RideLocation } from "@/types/models";
 
 export function PassengerDashboard() {
+  const router = useRouter();
+  const resetRide = useRideStore((state) => state.reset);
+  const setDestination = useRideStore((state) => state.setDestination);
+  const setPickupZone = useRideStore((state) => state.setPickupZone);
+  const setDeparturePlan = useRideStore((state) => state.setDeparturePlan);
+  const autoShare = useSafetyStore((state) => state.autoShare);
+  const selectedContactIds = useSafetyStore((state) => state.selectedContactIds);
   const { data: passenger, isLoading: loadingPassenger } = useQuery({
     queryKey: queryKeys.passenger.profile(),
     queryFn: () => userService.getCurrentPassenger(),
@@ -55,6 +72,18 @@ export function PassengerDashboard() {
     .slice(0, 3);
 
   const firstName = passenger?.fullName.split(" ")[0] ?? "there";
+  const homeDestination =
+    Object.values(LOCATIONS).find(
+      (location) => location.area === passenger?.homeArea,
+    ) ?? LOCATIONS.gwarinpa;
+
+  function beginRequest(location: RideLocation) {
+    resetRide();
+    setPickupZone(DEFAULT_PICKUP_ZONE);
+    setDeparturePlan("AFTER_EVENT");
+    setDestination(location);
+    router.push("/passenger/request");
+  }
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -83,32 +112,61 @@ export function PassengerDashboard() {
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         <div className="min-w-0 space-y-5">
-          {/* Request entry point */}
-          <Card radius="xl" className="overflow-hidden p-0">
-            <div className="p-5 sm:p-6">
-              <CardHeader
-                eyebrow="Request a ride"
-                title="Where are you going?"
-                description="Choose volunteer or professional, private or shared, on the next screen."
-              />
-
-              <Link
-                href="/passenger/request"
-                className="mt-5 flex items-center gap-3.5 rounded-[var(--kx-radius-lg)] border border-line-strong bg-surface-nested px-4 py-4 transition-[border-color,box-shadow,transform] duration-[250ms] hover:-translate-y-0.5 hover:border-forest-400 hover:shadow-md"
-              >
-                <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-surface text-ink-muted ring-1 ring-line">
-                  <MapPin className="size-4.5" strokeWidth={1.8} aria-hidden />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="type-body font-medium text-ink">
-                    Where are you going?
-                  </p>
-                  <p className="type-meta mt-0.5 text-ink-muted">
-                    Pickup: current location
+          {/* Event-aware ride composer */}
+          <Card radius="xl" className="z-20 p-0">
+            <div className="rounded-t-[var(--kx-radius-xl)] bg-forest-900 p-5 text-white sm:p-6">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="type-micro text-white/45">Plan for your next gathering</p>
+                  <h2 className="type-section-title mt-2 text-white">
+                    {event?.name ?? "Sunday Service"}
+                  </h2>
+                  <p className="type-meta mt-1.5 text-white/60">
+                    {event
+                      ? `${formatDate(event.startsAt)} · ends ${formatTime(event.endsAt)}`
+                      : "Koinonia Centre · Lugbe"}
                   </p>
                 </div>
-                <ChevronRight className="size-4.5 shrink-0 text-ink-muted" aria-hidden />
-              </Link>
+                <StatusChip tone="pending" icon={CalendarClock}>
+                  After service
+                </StatusChip>
+              </div>
+              <p className="type-meta mt-4 max-w-lg text-white/65">
+                We&rsquo;ll guide you to a stewarded pickup zone and match you
+                with a verified driver when the gathering ends.
+              </p>
+            </div>
+
+            <div className="p-5 sm:p-6">
+              <CardHeader
+                eyebrow="Your journey home"
+                title={`Where should we take you, ${firstName}?`}
+                description="Choose a destination now; track, ride type and safety sharing stay editable before you confirm."
+              />
+
+              <DestinationSearch
+                value={null}
+                onSelect={beginRequest}
+                placeholder="Search your destination"
+                className="mt-5"
+              />
+
+              <div className="mt-3 flex flex-wrap gap-2" aria-label="Quick destinations">
+                {[homeDestination, LOCATIONS.lifeCamp, LOCATIONS.wuseII].map(
+                  (location) => (
+                    <button
+                      key={location.id}
+                      type="button"
+                      onClick={() => beginRequest(location)}
+                      className="kx-tap rounded-full border border-line bg-surface-nested px-3.5 py-2 text-[0.8125rem] font-medium text-ink-secondary transition-colors hover:border-forest-400 hover:text-ink"
+                    >
+                      {location.id === homeDestination.id
+                        ? `Home · ${location.label}`
+                        : location.label}
+                    </button>
+                  ),
+                )}
+              </div>
             </div>
           </Card>
 
@@ -204,41 +262,6 @@ export function PassengerDashboard() {
 
         {/* Side column */}
         <div className="min-w-0 space-y-5">
-          {/* Next event */}
-          <Card radius="xl" elevation="dark" className="border-white/8">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="type-micro text-white/45">Next event</p>
-                <p className="type-card-title mt-1.5 text-white">
-                  {event?.name ?? "Midweek Service"}
-                </p>
-                <p className="type-meta mt-1 text-white/60">
-                  {event?.venue ?? "Koinonia Centre, Lugbe"}
-                </p>
-              </div>
-              <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-gold-400">
-                <CalendarClock className="size-4.5" strokeWidth={1.7} aria-hidden />
-              </span>
-            </div>
-
-            {event ? (
-              <div className="mt-5 grid grid-cols-2 gap-3">
-                <div className="rounded-[var(--kx-radius-md)] bg-white/[0.06] p-3">
-                  <p className="type-micro text-white/45">Starts</p>
-                  <p className="type-numeric mt-1 text-[0.9375rem] font-semibold text-white">
-                    {formatTime(event.startsAt)}
-                  </p>
-                </div>
-                <div className="rounded-[var(--kx-radius-md)] bg-white/[0.06] p-3">
-                  <p className="type-micro text-white/45">Ends</p>
-                  <p className="type-numeric mt-1 text-[0.9375rem] font-semibold text-white">
-                    {formatTime(event.endsAt)}
-                  </p>
-                </div>
-              </div>
-            ) : null}
-          </Card>
-
           {/* Membership + safety */}
           <Card radius="xl">
             <CardHeader title="Your status" />
@@ -271,8 +294,10 @@ export function PassengerDashboard() {
                   />
                   <span className="type-body text-ink-secondary">Trip sharing</span>
                 </div>
-                <StatusChip tone="neutral" dot>
-                  Off
+                <StatusChip tone={autoShare ? "active" : "neutral"} dot>
+                  {autoShare
+                    ? `On · ${selectedContactIds.length} selected`
+                    : "Off"}
                 </StatusChip>
               </NestedTile>
 

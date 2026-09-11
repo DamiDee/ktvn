@@ -15,6 +15,7 @@ import {
 import type {
   Driver,
   FareQuoteLike,
+  PickupZone,
   RideLocation,
   RoutePath,
 } from "@/types/models";
@@ -33,6 +34,8 @@ export interface RideDraft {
   rideType: RideType;
   pickup: RideLocation | null;
   destination: RideLocation | null;
+  pickupZone: PickupZone | null;
+  departurePlan: "NOW" | "AFTER_EVENT";
 }
 
 interface RideState extends RideDraft {
@@ -50,6 +53,8 @@ interface RideState extends RideDraft {
   progress: number;
 
   sharingActive: boolean;
+  /** Passenger gives this to the confirmed driver before the trip starts. */
+  boardingPin: string;
   /** Set when the last transition was refused, for dev visibility. */
   lastRefusedTransition: string | null;
 
@@ -57,6 +62,8 @@ interface RideState extends RideDraft {
   setRideType: (rideType: RideType) => void;
   setPickup: (pickup: RideLocation | null) => void;
   setDestination: (destination: RideLocation | null) => void;
+  setPickupZone: (zone: PickupZone | null) => void;
+  setDeparturePlan: (plan: RideDraft["departurePlan"]) => void;
   setEstimate: (route: RoutePath | null, fare: FareQuoteLike | null) => void;
 
   transition: (next: RideStatus) => boolean;
@@ -76,6 +83,8 @@ const INITIAL: Omit<
   | "setRideType"
   | "setPickup"
   | "setDestination"
+  | "setPickupZone"
+  | "setDeparturePlan"
   | "setEstimate"
   | "transition"
   | "setDriver"
@@ -89,6 +98,8 @@ const INITIAL: Omit<
   rideType: RideType.PRIVATE,
   pickup: null,
   destination: null,
+  pickupZone: null,
+  departurePlan: "AFTER_EVENT",
   status: RideStatus.IDLE,
   sosStatus: SOSStatus.INACTIVE,
   route: null,
@@ -97,6 +108,7 @@ const INITIAL: Omit<
   etaMinutes: null,
   progress: 0,
   sharingActive: false,
+  boardingPin: "4821",
   lastRefusedTransition: null,
 };
 
@@ -114,6 +126,9 @@ export const useRideStore = create<RideState>((set, get) => ({
   setRideType: (rideType) => set({ rideType }),
   setPickup: (pickup) => set({ pickup }),
   setDestination: (destination) => set({ destination }),
+  setPickupZone: (pickupZone) =>
+    set({ pickupZone, pickup: pickupZone?.location ?? null }),
+  setDeparturePlan: (departurePlan) => set({ departurePlan }),
   setEstimate: (route, fare) => set({ route, fare }),
 
   transition: (next) => {
