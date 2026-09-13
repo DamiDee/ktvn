@@ -122,19 +122,19 @@ export function DriverDetail({ driverId }: { driverId: string }) {
         <div className="min-w-0 space-y-5">
           {/* Identity */}
           <Card radius="xl">
-            <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+            <div className="flex min-w-0 flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
               <Avatar
                 name={driver.fullName}
                 src={driver.avatarUrl}
                 size="xl"
                 verified={approved}
               />
-              <div className="min-w-0 flex-1">
+              <div className="w-full min-w-0 flex-1">
                 <h2 className="type-section-title truncate text-ink">
                   {driver.fullName}
                 </h2>
-                <p className="type-meta type-numeric mt-1 text-ink-muted">
-                  {driver.memberId} · Joined{" "}
+                <p className="type-meta mt-1 truncate text-ink-muted">
+                  {driver.email} · Joined{" "}
                   {new Date(driver.joinedAt).getFullYear()}
                 </p>
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-2 sm:justify-start">

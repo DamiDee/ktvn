@@ -127,13 +127,13 @@ export function DriverDestination() {
                 <NestedTile className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="type-micro text-ink-muted">Your route</p>
-                    <p className="type-numeric mt-1 text-[0.9375rem] font-semibold text-ink">
+                    <p className="type-numeric mt-1 text-[0.875rem] font-semibold text-ink">
                       {formatDistanceKm(route.distanceKm)}
                     </p>
                   </div>
                   <div>
                     <p className="type-micro text-ink-muted">Journey time</p>
-                    <p className="type-numeric mt-1 text-[0.9375rem] font-semibold text-ink">
+                    <p className="type-numeric mt-1 text-[0.875rem] font-semibold text-ink">
                       {formatMinutes(route.durationMinutes)}
                     </p>
                   </div>

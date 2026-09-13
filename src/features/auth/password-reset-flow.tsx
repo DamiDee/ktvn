@@ -13,6 +13,7 @@ import { AnimatedCheck } from "@/components/ui/badge";
 import { ProgressBar } from "@/components/ui/progress";
 import { ApiError, userService } from "@/services";
 import {
+  CODE_LENGTH,
   newPasswordSchema,
   resetCodeSchema,
   resetIdentifierSchema,
@@ -128,7 +129,7 @@ function IdentifierStep({ onDone }: { onDone: (masked: string) => void }) {
     <>
       <h1 className="type-page-title text-ink">Reset your password.</h1>
       <p className="type-body mt-2.5 text-ink-secondary">
-        Tell us how to reach you and we&rsquo;ll send a six-digit code.
+        Tell us how to reach you and we&rsquo;ll send a {CODE_LENGTH}-digit code.
       </p>
 
       <form
@@ -151,10 +152,11 @@ function IdentifierStep({ onDone }: { onDone: (masked: string) => void }) {
         <FormError message={error} />
 
         <Input
-          label="Email, phone or member ID"
+          label="Email or phone number"
           placeholder="grace.adeyemi@example.com"
           icon={Mail}
           error={errors.identifier?.message}
+          required
           {...register("identifier")}
         />
 
@@ -207,7 +209,7 @@ function VerificationStep({
     <>
       <h1 className="type-page-title text-ink">Enter your code.</h1>
       <p className="type-body mt-2.5 text-ink-secondary">
-        We sent a six-digit code to{" "}
+        We sent a {CODE_LENGTH}-digit code to{" "}
         <span className="type-numeric font-medium text-ink">{destination}</span>.
       </p>
 
@@ -232,13 +234,14 @@ function VerificationStep({
 
         <Input
           label="Verification code"
-          placeholder="000000"
+          placeholder={"0".repeat(CODE_LENGTH)}
           inputMode="numeric"
-          maxLength={6}
+          maxLength={CODE_LENGTH}
           autoComplete="one-time-code"
           icon={KeyRound}
           className="type-numeric tracking-[0.4em]"
           error={errors.code?.message}
+          required
           {...register("code")}
         />
 
@@ -304,6 +307,7 @@ function NewPasswordStep({ onDone }: { onDone: () => void }) {
           autoComplete="new-password"
           error={errors.password?.message}
           {...register("password")}
+          required
         />
 
         <PasswordInput
@@ -311,6 +315,7 @@ function NewPasswordStep({ onDone }: { onDone: () => void }) {
           autoComplete="new-password"
           error={errors.confirmPassword?.message}
           {...register("confirmPassword")}
+          required
         />
 
         <Button

@@ -2,18 +2,23 @@ import { z } from "zod";
 
 /** Validation schemas shared by the auth forms. */
 
-const MEMBER_ID_PATTERN = /^KOI-\d{4}-\d{6}$/i;
+/**
+ * Every code the product sends is seven digits.
+ *
+ * Kept in one place so the schema, the input and the copy can never drift
+ * apart.
+ */
+export const CODE_LENGTH = 7;
+const CODE_PATTERN = new RegExp(`^\\d{${CODE_LENGTH}}$`);
+const CODE_MESSAGE = `The code is ${CODE_LENGTH} digits`;
 
 export const loginSchema = z.object({
   identifier: z
     .string()
-    .min(1, "Enter your email, phone or member ID")
+    .min(1, "Enter your email or phone number")
     .refine(
-      (value) =>
-        value.includes("@") ||
-        /^\+?[\d\s-]{7,}$/.test(value) ||
-        MEMBER_ID_PATTERN.test(value),
-      "That doesn't look like an email, phone number or member ID",
+      (value) => value.includes("@") || /^\+?[\d\s-]{7,}$/.test(value),
+      "That doesn't look like an email or phone number",
     ),
   password: z.string().min(1, "Enter your password"),
   remember: z.boolean().optional(),
@@ -30,10 +35,6 @@ export const signUpSchema = z
         (value) => value.trim().split(/\s+/).length >= 2,
         "Enter your first and last name",
       ),
-    memberId: z
-      .string()
-      .min(1, "Enter your membership identifier")
-      .regex(MEMBER_ID_PATTERN, "Member IDs look like KOI-2019-004821"),
     email: z.string().min(1, "Enter your email").email("Enter a valid email"),
     phone: z
       .string()
@@ -58,7 +59,13 @@ export const signUpSchema = z
 export type SignUpValues = z.infer<typeof signUpSchema>;
 
 export const resetIdentifierSchema = z.object({
-  identifier: z.string().min(1, "Enter your email, phone or member ID"),
+  identifier: z
+    .string()
+    .min(1, "Enter your email or phone number")
+    .refine(
+      (value) => value.includes("@") || /^\+?[\d\s-]{7,}$/.test(value),
+      "That doesn't look like an email or phone number",
+    ),
 });
 
 export type ResetIdentifierValues = z.infer<typeof resetIdentifierSchema>;
@@ -67,7 +74,7 @@ export const resetCodeSchema = z.object({
   code: z
     .string()
     .min(1, "Enter the code we sent you")
-    .regex(/^\d{6}$/, "The code is six digits"),
+    .regex(CODE_PATTERN, CODE_MESSAGE),
 });
 
 export type ResetCodeValues = z.infer<typeof resetCodeSchema>;
@@ -89,14 +96,21 @@ export const newPasswordSchema = z
 
 export type NewPasswordValues = z.infer<typeof newPasswordSchema>;
 
-export const memberVerificationSchema = z.object({
-  memberId: z
-    .string()
-    .min(1, "Enter your membership identifier")
-    .regex(MEMBER_ID_PATTERN, "Member IDs look like KOI-2019-004821"),
+/** Membership is confirmed by a code sent to the member's email address. */
+export const emailRequestSchema = z.object({
+  email: z.string().min(1, "Enter your email").email("Enter a valid email"),
 });
 
-export type MemberVerificationValues = z.infer<typeof memberVerificationSchema>;
+export type EmailRequestValues = z.infer<typeof emailRequestSchema>;
+
+export const emailCodeSchema = z.object({
+  code: z
+    .string()
+    .min(1, "Enter the code we emailed you")
+    .regex(CODE_PATTERN, CODE_MESSAGE),
+});
+
+export type EmailCodeValues = z.infer<typeof emailCodeSchema>;
 
 /** Rough password strength for the signup meter. */
 export function passwordStrength(password: string): {

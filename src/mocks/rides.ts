@@ -19,13 +19,13 @@ import { CURRENT_PASSENGER, DRIVERS, PASSENGERS } from "./people";
 const [chinedu, emeka, blessing, ifeanyi] = DRIVERS;
 
 export const UPCOMING_EVENT: Event = {
-  id: "evt-sunday-service",
-  name: "Sunday Service",
+  id: "evt-midweek",
+  name: "Midweek Service",
   venue: "Koinonia Centre, Lugbe",
   location: LOCATIONS.koinoniaCentre,
-  startsAt: "2026-09-13T07:00:00.000Z",
-  endsAt: "2026-09-13T11:30:00.000Z",
-  expectedAttendance: 5600,
+  startsAt: "2026-09-09T17:00:00.000Z",
+  endsAt: "2026-09-09T19:30:00.000Z",
+  expectedAttendance: 4200,
 };
 
 /** Completed professional private ride with a settled payment. */
@@ -327,6 +327,76 @@ export function findRide(id: string): Ride | undefined {
  * `payment`, so nothing downstream can render money for them.
  */
 export const DRIVER_TRIPS: Ride[] = [
+  {
+    // A professional shared journey in progress: three riders, three fare
+    // shares, and payment states that differ between them.
+    id: "ride-2296",
+    reference: "#2296",
+    status: RideStatus.IN_PROGRESS,
+    track: DriverTrack.PROFESSIONAL,
+    rideType: RideType.SHARED,
+    pickup: LOCATIONS.koinoniaCentre,
+    destination: LOCATIONS.garki,
+    route: buildRoute(LOCATIONS.koinoniaCentre, LOCATIONS.garki, {
+      seed: "ride-2296",
+    }),
+    driver: chinedu,
+    fare: 1500,
+    passengers: [
+      {
+        id: "rp-2296-1",
+        passengerId: PASSENGERS[0].id,
+        name: PASSENGERS[0].fullName,
+        avatarUrl: PASSENGERS[0].avatarUrl,
+        verified: true,
+        rating: PASSENGERS[0].rating,
+        seatIndex: 1,
+        state: RidePassengerState.PICKED_UP,
+        pickup: LOCATIONS.koinoniaCentre,
+        dropoff: LOCATIONS.garki,
+        fareShare: 500,
+        paymentStatus: PaymentStatus.PAID,
+      },
+      {
+        id: "rp-2296-2",
+        passengerId: PASSENGERS[1].id,
+        name: PASSENGERS[1].fullName,
+        avatarUrl: PASSENGERS[1].avatarUrl,
+        verified: true,
+        rating: PASSENGERS[1].rating,
+        seatIndex: 2,
+        state: RidePassengerState.PICKED_UP,
+        pickup: LOCATIONS.koinoniaCentre,
+        dropoff: LOCATIONS.wuseII,
+        fareShare: 500,
+        paymentStatus: PaymentStatus.PENDING,
+      },
+      {
+        id: "rp-2296-3",
+        passengerId: PASSENGERS[2].id,
+        name: PASSENGERS[2].fullName,
+        avatarUrl: PASSENGERS[2].avatarUrl,
+        verified: true,
+        rating: PASSENGERS[2].rating,
+        seatIndex: 3,
+        state: RidePassengerState.AWAITING_PICKUP,
+        pickup: LOCATIONS.koinoniaCentre,
+        dropoff: LOCATIONS.garki,
+        fareShare: 500,
+        paymentStatus: PaymentStatus.PAID,
+      },
+    ],
+    requestedAt: "2026-09-09T20:02:00.000Z",
+    matchedAt: "2026-09-09T20:04:00.000Z",
+    startedAt: "2026-09-09T20:12:00.000Z",
+    distanceKm: 16.4,
+    durationMinutes: 34,
+    etaMinutes: 9,
+    events: [
+      { id: "e1", label: "Request accepted", at: "2026-09-09T20:04:00.000Z", kind: "status" },
+      { id: "e2", label: "Trip started", at: "2026-09-09T20:12:00.000Z", kind: "status" },
+    ],
+  },
   {
     id: "ride-2291",
     reference: "#2291",

@@ -1,17 +1,24 @@
 "use client";
 
 import type { ReactNode } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { MapPin, ShieldCheck } from "lucide-react";
+import { MapCanvas } from "@/components/maps/map-canvas";
 import { KoinoniaMark } from "@/components/ui/route-loader";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { LiquidBackdrop } from "@/components/ui/liquid-backdrop";
+import { buildRoute } from "@/lib/geo";
+import { LOCATIONS } from "@/mocks/locations";
+import { useRideSimulation } from "@/features/rides/use-ride-simulation";
+import { DriverTrack } from "@/types/enums";
+
+const AUTH_ROUTE = buildRoute(LOCATIONS.koinoniaCentre, LOCATIONS.maitama, {
+  seed: "auth-route",
+  curvature: 0.22,
+});
 
 /**
- * Split-screen auth layout: a warm, human transport moment on the left and
- * a focused form on the right.
+ * Split-screen auth layout: an ambient animated map on the left, the form on
+ * the right. On mobile the map collapses to a slim banner.
  */
 export function AuthShell({
   children,
@@ -26,9 +33,11 @@ export function AuthShell({
     <div className="grid min-h-dvh lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
       <AuthVisual trustStatement={trustStatement} eyebrow={eyebrow} />
 
+      {/* min-w-0 so a wide child can never stretch the column past the
+          viewport on a phone. */}
       <main
         id="main"
-        className="relative flex flex-col justify-center px-5 py-10 sm:px-10 lg:px-14"
+        className="relative flex min-w-0 flex-col justify-center px-5 py-10 sm:px-10 lg:px-14"
       >
         <div className="absolute top-5 right-5 sm:top-6 sm:right-6">
           <ThemeToggle />
@@ -43,11 +52,12 @@ export function AuthShell({
           <Link
             href="/"
             className="kx-tap mb-8 inline-flex items-center gap-2.5 lg:hidden"
-            aria-label="K-Rides — home"
+            aria-label="Koinonia VTN — home"
           >
             <KoinoniaMark className="size-6 text-forest-800 dark:text-gold-400" />
             <span className="text-[0.9375rem] font-semibold tracking-[-0.02em] text-ink">
-              K-Rides
+              Koinonia
+              <span className="ml-1.5 font-normal text-ink-muted">VTN</span>
             </span>
           </Link>
 
@@ -65,54 +75,62 @@ function AuthVisual({
   trustStatement?: string;
   eyebrow?: string;
 }) {
+  const { progress, position, heading } = useRideSimulation({
+    route: AUTH_ROUTE,
+    durationSeconds: 34,
+  });
+
   return (
-    <aside className="relative h-44 overflow-hidden bg-forest-900 sm:h-56 lg:h-auto">
-      <Image
-        src="/images/community-login.png"
-        alt="A smiling passenger being welcomed by her community driver."
-        fill
-        priority
-        sizes="(max-width: 1024px) 100vw, 52vw"
-        className="object-cover"
+    <aside className="relative hidden overflow-hidden bg-forest-900 lg:block">
+      <MapCanvas
+        className="absolute inset-0 size-full opacity-90"
+        description="An ambient map showing a route across the city."
+        routes={[
+          {
+            id: "auth",
+            path: AUTH_ROUTE,
+            variant: "primary",
+            progress,
+            animateDraw: true,
+          },
+        ]}
+        markers={[
+          { id: "pickup", position: LOCATIONS.koinoniaCentre, kind: "pickup" },
+          { id: "destination", position: LOCATIONS.maitama, kind: "destination" },
+          ...(position
+            ? [
+                {
+                  id: "vehicle",
+                  position,
+                  kind: "vehicle" as const,
+                  heading,
+                  track: DriverTrack.PROFESSIONAL,
+                },
+              ]
+            : []),
+        ]}
       />
 
       {/* Legibility scrim */}
       <div
-        className="absolute inset-0 bg-gradient-to-t from-forest-950/96 via-forest-950/24 to-forest-950/42"
+        className="absolute inset-0 bg-gradient-to-t from-forest-950/92 via-forest-950/50 to-forest-950/25"
         aria-hidden
       />
-      <LiquidBackdrop inverse className="opacity-75 mix-blend-screen" />
 
-      <div className="relative hidden h-full flex-col justify-between p-10 lg:flex xl:p-12">
+      <div className="relative flex h-full flex-col justify-between p-10 xl:p-12">
         <Link
           href="/"
           className="inline-flex w-fit items-center gap-2.5"
-          aria-label="K-Rides — home"
+          aria-label="Koinonia VTN — home"
         >
           <KoinoniaMark className="size-7 text-gold-400" />
           <span className="text-[1rem] font-semibold tracking-[-0.02em] text-white">
-            K-Rides
+            Koinonia
+            <span className="ml-1.5 font-normal text-white/55">VTN</span>
           </span>
         </Link>
 
         <div className="max-w-md">
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            className="mb-6 inline-flex items-center gap-3 rounded-[var(--kx-radius-lg)] border border-white/18 bg-forest-950/45 px-4 py-3 text-white backdrop-blur-xl"
-          >
-            <span className="inline-flex size-9 items-center justify-center rounded-[70%_30%_62%_38%/74%_40%_60%_26%] bg-gold-400 text-forest-950">
-              <ShieldCheck className="size-4.5" strokeWidth={1.9} aria-hidden />
-            </span>
-            <span>
-              <span className="type-micro block text-gold-300">Verified journey</span>
-              <span className="type-meta mt-0.5 flex items-center gap-1.5 text-white/80">
-                <MapPin className="size-3.5" strokeWidth={1.8} aria-hidden />
-                Koinonia Centre · Abuja
-              </span>
-            </span>
-          </motion.div>
           {eyebrow ? (
             <p className="type-micro mb-3 text-gold-400">{eyebrow}</p>
           ) : null}

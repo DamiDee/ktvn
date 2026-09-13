@@ -63,12 +63,13 @@ export function AppShell({
             collapsed && "justify-center px-0",
           )}
         >
-          <Link href="/" aria-label="K-Rides — home" className="shrink-0">
+          <Link href="/" aria-label="Koinonia VTN — home" className="shrink-0">
             <KoinoniaMark className="size-7 text-gold-400" />
           </Link>
           {!collapsed ? (
             <span className="truncate text-[0.9375rem] font-semibold tracking-[-0.02em] text-white">
-              K-Rides
+              Koinonia
+              <span className="ml-1.5 font-normal text-white/45">VTN</span>
             </span>
           ) : null}
         </div>
@@ -150,16 +151,20 @@ export function AppShell({
           <Link
             href="/"
             className="kx-tap flex items-center gap-2.5"
-            aria-label="K-Rides — home"
+            aria-label="Koinonia VTN — home"
           >
             <KoinoniaMark className="size-6 text-forest-800 dark:text-gold-400" />
             <span className="text-[0.9375rem] font-semibold tracking-[-0.02em] text-ink">
-              K-Rides
+              Koinonia
             </span>
           </Link>
 
-          <div className="flex items-center gap-1">
-            <ThemeToggle />
+          <div className="flex min-w-0 items-center gap-1">
+            {/* The three-way theme control needs room; below 360px the header
+                keeps the notification bell and avatar instead. */}
+            <div className="hidden min-[360px]:block">
+              <ThemeToggle />
+            </div>
             <NotificationBell tone="default" />
             <Link href={user.profileHref} aria-label="Your profile" className="ml-1">
               <Avatar

@@ -11,7 +11,7 @@ import {
   PROFESSIONAL_REQUESTS,
   UPCOMING_EVENT,
 } from "@/mocks/rides";
-import { DriverTrack, RideType } from "@/types/enums";
+import { DriverTrack, RideStatus, RideType } from "@/types/enums";
 import type {
   Driver,
   DriverEarning,
@@ -148,6 +148,26 @@ export const rideService = {
     return request(
       () =>
         track ? DRIVER_TRIPS.filter((trip) => trip.track === track) : DRIVER_TRIPS,
+      { delayMs: MockDelay.normal, ...options },
+    );
+  },
+
+  /**
+   * The journey the driver is on right now, if any.
+   *
+   * Narrowed to their own track so a volunteer can never be handed a
+   * professional trip and its fares.
+   */
+  async getActiveDriverTrip(
+    track: DriverTrack,
+    options?: RequestOptions,
+  ): Promise<Ride | null> {
+    return request(
+      () =>
+        DRIVER_TRIPS.find(
+          (trip) =>
+            trip.track === track && trip.status === RideStatus.IN_PROGRESS,
+        ) ?? null,
       { delayMs: MockDelay.normal, ...options },
     );
   },

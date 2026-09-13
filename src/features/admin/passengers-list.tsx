@@ -59,7 +59,7 @@ export function PassengersList() {
       list = list.filter(
         (passenger) =>
           passenger.fullName.toLowerCase().includes(term) ||
-          passenger.memberId.toLowerCase().includes(term),
+          passenger.email.toLowerCase().includes(term),
       );
     }
 
@@ -85,8 +85,8 @@ export function PassengersList() {
             <span className="type-body block truncate font-medium text-ink">
               {passenger.fullName}
             </span>
-            <span className="type-numeric type-meta block text-ink-muted">
-              {passenger.memberId}
+            <span className="type-meta block truncate text-ink-muted">
+              {passenger.email}
             </span>
           </span>
         </div>
@@ -183,7 +183,7 @@ export function PassengersList() {
             value={search}
             onChange={setSearch}
             label="Search members"
-            placeholder="Name or member ID"
+            placeholder="Name or email"
           />
         }
         filters={

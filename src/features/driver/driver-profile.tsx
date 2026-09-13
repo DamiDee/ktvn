@@ -49,7 +49,7 @@ export function DriverProfile() {
       <div className="space-y-5">
         {/* Identity */}
         <Card radius="xl">
-          <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+          <div className="flex min-w-0 flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
             <Avatar
               name={driver.fullName}
               src={driver.avatarUrl}
@@ -57,11 +57,13 @@ export function DriverProfile() {
               verified={approved}
             />
 
-            <div className="min-w-0 flex-1">
-              <h2 className="type-section-title text-ink">{driver.fullName}</h2>
-              <p className="type-meta mt-1 text-ink-muted">
+            <div className="w-full min-w-0 flex-1">
+              <h2 className="type-section-title truncate text-ink">
+                {driver.fullName}
+              </h2>
+              <p className="type-meta mt-1 truncate text-ink-muted">
                 Member since {new Date(driver.joinedAt).getFullYear()} ·{" "}
-                <span className="type-numeric">{driver.memberId}</span>
+                {driver.email}
               </p>
 
               <div className="mt-3 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
@@ -85,7 +87,7 @@ export function DriverProfile() {
                 strokeWidth={1.7}
                 aria-hidden
               />
-              <p className="type-numeric mt-2 text-[1.25rem] leading-none font-semibold text-ink">
+              <p className="type-numeric mt-2 text-[1.0625rem] leading-none font-semibold text-ink">
                 <CountUp value={driver.totalTrips} />
               </p>
               <p className="type-micro mt-1.5 text-ink-muted">Trips</p>
@@ -97,7 +99,7 @@ export function DriverProfile() {
                 strokeWidth={1.7}
                 aria-hidden
               />
-              <p className="type-numeric mt-2 text-[1.25rem] leading-none font-semibold text-ink">
+              <p className="type-numeric mt-2 text-[1.0625rem] leading-none font-semibold text-ink">
                 {driver.rating.toFixed(1)}
               </p>
               <p className="type-micro mt-1.5 text-ink-muted">Rating</p>
@@ -111,7 +113,7 @@ export function DriverProfile() {
                     strokeWidth={1.7}
                     aria-hidden
                   />
-                  <p className="type-numeric mt-2 text-[1.25rem] leading-none font-semibold text-ink">
+                  <p className="type-numeric mt-2 text-[1.0625rem] leading-none font-semibold text-ink">
                     <CountUp value={driver.service?.serviceHours ?? 0} />
                   </p>
                   <p className="type-micro mt-1.5 text-ink-muted">Hours</p>
@@ -123,7 +125,7 @@ export function DriverProfile() {
                     strokeWidth={1.7}
                     aria-hidden
                   />
-                  <p className="type-numeric mt-2 text-[1.25rem] leading-none font-semibold text-ink">
+                  <p className="type-numeric mt-2 text-[1.0625rem] leading-none font-semibold text-ink">
                     {formatNaira(driver.earningsSummary?.weekToDate ?? 0)}
                   </p>
                   <p className="type-micro mt-1.5 text-ink-muted">This week</p>

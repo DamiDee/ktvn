@@ -59,7 +59,8 @@ export function VolunteerRecognition() {
       />
 
       {/* Headline stats */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      {/* Three across even on a phone — a driver reads these at a glance. */}
+      <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
         {[
           {
             icon: Clock,
@@ -84,19 +85,21 @@ export function VolunteerRecognition() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.45, delay: index * 0.08 }}
-              className="rounded-[var(--kx-radius-xl)] border border-line bg-surface p-6 text-center"
+              className="rounded-[var(--kx-radius-lg)] border border-line bg-surface p-3.5 text-center sm:rounded-[var(--kx-radius-xl)] sm:p-6"
             >
-              <span className="inline-flex size-11 items-center justify-center rounded-full bg-gold-500/14 text-gold-700 dark:text-gold-300">
-                <Icon className="size-5" strokeWidth={1.7} aria-hidden />
+              <span className="inline-flex size-9 items-center justify-center rounded-full bg-gold-500/14 text-gold-700 sm:size-11 dark:text-gold-300">
+                <Icon className="size-4 sm:size-5" strokeWidth={1.7} aria-hidden />
               </span>
-              <p className="type-numeric mt-4 text-[2.25rem] leading-none font-semibold text-ink">
+              <p className="type-numeric mt-2.5 text-[1.25rem] leading-none font-semibold text-ink sm:mt-4 sm:text-[1.75rem]">
                 {isLoading ? (
-                  <span className="kx-skeleton inline-block h-9 w-16 rounded-lg" />
+                  <span className="kx-skeleton inline-block h-7 w-12 rounded-lg" />
                 ) : (
                   <CountUp value={stat.value} />
                 )}
               </p>
-              <p className="type-meta mt-2 text-ink-muted">{stat.label}</p>
+              <p className="type-micro mt-1.5 text-ink-muted sm:type-meta sm:mt-2">
+                {stat.label}
+              </p>
             </motion.div>
           );
         })}

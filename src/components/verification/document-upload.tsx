@@ -45,6 +45,8 @@ export function DocumentUpload({
   document,
   onUploaded,
   onRemoved,
+  /** Shows the missing-file message once the step has been submitted. */
+  missingError,
   className,
 }: {
   type: DocumentType;
@@ -53,6 +55,7 @@ export function DocumentUpload({
   document?: VerificationDocument;
   onUploaded?: (doc: VerificationDocument) => void;
   onRemoved?: () => void;
+  missingError?: string;
   className?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -134,9 +137,11 @@ export function DocumentUpload({
             ? "border-gold-500 bg-gold-50/70 dark:bg-gold-500/10"
             : needsAttention
               ? "border-gold-400/60 bg-pending-50/50 dark:bg-gold-500/8"
-              : empty
-                ? "border-dashed border-line-strong bg-surface-nested/60"
-                : "border-line bg-surface",
+              : missingError && empty
+                ? "border-danger-500/60 bg-danger-50/50 dark:bg-danger-500/8"
+                : empty
+                  ? "border-dashed border-line-strong bg-surface-nested/60"
+                  : "border-line bg-surface",
         )}
       >
         <input
@@ -169,6 +174,12 @@ export function DocumentUpload({
               <span>
                 <span className="type-body block font-medium text-ink">
                   {label}
+                  <span
+                    className="ml-1 text-danger-500"
+                    aria-label="required"
+                  >
+                    *
+                  </span>
                 </span>
                 {hint ? (
                   <span className="type-meta mt-0.5 block text-ink-muted">
@@ -313,9 +324,9 @@ export function DocumentUpload({
         </AnimatePresence>
       </div>
 
-      {error ? (
+      {error || (missingError && empty) ? (
         <p role="alert" className="type-meta mt-2 text-danger-600 dark:text-red-300">
-          {error}
+          {error ?? missingError}
         </p>
       ) : null}
     </div>

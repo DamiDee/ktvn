@@ -38,18 +38,6 @@ export interface RideLocation extends Coordinates {
   area?: string;
 }
 
-/** A stewarded meeting point used to keep post-event pickups orderly. */
-export interface PickupZone {
-  id: string;
-  label: string;
-  code: string;
-  landmark: string;
-  walkingMinutes: number;
-  recommended?: boolean;
-  accessible?: boolean;
-  location: RideLocation;
-}
-
 export interface RoutePath {
   /** Ordered polyline points from origin to destination. */
   points: Coordinates[];
@@ -66,8 +54,6 @@ export interface User {
   fullName: string;
   email: string;
   phone: string;
-  /** Koinonia membership identifier. */
-  memberId: string;
   role: UserRole;
   avatarUrl?: string;
   membershipStatus: MembershipStatus;
@@ -164,6 +150,22 @@ export interface PhysicalInspection {
   note?: string;
 }
 
+/**
+ * A note left during review.
+ *
+ * Internal notes stay with the oversight team; applicant feedback is sent on
+ * to the driver, so the two are never mixed up in the thread.
+ */
+export interface ReviewComment {
+  id: string;
+  author: string;
+  body: string;
+  at: string;
+  visibility: "INTERNAL" | "APPLICANT";
+  /** Set when the note is about one specific document. */
+  documentId?: string;
+}
+
 export interface DriverVerification {
   id: string;
   driverId: string;
@@ -181,6 +183,7 @@ export interface DriverVerification {
   statusDetail: string;
   changesRequested?: string[];
   reviewerNote?: string;
+  comments?: ReviewComment[];
 }
 
 /* ---------------------------------------------------------------------------
@@ -449,15 +452,40 @@ export interface AdminMetric {
   series?: number[];
 }
 
+/** One person on a live journey, as the oversight team sees them. */
+export interface LiveRidePassenger {
+  id: string;
+  name: string;
+  avatarUrl?: string;
+  verified: boolean;
+  rating: number;
+  /** Where this person is being dropped. */
+  dropoffLabel: string;
+  state: RidePassengerState;
+  /** Released only while an incident is open. */
+  phone?: string;
+}
+
 export interface LiveRideSummary {
   id: string;
   reference: string;
+  driverId: string;
   driverName: string;
   driverAvatarUrl?: string;
+  driverRating: number;
+  driverTrips: number;
+  /** Released only while an incident is open. */
+  driverPhone?: string;
+  vehicle: Vehicle;
   track: DriverTrack;
   rideType: RideType;
+  /** Where the journey started and where it ends. */
+  originLabel: string;
+  destinationLabel: string;
   passengerCount: number;
+  passengers: LiveRidePassenger[];
   status: RideStatus;
+  startedAt?: string;
   etaMinutes: number;
   sosActive: boolean;
   position: Coordinates;

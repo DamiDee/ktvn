@@ -17,6 +17,8 @@ export const queryKeys = {
     requests: (track: string) =>
       [...queryKeys.driver.root, "requests", track] as const,
     verification: () => [...queryKeys.driver.root, "verification"] as const,
+    activeTrip: (track: string) =>
+      [...queryKeys.driver.root, "active-trip", track] as const,
   },
 
   admin: {

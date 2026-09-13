@@ -39,7 +39,9 @@ export const RIDE_TRANSITIONS: TransitionMap<RideStatus> = {
     RideStatus.CANCELLED,
   ],
   [RideStatus.DRIVER_ARRIVED]: [RideStatus.IN_PROGRESS, RideStatus.CANCELLED],
-  [RideStatus.IN_PROGRESS]: [RideStatus.COMPLETED],
+  // A journey can be ended early: the passenger asks to stop, or the driver
+  // has to. It lands in CANCELLED like any other unfinished ride.
+  [RideStatus.IN_PROGRESS]: [RideStatus.COMPLETED, RideStatus.CANCELLED],
   [RideStatus.COMPLETED]: [RideStatus.PAYMENT_PENDING, RideStatus.RATING_PENDING],
   [RideStatus.PAYMENT_PENDING]: [RideStatus.RATING_PENDING, RideStatus.CLOSED],
   [RideStatus.RATING_PENDING]: [RideStatus.CLOSED],
@@ -95,7 +97,8 @@ export function canCancelRide(status: RideStatus): boolean {
     isRideSearching(status) ||
     status === RideStatus.MATCHED ||
     status === RideStatus.DRIVER_APPROACHING ||
-    status === RideStatus.DRIVER_ARRIVED
+    status === RideStatus.DRIVER_ARRIVED ||
+    status === RideStatus.IN_PROGRESS
   );
 }
 

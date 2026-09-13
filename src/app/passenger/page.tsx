@@ -1,11 +1,11 @@
-import type { Metadata } from "next";
-import { PassengerDashboard } from "@/features/passenger/dashboard";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Home",
-  description: "Your journeys, upcoming events and safety status.",
-};
-
+/**
+ * Passengers land on their rides.
+ *
+ * Requesting and history are the two things a member comes here for, and both
+ * live on that page.
+ */
 export default function PassengerHomePage() {
-  return <PassengerDashboard />;
+  redirect("/passenger/rides");
 }

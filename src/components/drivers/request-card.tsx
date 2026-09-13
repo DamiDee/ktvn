@@ -169,7 +169,7 @@ export function RequestCard({
             variant="subtle"
             size="lg"
             icon={X}
-            className="flex-1"
+            className="min-w-0 flex-1"
             onClick={() => {
               setResolved("declined");
               onDecline?.(request);
@@ -181,7 +181,7 @@ export function RequestCard({
             variant="primary"
             size="lg"
             icon={Check}
-            className="flex-[1.6]"
+            className="min-w-0 flex-[1.6]"
             onClick={() => {
               setResolved("accepted");
               onAccept?.(request);

@@ -1,15 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import {
-  Award,
-  ChevronDown,
-  Clock,
-  Inbox,
-  Radio,
-  Receipt,
-  TrendingUp,
-} from "lucide-react";
+import { Award, Clock, Inbox, Radio, Receipt, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { CountUp } from "@/components/ui/stats-card";
 import { StatusChip } from "@/components/ui/badge";
@@ -26,7 +18,7 @@ export function DriverPreview() {
   const professional = DRIVERS[0].earningsSummary;
 
   return (
-    <div className="mt-9 grid gap-5 sm:mt-11 lg:grid-cols-2">
+    <div className="mt-12 grid gap-5 sm:mt-16 lg:grid-cols-2">
       <PreviewCard
         eyebrow="Volunteer dashboard"
         title="Service, not settlement"
@@ -35,7 +27,7 @@ export function DriverPreview() {
       >
         <div className="rounded-[var(--kx-radius-md)] border border-line bg-surface p-4">
           <p className="type-card-title text-ink">
-            Are you available after tonight&rsquo;s service?
+            Are you available to drive this evening?
           </p>
           <div className="mt-3 grid grid-cols-3 gap-3">
             <MiniStat label="Vehicle" value="Toyota Corolla" />
@@ -126,34 +118,24 @@ function PreviewCard({
   children: React.ReactNode;
 }) {
   return (
-    <motion.details
+    <motion.div
       initial={{ opacity: 0, y: 22 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={viewportOnce}
       transition={{ duration: 0.6, delay, ease: [0.16, 1, 0.3, 1] }}
       className={cn(
-        "group overflow-hidden rounded-[var(--kx-radius-2xl)] border",
+        "rounded-[var(--kx-radius-2xl)] border p-6",
         tone === "gold"
           ? "border-gold-200/70 bg-gold-50/50 dark:border-gold-700/25 dark:bg-gold-500/6"
           : "border-lilac-200/60 bg-lilac-50/50 dark:border-lilac-700/25 dark:bg-lilac-500/6",
       )}
     >
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 outline-none transition-colors hover:bg-surface/50 focus-visible:ring-2 focus-visible:ring-gold-500 focus-visible:ring-inset sm:p-6 [&::-webkit-details-marker]:hidden">
-        <span>
-          <span className="type-micro block text-ink-muted">{eyebrow}</span>
-          <span className="type-card-title mt-1.5 block text-[1.125rem] text-ink">
-            {title}
-          </span>
-        </span>
-        <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-surface text-ink-muted ring-1 ring-line">
-          <ChevronDown
-            className="size-4 transition-transform duration-200 group-open:rotate-180"
-            aria-hidden
-          />
-        </span>
-      </summary>
-      <div className="border-t border-line p-5 sm:p-6">{children}</div>
-    </motion.details>
+      <p className="type-micro text-ink-muted">{eyebrow}</p>
+      <h3 className="type-card-title mt-1.5 mb-4 text-[1.125rem] text-ink">
+        {title}
+      </h3>
+      {children}
+    </motion.div>
   );
 }
 

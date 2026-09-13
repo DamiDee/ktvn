@@ -13,7 +13,7 @@ import {
 import { Card, CardHeader, NestedTile } from "@/components/ui/card";
 import { Button, IconButton } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
-import { Checkbox, Input } from "@/components/ui/input";
+import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { StatusChip } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/states";
@@ -24,7 +24,6 @@ import { queryKeys } from "@/constants/query-keys";
 import { userService } from "@/services";
 import { PermissionState } from "@/types/enums";
 import { createId } from "@/services/api-client";
-import { useSafetyStore } from "@/stores/safety-store";
 import type { TrustedContact } from "@/types/models";
 
 /**
@@ -46,12 +45,8 @@ export function SafetyCentre() {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState({ name: "", phone: "", relationship: "" });
 
-  const autoShare = useSafetyStore((state) => state.autoShare);
-  const setAutoShare = useSafetyStore((state) => state.setAutoShare);
-  const shareArrival = useSafetyStore((state) => state.shareArrival);
-  const setShareArrival = useSafetyStore((state) => state.setShareArrival);
-  const selectedContactIds = useSafetyStore((state) => state.selectedContactIds);
-  const toggleContact = useSafetyStore((state) => state.toggleContact);
+  const [autoShare, setAutoShare] = useState(false);
+  const [shareArrival, setShareArrival] = useState(true);
   const [location, setLocation] = useState<PermissionState>(
     PermissionState.GRANTED,
   );
@@ -63,7 +58,8 @@ export function SafetyCentre() {
   const list = contacts ?? passenger.trustedContacts;
 
   function addContact() {
-    if (!draft.name.trim() || !draft.phone.trim()) return;
+    if (!draft.name.trim() || !draft.phone.trim() || !draft.relationship.trim())
+      return;
 
     setContacts([
       ...list,
@@ -71,7 +67,7 @@ export function SafetyCentre() {
         id: createId("tc"),
         name: draft.name.trim(),
         phone: draft.phone.trim(),
-        relationship: draft.relationship.trim() || undefined,
+        relationship: draft.relationship.trim(),
       },
     ]);
     setDraft({ name: "", phone: "", relationship: "" });
@@ -193,31 +189,8 @@ export function SafetyCentre() {
                 });
               }}
               label="Share every journey automatically"
-              description="The people you choose get a live link as soon as a ride starts."
+              description="Your first trusted contact gets a live link as soon as a ride starts."
             />
-
-            {autoShare && list.length > 0 ? (
-              <div className="rounded-[var(--kx-radius-md)] border border-line bg-surface-nested p-4">
-                <p className="type-micro mb-3 text-ink-muted">
-                  Share automatically with
-                </p>
-                <div className="space-y-2.5">
-                  {list.map((contact) => (
-                    <Checkbox
-                      key={contact.id}
-                      checked={selectedContactIds.includes(contact.id)}
-                      onChange={() => toggleContact(contact.id)}
-                      label={
-                        <span>
-                          <span className="font-medium text-ink">{contact.name}</span>
-                          {contact.relationship ? ` · ${contact.relationship}` : ""}
-                        </span>
-                      }
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null}
 
             <div className="kx-hairline" role="presentation" />
 
@@ -234,7 +207,7 @@ export function SafetyCentre() {
         <Card radius="xl">
           <CardHeader
             title="Location"
-            description="Needed to set your pickup point and keep the trip on the map."
+            description="Used to find a driver near you and keep the trip on the map."
           />
 
           <NestedTile className="mt-5 flex items-center justify-between gap-3">
@@ -266,8 +239,7 @@ export function SafetyCentre() {
           {location !== PermissionState.GRANTED ? (
             <p className="type-meta mt-3 text-ink-muted">
               We couldn&rsquo;t access your location. Without it you can still
-              request a ride, but you&rsquo;ll need to set the pickup point
-              yourself.
+              request a ride, but matching may take longer.
             </p>
           ) : null}
         </Card>
@@ -293,7 +265,11 @@ export function SafetyCentre() {
             <Button
               variant="primary"
               onClick={addContact}
-              disabled={!draft.name.trim() || !draft.phone.trim()}
+              disabled={
+                !draft.name.trim() ||
+                !draft.phone.trim() ||
+                !draft.relationship.trim()
+              }
             >
               Add contact
             </Button>
@@ -321,12 +297,14 @@ export function SafetyCentre() {
             required
           />
           <Input
-            label="Relationship (optional)"
+            label="Relationship"
             placeholder="Sister"
+            hint="So you can tell your contacts apart in a hurry."
             value={draft.relationship}
             onChange={(event) =>
               setDraft({ ...draft, relationship: event.target.value })
             }
+            required
           />
         </div>
       </Modal>

@@ -136,7 +136,7 @@ export function BottomSheet({
           onClick={() =>
             cycleDetent(detent === allowed[allowed.length - 1] ? -1 : 1)
           }
-          className="rounded-full p-1.5"
+          className="kx-tap rounded-full p-1.5"
         >
           <span className="block h-1 w-10 rounded-full bg-[color-mix(in_srgb,var(--kx-text)_18%,transparent)]" />
         </button>

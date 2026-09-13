@@ -99,20 +99,19 @@ export function PassengerDetail({ passengerId }: { passengerId: string }) {
         <div className="min-w-0 space-y-5">
           {/* Identity */}
           <Card radius="xl">
-            <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+            <div className="flex min-w-0 flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
               <Avatar
                 name={passenger.fullName}
                 src={passenger.avatarUrl}
                 size="xl"
                 verified={verified}
               />
-              <div className="min-w-0 flex-1">
+              <div className="w-full min-w-0 flex-1">
                 <h2 className="type-section-title truncate text-ink">
                   {passenger.fullName}
                 </h2>
-                <p className="type-meta type-numeric mt-1 text-ink-muted">
-                  {passenger.memberId} · Joined{" "}
-                  {formatDate(passenger.joinedAt)}
+                <p className="type-meta mt-1 truncate text-ink-muted">
+                  {passenger.email} · Joined {formatDate(passenger.joinedAt)}
                 </p>
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                   {verified ? <VerifiedBadge label="Verified member" /> : null}

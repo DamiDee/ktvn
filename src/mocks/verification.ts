@@ -162,6 +162,22 @@ export const DRIVER_VERIFICATION: DriverVerification = {
     scheduled: false,
     note: "The verification team will contact you with inspection details.",
   },
+  comments: [
+    {
+      id: "vc-0041-1",
+      author: "Deborah Ajayi",
+      body: "ID, licence and registration all match the membership record. Holding for the vehicle inspection.",
+      at: "2026-09-08T14:28:00.000Z",
+      visibility: "INTERNAL",
+    },
+    {
+      id: "vc-0041-2",
+      author: "Deborah Ajayi",
+      body: "Your documents look good. We'll be in touch to book the vehicle inspection this week.",
+      at: "2026-09-08T14:31:00.000Z",
+      visibility: "APPLICANT",
+    },
+  ],
 };
 
 /** Admin verification queue. */
@@ -254,6 +270,15 @@ export const VERIFICATION_QUEUE: DriverVerification[] = [
       },
     ],
     inspection: { required: true, scheduled: false },
+    comments: [
+      {
+        id: "vc-0042-1",
+        author: "Deborah Ajayi",
+        body: "Insurance expired in June and there's no roadworthiness certificate at all. Can't progress this one.",
+        at: "2026-09-09T09:05:00.000Z",
+        visibility: "INTERNAL",
+      },
+    ],
     changesRequested: [
       "Upload a current insurance certificate",
       "Upload a roadworthiness certificate",

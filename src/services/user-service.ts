@@ -9,6 +9,7 @@ import {
 } from "@/mocks/people";
 import { NOTIFICATIONS } from "@/mocks/notifications";
 import { MembershipStatus } from "@/types/enums";
+import { CODE_LENGTH } from "@/features/auth/schemas";
 import type { Driver, Notification, Passenger, User } from "@/types/models";
 import { ApiError, MockDelay, request, type RequestOptions } from "./api-client";
 
@@ -19,7 +20,6 @@ export interface Credentials {
 
 export interface SignUpPayload {
   fullName: string;
-  memberId: string;
   email: string;
   phone: string;
   password: string;
@@ -36,7 +36,6 @@ export const userService = {
         const match = [...PASSENGERS, ...DRIVERS, ADMIN_USER].find(
           (user) =>
             user.email.toLowerCase() === identifier ||
-            user.memberId.toLowerCase() === identifier ||
             user.phone.replace(/\s/g, "") === identifier.replace(/\s/g, ""),
         );
 
@@ -64,7 +63,6 @@ export const userService = {
         fullName: payload.fullName,
         email: payload.email,
         phone: payload.phone,
-        memberId: payload.memberId,
         membershipStatus: MembershipStatus.CHECKING,
         joinedAt: new Date().toISOString(),
       }),
@@ -94,7 +92,7 @@ export const userService = {
   ): Promise<{ token: string }> {
     return request(
       () => {
-        if (code.replace(/\D/g, "").length < 6) {
+        if (code.replace(/\D/g, "").length < CODE_LENGTH) {
           throw new ApiError(
             "That code doesn't look right. Check and try again.",
             "INVALID_CODE",
@@ -111,25 +109,61 @@ export const userService = {
     return request(() => undefined, { delayMs: MockDelay.normal, ...options });
   },
 
-  /** Membership check — drives the verify-member screen's state machine. */
-  async verifyMembership(
-    memberId: string,
+  /**
+   * Sends the membership one-time code to an email address.
+   *
+   * The address is echoed back masked, so the screen can say where the code
+   * went without printing the whole address on a shared phone.
+   */
+  async sendMembershipCode(
+    email: string,
+    options?: RequestOptions,
+  ): Promise<{ maskedEmail: string; expiresInSeconds: number }> {
+    return request(
+      () => {
+        const trimmed = email.trim();
+        if (!trimmed.includes("@")) {
+          throw new ApiError(
+            "That doesn't look like an email address.",
+            "INVALID_EMAIL",
+            true,
+          );
+        }
+        return {
+          maskedEmail: trimmed.replace(/^(.).*(@.*)$/, "$1\u2022\u2022\u2022\u2022\u2022$2"),
+          expiresInSeconds: 600,
+        };
+      },
+      { delayMs: MockDelay.slow, ...options },
+    );
+  },
+
+  /**
+   * Confirms membership from the emailed code.
+   *
+   * The mock accepts any code of the right length, except one reserved value
+   * that returns ACTION_REQUIRED so that state stays reachable in the UI.
+   */
+  async verifyMembershipCode(
+    code: string,
     options?: RequestOptions,
   ): Promise<MembershipStatus> {
     return request(
       () => {
-        const trimmed = memberId.trim().toUpperCase();
-        if (!trimmed) return MembershipStatus.UNVERIFIED;
-        const known = PASSENGERS.some(
-          (passenger) => passenger.memberId.toUpperCase() === trimmed,
-        );
-        if (known) return MembershipStatus.VERIFIED;
-        if (/^KOI-\d{4}-\d{6}$/.test(trimmed)) {
+        const digits = code.replace(/\D/g, "");
+        if (digits.length !== CODE_LENGTH) {
+          throw new ApiError(
+            "That code doesn't look right. Check and try again.",
+            "INVALID_CODE",
+            true,
+          );
+        }
+        if (digits === "0".repeat(CODE_LENGTH)) {
           return MembershipStatus.ACTION_REQUIRED;
         }
-        return MembershipStatus.REJECTED;
+        return MembershipStatus.VERIFIED;
       },
-      { delayMs: MockDelay.slow, ...options },
+      { delayMs: MockDelay.normal, ...options },
     );
   },
 

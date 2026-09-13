@@ -3,15 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import {
-  ArrowRight,
-  Check,
-  KeyRound,
-  MapPin,
-  Share2,
-  ShieldCheck,
-  TriangleAlert,
-} from "lucide-react";
+import { ArrowRight, Check, MapPin, Share2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/badge";
@@ -25,9 +17,9 @@ import { SeatMap } from "@/components/rides/seat-map";
 import { DriverCard } from "@/components/drivers/driver-card";
 import { SosButton, SosStatusPanel } from "@/components/safety/sos-button";
 import { ShareTripSheet } from "@/components/safety/share-trip-sheet";
+import { SosNoteModal } from "@/components/safety/sos-note-modal";
 import { useRideStore } from "@/stores/ride-store";
 import { useSessionStore } from "@/stores/session-store";
-import { useSafetyStore } from "@/stores/safety-store";
 import { useRideSimulation } from "@/features/rides/use-ride-simulation";
 import { CURRENT_PASSENGER } from "@/mocks/people";
 import {
@@ -38,7 +30,6 @@ import {
 } from "@/types/enums";
 import { RIDE_STATUS_PRESENTATION } from "@/constants/status-presentation";
 import {
-  canCancelRide,
   isSosAvailable,
   rideProgressIndex,
   RIDE_PROGRESS_ORDER,
@@ -46,7 +37,6 @@ import {
 import { formatEta, formatMinutes, shortName } from "@/lib/format";
 import { transitions } from "@/lib/motion";
 import { buildRoute } from "@/lib/geo";
-import type { SheetDetent } from "@/constants/design-tokens";
 
 /**
  * The active ride.
@@ -72,23 +62,18 @@ export function ActiveRideScreen() {
   const driver = useRideStore((state) => state.driver);
   const sosStatus = useRideStore((state) => state.sosStatus);
   const sharingActive = useRideStore((state) => state.sharingActive);
-  const boardingPin = useRideStore((state) => state.boardingPin);
   const transition = useRideStore((state) => state.transition);
   const transitionSos = useRideStore((state) => state.transitionSos);
   const setSharing = useRideStore((state) => state.setSharing);
   const reset = useRideStore((state) => state.reset);
 
   const setActiveRide = useSessionStore((state) => state.setActiveRide);
-  const shareArrival = useSafetyStore((state) => state.shareArrival);
 
   const mapInset = useRideSheetInset();
   const [shareOpen, setShareOpen] = useState(false);
+  const [sosNoteOpen, setSosNoteOpen] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [nearby, setNearby] = useState(false);
-  const [sheetDetent, setSheetDetent] = useState<SheetDetent>("medium");
-  const [routeCheck, setRouteCheck] = useState<
-    "MONITORING" | "CHECK_IN" | "CONFIRMED"
-  >("MONITORING");
 
   // Deep-linked without a live ride: send them to the request screen.
   useEffect(() => {
@@ -133,15 +118,7 @@ export function ActiveRideScreen() {
   const onJourneyComplete = useCallback(() => {
     transition(RideStatus.COMPLETED);
     setActiveRide(null);
-    setSheetDetent("medium");
-    if (sharingActive && shareArrival) {
-      toast({
-        title: "Arrival shared",
-        description: "Your safety circle knows you’ve arrived.",
-        tone: "success",
-      });
-    }
-  }, [transition, setActiveRide, sharingActive, shareArrival, toast]);
+  }, [transition, setActiveRide]);
 
   const journey = useRideSimulation({
     route: route ?? undefined,
@@ -155,36 +132,11 @@ export function ActiveRideScreen() {
     if (inProgress) setActiveRide("active", journey.etaMinutes);
   }, [inProgress, journey.etaMinutes, setActiveRide]);
 
-  const raiseSos = useCallback(() => {
-    if (
-      sosStatus !== SOSStatus.INACTIVE &&
-      sosStatus !== SOSStatus.RESOLVED
-    ) {
-      return;
-    }
-
-    transitionSos(SOSStatus.ACTIVATING);
-    transitionSos(SOSStatus.SENT);
-    toast({
-      title: "Emergency alert sent",
-      description: "Your location has been shared with the safety team.",
-      tone: "danger",
-      durationMs: 6000,
-    });
-
-    window.setTimeout(() => transitionSos(SOSStatus.ACKNOWLEDGED), 2600);
-    window.setTimeout(() => transitionSos(SOSStatus.RESPONDING), 5200);
-  }, [sosStatus, transitionSos, toast]);
-
   if (!driver || !pickup || !destination) return null;
 
   const presentation = RIDE_STATUS_PRESENTATION[status];
   const arrived = status === RideStatus.DRIVER_ARRIVED;
   const completed = status === RideStatus.COMPLETED;
-  const routeCheckState =
-    inProgress && journey.progress >= 0.36 && routeCheck === "MONITORING"
-      ? "CHECK_IN"
-      : routeCheck;
 
   const etaMinutes = approaching
     ? approach.etaMinutes
@@ -307,19 +259,16 @@ export function ActiveRideScreen() {
           </div>
         ) : null}
 
-        {/* Live sharing indicator */}
+        {/* Someone has the driver and journey details — not your location */}
         {sharingActive ? (
           <div className="absolute top-4 right-4 z-20 lg:right-[calc(min(400px,38vw)+2rem)]">
             <span className="surface-glass inline-flex items-center gap-2 rounded-full px-3 py-2">
-              <span className="relative flex size-1.5">
-                <span
-                  className="absolute inline-flex size-full rounded-full bg-success-500"
-                  style={{ animation: "kx-pulse-ring 2s ease-out infinite" }}
-                  aria-hidden
-                />
-                <span className="relative inline-flex size-1.5 rounded-full bg-success-500" />
-              </span>
-              <span className="type-micro text-ink">Sharing live</span>
+              <Check
+                className="size-3.5 text-success-600 dark:text-success-400"
+                strokeWidth={2.4}
+                aria-hidden
+              />
+              <span className="type-micro text-ink">Trip details shared</span>
             </span>
           </div>
         ) : null}
@@ -328,10 +277,7 @@ export function ActiveRideScreen() {
       <RideSheet
         label="Journey details"
         allowed={["collapsed", "medium", "expanded"]}
-        detent={
-          arrived || routeCheckState === "CHECK_IN" ? "expanded" : sheetDetent
-        }
-        onDetentChange={setSheetDetent}
+        detent="medium"
       >
         {/* Status */}
         <div>
@@ -362,87 +308,34 @@ export function ActiveRideScreen() {
           </AnimatePresence>
         </div>
 
-        {routeCheckState === "CHECK_IN" ? (
-          <div
-            className="mt-5 rounded-[var(--kx-radius-lg)] border border-gold-400/70 bg-gold-50/80 p-4 dark:bg-gold-500/10"
-            aria-live="assertive"
-          >
-            <div className="flex items-start gap-3">
-              <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-gold-500 text-forest-950">
-                <TriangleAlert className="size-4.5" strokeWidth={2} aria-hidden />
-              </span>
-              <div className="min-w-0">
-                <p className="type-card-title text-ink">Is everything okay?</p>
-                <p className="type-meta mt-1 text-ink-secondary">
-                  We noticed a longer-than-usual stop on this journey. Your
-                  driver has not been told that we&rsquo;re checking in.
-                </p>
-              </div>
-            </div>
-            <div className="mt-4 grid grid-cols-2 gap-2.5">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  setRouteCheck("CONFIRMED");
-                  setSheetDetent("medium");
-                  toast({ title: "Thanks for checking in" });
-                }}
-              >
-                I&rsquo;m okay
-              </Button>
-              <Button variant="danger" size="sm" onClick={raiseSos}>
-                Get help
-              </Button>
-            </div>
-          </div>
-        ) : null}
-
-        {/* The critical arrival action stays above secondary trip detail. */}
-        {arrived ? (
-          <div className="mt-5 rounded-[var(--kx-radius-lg)] border border-gold-400/60 bg-gold-50/70 p-4 dark:bg-gold-500/10">
-            <div className="flex items-start gap-3">
-              <KeyRound
-                className="mt-0.5 size-5 shrink-0 text-forest-700 dark:text-gold-400"
-                strokeWidth={1.8}
-                aria-hidden
-              />
-              <div className="min-w-0 flex-1">
-                <p className="type-micro text-ink-muted">Boarding PIN</p>
-                <p
-                  className="type-numeric mt-1.5 text-3xl font-bold tracking-[0.28em] text-ink"
-                  aria-label={`Boarding PIN ${boardingPin.split("").join(" ")}`}
-                >
-                  {boardingPin}
-                </p>
-                <p className="type-meta mt-2 text-ink-secondary">
-                  Check the car, colour and plate above. Then tell this PIN to{" "}
-                  {shortName(driver.fullName)} so they can confirm it&rsquo;s you.
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="primary"
-              size="lg"
-              block
-              className="mt-4"
-              icon={Check}
-              onClick={() => {
-                transition(RideStatus.IN_PROGRESS);
-                setSheetDetent("medium");
-                toast({
-                  title: "Boarding verified · journey started",
-                  tone: "success",
-                });
-              }}
-            >
-              Driver confirmed my PIN
-            </Button>
-          </div>
-        ) : null}
-
         {/* Journey progress rail */}
         <RideProgress status={status} className="mt-5" />
+
+        {/* What's happening, in plain words, while the journey runs */}
+        {inProgress ? (
+          <NestedTile className="mt-5 flex items-start gap-3 border-forest-500/25 dark:border-gold-500/25">
+            <span className="relative mt-1 flex size-2.5 shrink-0">
+              <span
+                className="absolute inline-flex size-full rounded-full bg-forest-500/60 dark:bg-gold-400/60"
+                style={{ animation: "kx-pulse-ring 2.4s ease-out infinite" }}
+                aria-hidden
+              />
+              <span className="relative inline-flex size-2.5 rounded-full bg-forest-700 dark:bg-gold-400" />
+            </span>
+            <div className="min-w-0">
+              <p className="type-body font-medium text-ink">
+                You&rsquo;re on your way.
+              </p>
+              <p className="type-meta mt-1 text-ink-secondary">
+                {journey.etaMinutes > 0
+                  ? `About ${formatEta(journey.etaMinutes)} to ${destination.label}. `
+                  : `Arriving at ${destination.label} now. `}
+                We&rsquo;ll tell you when you arrive. SOS and Share Trip stay at
+                the bottom of this screen for the whole journey.
+              </p>
+            </div>
+          </NestedTile>
+        ) : null}
 
         <Divider />
 
@@ -490,31 +383,25 @@ export function ActiveRideScreen() {
           </div>
         ) : null}
 
-        {/* Route monitoring and anomaly check-in */}
-        {inProgress && routeCheckState !== "CHECK_IN" ? (
-          <NestedTile className="mt-5 flex items-start gap-3" aria-live="polite">
-            <ShieldCheck
-              className="mt-0.5 size-4.5 shrink-0 text-forest-700 dark:text-gold-400"
-              strokeWidth={1.8}
-              aria-hidden
-            />
-            <div>
-              <p className="type-body font-medium text-ink">
-                {routeCheckState === "CONFIRMED"
-                  ? "Check-in confirmed"
-                  : "Route check active"}
-              </p>
-              <p className="type-meta mt-0.5 text-ink-muted">
-                {routeCheckState === "CONFIRMED"
-                  ? "We’ll keep monitoring the rest of the journey."
-                  : "We’ll check in if the route or a stop looks unusual."}
-              </p>
-            </div>
-          </NestedTile>
-        ) : null}
-
         {/* SOS status, once raised */}
         <SosStatusPanel status={sosStatus} className="mt-5" />
+
+        {/* Arrival confirmation */}
+        {arrived ? (
+          <Button
+            variant="primary"
+            size="lg"
+            block
+            className="mt-5"
+            icon={Check}
+            onClick={() => {
+              transition(RideStatus.IN_PROGRESS);
+              toast({ title: "Journey started", tone: "success" });
+            }}
+          >
+            I&rsquo;m at the pickup point
+          </Button>
+        ) : null}
 
         {/* Completion */}
         {completed ? (
@@ -552,7 +439,7 @@ export function ActiveRideScreen() {
               iconRight={ArrowRight}
               onClick={() => {
                 reset();
-                router.push("/passenger");
+                router.push("/passenger/rides");
               }}
             >
               Done
@@ -560,16 +447,16 @@ export function ActiveRideScreen() {
           </div>
         ) : null}
 
-        {/* Cancel, only while it's still legal */}
-        {canCancelRide(status) && !arrived ? (
+        {/* Cancel — before the journey, and during it */}
+        {!completed ? (
           <Button
             variant="ghost"
             size="md"
             block
-            className="mt-4"
+            className="mt-4 text-danger-600 dark:text-red-300"
             onClick={() => setConfirmCancel(true)}
           >
-            Cancel ride
+            {inProgress ? "End this ride" : "Cancel ride"}
           </Button>
         ) : null}
 
@@ -589,7 +476,23 @@ export function ActiveRideScreen() {
               </Button>
               <SosButton
                 status={sosStatus}
-                onActivate={raiseSos}
+                onActivate={() => {
+                  transitionSos(SOSStatus.ACTIVATING);
+                  transitionSos(SOSStatus.SENT);
+                  // The note modal says the alert is away; a toast on top of
+                  // it would only cover the note field and repeat itself.
+                  setSosNoteOpen(true);
+
+                  // Simulated acknowledgement, then response.
+                  window.setTimeout(
+                    () => transitionSos(SOSStatus.ACKNOWLEDGED),
+                    2600,
+                  );
+                  window.setTimeout(
+                    () => transitionSos(SOSStatus.RESPONDING),
+                    5200,
+                  );
+                }}
               />
             </div>
           </div>
@@ -599,10 +502,31 @@ export function ActiveRideScreen() {
       <ShareTripSheet
         open={shareOpen}
         onClose={() => setShareOpen(false)}
-        shareUrl="https://koinonia-vtn.example/trip/2296"
+        details={{
+          reference: "#2296",
+          driverName: driver.fullName,
+          vehicle: `${driver.vehicle.colour} ${driver.vehicle.make} ${driver.vehicle.model}`,
+          plateNumber: driver.vehicle.plateNumber,
+          track: driver.track,
+          destination: destination.label,
+          etaMinutes: inProgress ? journey.etaMinutes : approach.etaMinutes,
+        }}
         trustedContacts={CURRENT_PASSENGER.trustedContacts}
-        sharingActive={sharingActive}
-        onSharingChange={setSharing}
+        onShared={() => setSharing(true)}
+      />
+
+      <SosNoteModal
+        open={sosNoteOpen}
+        onClose={() => setSosNoteOpen(false)}
+        onSend={(note) => {
+          setSosNoteOpen(false);
+          toast({
+            title: "Note sent to the safety team",
+            description: note,
+            tone: "danger",
+            durationMs: 6000,
+          });
+        }}
       />
 
       <ConfirmDialog
@@ -613,13 +537,22 @@ export function ActiveRideScreen() {
           setActiveRide(null);
           setConfirmCancel(false);
           reset();
-          toast({ title: "Ride cancelled" });
-          router.replace("/passenger");
+          toast({
+            title: inProgress ? "Ride ended" : "Ride cancelled",
+            description: inProgress
+              ? "The driver and the safety team have been told."
+              : "Your driver has been told you no longer need the ride.",
+          });
+          router.replace("/passenger/rides");
         }}
-        title="Cancel this ride?"
-        description="Your driver is already on the way. Cancelling now lets them know you no longer need the ride."
-        confirmLabel="Cancel ride"
-        cancelLabel="Keep my ride"
+        title={inProgress ? "End this ride?" : "Cancel this ride?"}
+        description={
+          inProgress
+            ? "The journey stops here. Your driver and the safety team are told straight away, and you'll be asked where you got out."
+            : "Your driver is already on the way. Cancelling now lets them know you no longer need the ride."
+        }
+        confirmLabel={inProgress ? "End ride" : "Cancel ride"}
+        cancelLabel={inProgress ? "Keep going" : "Keep my ride"}
         tone="danger"
       />
     </div>

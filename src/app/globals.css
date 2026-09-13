@@ -1,5 +1,8 @@
-/* SF Pro is used wherever the system provides it; Inter is loaded once by the
-   root layout and the remaining entries provide resilient system fallbacks. */
+/* SF Pro is used wherever the system provides it (see --font-sans below);
+   Inter is the fallback everywhere else. Imported here rather than via a
+   <head> tag or next/font so the root layout stays head-free and the build
+   never depends on reaching Google Fonts. */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
 /* ============================================================================
@@ -314,7 +317,7 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    font-size: 16px;
+    font-size: 15px;
     line-height: 1.6;
   }
 
@@ -391,7 +394,7 @@
   }
 
   .type-body {
-    font-size: 1rem;
+    font-size: 0.9375rem;
     line-height: 1.62;
     letter-spacing: -0.006em;
   }
@@ -403,14 +406,51 @@
   }
 
   .type-meta {
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     line-height: 1.45;
     font-weight: 500;
     letter-spacing: -0.002em;
   }
 
+  /*
+    Compact type scale.
+    Driver screens are read in a car, at a glance, often one-handed — they
+    carry more status per screen than they do prose, so every step of the
+    scale comes down a notch inside this scope. Nothing here changes the
+    tokens themselves, so the rest of the product is untouched.
+  */
+  .kx-compact .type-page-title {
+    font-size: clamp(1.5rem, 1.2rem + 1.2vw, 1.875rem);
+  }
+
+  .kx-compact .type-section-title {
+    font-size: clamp(1.1875rem, 1.05rem + 0.6vw, 1.375rem);
+  }
+
+  .kx-compact .type-card-title {
+    font-size: 0.9375rem;
+  }
+
+  .kx-compact .type-body {
+    font-size: 0.875rem;
+    line-height: 1.55;
+  }
+
+  .kx-compact .type-body-lg {
+    font-size: 1rem;
+  }
+
+  .kx-compact .type-meta {
+    font-size: 0.78125rem;
+  }
+
+  /* Stat numerals come down with everything else. */
+  .kx-compact .kx-stat-value {
+    font-size: 1.375rem;
+  }
+
   .type-micro {
-    font-size: 0.75rem;
+    font-size: 0.6875rem;
     line-height: 1.35;
     font-weight: 600;
     letter-spacing: 0.045em;
@@ -553,26 +593,6 @@
     );
     background-size: 22px 22px;
   }
-
-  /* Organic brand language: soft fluid forms, never content containers. */
-  .kx-liquid-drop {
-    border-radius: 72% 28% 64% 36% / 76% 38% 62% 24%;
-    transform: rotate(18deg);
-    filter: saturate(1.05);
-    will-change: transform, border-radius;
-  }
-
-  .kx-liquid-drop-a {
-    animation: kx-liquid-drift-a 15s var(--kx-ease-in-out) infinite alternate;
-  }
-
-  .kx-liquid-drop-b {
-    animation: kx-liquid-drift-b 18s var(--kx-ease-in-out) infinite alternate;
-  }
-
-  .kx-liquid-drop-c {
-    animation: kx-liquid-drift-c 12s var(--kx-ease-in-out) infinite alternate;
-  }
 }
 
 /* ============================================================================
@@ -621,37 +641,6 @@
 @keyframes kx-marquee-dash {
   to {
     stroke-dashoffset: -32;
-  }
-}
-
-@keyframes kx-liquid-drift-a {
-  from {
-    transform: translate3d(0, 0, 0) rotate(16deg) scale(1);
-    border-radius: 72% 28% 64% 36% / 76% 38% 62% 24%;
-  }
-  to {
-    transform: translate3d(-18px, 26px, 0) rotate(26deg) scale(1.07);
-    border-radius: 58% 42% 72% 28% / 62% 52% 48% 38%;
-  }
-}
-
-@keyframes kx-liquid-drift-b {
-  from {
-    transform: translate3d(0, 0, 0) rotate(-18deg) scale(1);
-    border-radius: 64% 36% 52% 48% / 72% 42% 58% 28%;
-  }
-  to {
-    transform: translate3d(24px, -18px, 0) rotate(-9deg) scale(0.96);
-    border-radius: 46% 54% 68% 32% / 54% 66% 34% 46%;
-  }
-}
-
-@keyframes kx-liquid-drift-c {
-  from {
-    transform: translate3d(0, 0, 0) rotate(28deg) scale(0.94);
-  }
-  to {
-    transform: translate3d(-12px, 18px, 0) rotate(42deg) scale(1.08);
   }
 }
 

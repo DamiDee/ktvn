@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertCircle, ArrowRight, IdCard, Mail, Phone, User } from "lucide-react";
+import { AlertCircle, ArrowRight, Mail, Phone, User } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Input, PasswordInput } from "@/components/ui/input";
@@ -34,7 +34,6 @@ export function SignUpForm() {
     mode: "onBlur",
     defaultValues: {
       fullName: "",
-      memberId: "",
       email: "",
       phone: "",
       password: "",
@@ -50,7 +49,6 @@ export function SignUpForm() {
     try {
       await userService.signUp({
         fullName: values.fullName,
-        memberId: values.memberId,
         email: values.email,
         phone: values.phone,
         password: values.password,
@@ -96,16 +94,6 @@ export function SignUpForm() {
           error={errors.fullName?.message}
           required
           {...register("fullName")}
-        />
-
-        <Input
-          label="Member ID"
-          placeholder="KOI-2019-004821"
-          hint="Find this on your membership card or in the members' portal."
-          icon={IdCard}
-          error={errors.memberId?.message}
-          required
-          {...register("memberId")}
         />
 
         <div className="grid gap-5 sm:grid-cols-2">

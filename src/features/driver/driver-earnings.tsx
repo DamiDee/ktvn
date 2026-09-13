@@ -87,7 +87,7 @@ export function DriverEarnings() {
       />
 
       {/* Summary */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
         {loadingDriver ? (
           <>
             <StatsCardSkeleton />
@@ -199,7 +199,7 @@ export function DriverEarnings() {
                     </div>
 
                     <div className="flex shrink-0 flex-col items-end gap-1.5">
-                      <span className="type-numeric text-[0.9375rem] font-semibold text-ink">
+                      <span className="type-numeric text-[0.875rem] font-semibold text-ink">
                         {formatNaira(earning.amount)}
                       </span>
                       <StatusBadge

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import {
   Check,
-  Link2,
+  Copy,
   MessageCircle,
   MessageSquare,
   UserRound,
@@ -12,65 +12,90 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Modal } from "@/components/ui/modal";
+import { NestedTile } from "@/components/ui/card";
 import { StatusChip } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
+import { TRACK_LABEL } from "@/constants/status-presentation";
+import { formatEta, formatPlate } from "@/lib/format";
+import type { DriverTrack } from "@/types/enums";
 import type { TrustedContact } from "@/types/models";
+
+export interface TripShareDetails {
+  reference: string;
+  driverName: string;
+  vehicle: string;
+  plateNumber: string;
+  track: DriverTrack;
+  destination: string;
+  etaMinutes?: number;
+}
 
 /**
  * Share Trip.
  *
- * Copy link, WhatsApp, SMS, or straight to a saved trusted contact. Sharing
- * stays active for the journey and the caller is told, so the trip screen can
- * show the live-sharing indicator.
+ * What gets sent is who is driving, what they are driving and where the
+ * journey ends — never a live position or a tracking link. Someone who cares
+ * about a member travelling wants to know who they are with; they do not need
+ * to watch a dot move across a map, and the member shouldn't have to hand over
+ * their whereabouts to be looked after.
  */
 export function ShareTripSheet({
   open,
   onClose,
-  shareUrl,
+  details,
   trustedContacts = [],
-  sharingActive,
-  onSharingChange,
+  onShared,
 }: {
   open: boolean;
   onClose: () => void;
-  shareUrl: string;
+  details: TripShareDetails;
   trustedContacts?: TrustedContact[];
-  sharingActive: boolean;
-  onSharingChange: (active: boolean) => void;
+  onShared?: () => void;
 }) {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
 
-  async function copyLink() {
+  const lines = [
+    `I'm on a Koinonia VTN journey (${details.reference}).`,
+    `Driver: ${details.driverName}`,
+    `Vehicle: ${details.vehicle} · ${formatPlate(details.plateNumber)}`,
+    `Track: ${TRACK_LABEL[details.track]}`,
+    `Heading to: ${details.destination}`,
+    ...(details.etaMinutes !== undefined && details.etaMinutes > 0
+      ? [`Expected arrival: about ${formatEta(details.etaMinutes)}`]
+      : []),
+  ];
+  const message = lines.join("\n");
+
+  async function copyDetails() {
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      await navigator.clipboard.writeText(message);
       setCopied(true);
-      onSharingChange(true);
+      onShared?.();
       window.setTimeout(() => setCopied(false), 2200);
       toast({
-        title: "Trip sharing enabled",
-        description: "The link is on your clipboard.",
+        title: "Trip details copied",
+        description: "Paste them wherever you like.",
         tone: "success",
       });
     } catch {
-      // Clipboard can be blocked; the link is still selectable below.
+      // Clipboard can be blocked; the details are selectable above.
       toast({
         title: "Couldn't copy automatically",
-        description: "Select the link below and copy it manually.",
+        description: "Select the details above and copy them manually.",
         tone: "warning",
       });
     }
   }
 
   function shareVia(channel: "whatsapp" | "sms", label: string) {
-    const message = `I'm on a K-Rides journey. Follow it live: ${shareUrl}`;
     const href =
       channel === "whatsapp"
         ? `https://wa.me/?text=${encodeURIComponent(message)}`
         : `sms:?&body=${encodeURIComponent(message)}`;
 
     window.open(href, "_blank", "noopener,noreferrer");
-    onSharingChange(true);
+    onShared?.();
     toast({ title: `Shared via ${label}`, tone: "success" });
   }
 
@@ -79,66 +104,45 @@ export function ShareTripSheet({
       open={open}
       onClose={onClose}
       title="Share your trip"
-      description="Send someone a live link to this journey. They'll see the route and your progress until you arrive."
+      description="Send someone the driver and journey details. Your location is not shared."
     >
       <div className="space-y-5">
-        {sharingActive ? (
-          <div className="flex items-center gap-2.5 rounded-[var(--kx-radius-md)] border border-success-500/30 bg-success-50 px-4 py-3 dark:bg-success-500/10">
-            <span className="relative flex size-2 shrink-0">
-              <span
-                className="absolute inline-flex size-full rounded-full bg-success-500"
-                style={{ animation: "kx-pulse-ring 2s ease-out infinite" }}
-                aria-hidden
-              />
-              <span className="relative inline-flex size-2 rounded-full bg-success-500" />
-            </span>
-            <p className="type-meta font-medium text-ink">
-              Live trip sharing active
-            </p>
-          </div>
-        ) : null}
-
-        {/* Copy link */}
+        {/* What will be sent, exactly as it will be sent */}
         <div>
-          <p className="type-micro mb-2 text-ink-muted">Trip link</p>
-          <div className="flex items-center gap-2">
-            <input
-              readOnly
-              value={shareUrl}
-              aria-label="Trip link"
-              onFocus={(event) => event.currentTarget.select()}
-              className="type-meta h-11 min-w-0 flex-1 rounded-[var(--kx-radius-sm)] border border-line-strong bg-surface-nested px-3.5 text-ink-secondary outline-none"
-            />
-            <motion.button
-              type="button"
-              onClick={copyLink}
-              whileTap={{ scale: 0.97 }}
-              className={cn(
-                "inline-flex h-11 shrink-0 items-center gap-2 rounded-[var(--kx-radius-sm)] px-4 text-[0.875rem] font-medium transition-colors",
-                copied
-                  ? "bg-success-500 text-white"
-                  : "bg-forest-800 text-white hover:bg-forest-700 dark:bg-gold-500 dark:text-forest-950 dark:hover:bg-gold-400",
-              )}
-            >
-              {copied ? (
-                <>
-                  <Check className="size-4" strokeWidth={2.6} aria-hidden />
-                  Copied
-                </>
-              ) : (
-                <>
-                  <Link2 className="size-4" strokeWidth={2} aria-hidden />
-                  Copy
-                </>
-              )}
-            </motion.button>
-          </div>
+          <p className="type-micro mb-2 text-ink-muted">What they&rsquo;ll see</p>
+          <NestedTile>
+            <dl className="space-y-2.5">
+              <ShareRow label="Driver" value={details.driverName} />
+              <ShareRow label="Vehicle" value={details.vehicle} />
+              <ShareRow
+                label="Plate"
+                value={formatPlate(details.plateNumber)}
+                numeric
+              />
+              <ShareRow label="Track" value={TRACK_LABEL[details.track]} />
+              <ShareRow label="Going to" value={details.destination} />
+              {details.etaMinutes !== undefined && details.etaMinutes > 0 ? (
+                <ShareRow
+                  label="Expected"
+                  value={`About ${formatEta(details.etaMinutes)}`}
+                />
+              ) : null}
+              <ShareRow
+                label="Ride"
+                value={details.reference}
+                numeric
+              />
+            </dl>
+          </NestedTile>
+          <p className="type-meta mt-2 text-ink-muted">
+            No live location and no tracking link is sent.
+          </p>
         </div>
 
         {/* Channels */}
         <div>
           <p className="type-micro mb-2 text-ink-muted">Send via</p>
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-3 gap-2.5">
             <ChannelButton
               icon={MessageCircle}
               label="WhatsApp"
@@ -149,6 +153,24 @@ export function ShareTripSheet({
               label="SMS"
               onClick={() => shareVia("sms", "SMS")}
             />
+            <motion.button
+              type="button"
+              onClick={copyDetails}
+              whileTap={{ scale: 0.97 }}
+              className={cn(
+                "flex h-[76px] flex-col items-center justify-center gap-2 rounded-[var(--kx-radius-md)] border text-[0.8125rem] font-medium transition-colors",
+                copied
+                  ? "border-success-500/40 bg-success-50 text-success-700 dark:bg-success-500/12 dark:text-success-300"
+                  : "border-line bg-surface text-ink-secondary hover:bg-surface-nested hover:text-ink",
+              )}
+            >
+              {copied ? (
+                <Check className="size-5" strokeWidth={2.4} aria-hidden />
+              ) : (
+                <Copy className="size-5" strokeWidth={1.8} aria-hidden />
+              )}
+              {copied ? "Copied" : "Copy"}
+            </motion.button>
           </div>
         </div>
 
@@ -168,17 +190,22 @@ export function ShareTripSheet({
                   <button
                     type="button"
                     onClick={() => {
-                      onSharingChange(true);
+                      onShared?.();
                       toast({
                         title: `Shared with ${contact.name}`,
-                        description: "They'll get a live link to this journey.",
+                        description:
+                          "They have the driver and journey details.",
                         tone: "success",
                       });
                     }}
-                    className="flex w-full items-center gap-3 rounded-[var(--kx-radius-md)] border border-line bg-surface px-4 py-3 text-left transition-colors hover:bg-surface-nested"
+                    className="flex min-h-14 w-full items-center gap-3 rounded-[var(--kx-radius-md)] border border-line bg-surface px-4 py-3 text-left transition-colors hover:bg-surface-nested"
                   >
                     <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-nested text-ink-secondary">
-                      <UserRound className="size-4" strokeWidth={1.8} aria-hidden />
+                      <UserRound
+                        className="size-4"
+                        strokeWidth={1.8}
+                        aria-hidden
+                      />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="type-body block truncate font-medium text-ink">
@@ -197,21 +224,32 @@ export function ShareTripSheet({
             </ul>
           )}
         </div>
-
-        {sharingActive ? (
-          <button
-            type="button"
-            onClick={() => {
-              onSharingChange(false);
-              toast({ title: "Trip sharing stopped" });
-            }}
-            className="type-meta w-full text-center font-medium text-danger-600 underline-offset-4 hover:underline dark:text-red-300"
-          >
-            Stop sharing this trip
-          </button>
-        ) : null}
       </div>
     </Modal>
+  );
+}
+
+function ShareRow({
+  label,
+  value,
+  numeric,
+}: {
+  label: string;
+  value: string;
+  numeric?: boolean;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <dt className="type-meta shrink-0 text-ink-muted">{label}</dt>
+      <dd
+        className={cn(
+          "type-meta min-w-0 truncate text-right font-medium text-ink",
+          numeric && "type-numeric",
+        )}
+      >
+        {value}
+      </dd>
+    </div>
   );
 }
 
@@ -228,9 +266,9 @@ function ChannelButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center justify-center gap-2 rounded-[var(--kx-radius-md)] border border-line bg-surface px-4 py-3.5 text-[0.875rem] font-medium text-ink transition-[transform,border-color,box-shadow] duration-[165ms] hover:-translate-y-px hover:border-line-strong hover:shadow-sm"
+      className="flex h-[76px] flex-col items-center justify-center gap-2 rounded-[var(--kx-radius-md)] border border-line bg-surface text-[0.8125rem] font-medium text-ink-secondary transition-colors hover:bg-surface-nested hover:text-ink"
     >
-      <Icon className="size-4" strokeWidth={1.9} aria-hidden />
+      <Icon className="size-5" strokeWidth={1.8} aria-hidden />
       {label}
     </button>
   );

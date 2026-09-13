@@ -11,6 +11,7 @@ import {
   Inbox,
   LifeBuoy,
   MapPinned,
+  Navigation,
   Route,
   ShieldAlert,
   Sparkles,
@@ -31,8 +32,8 @@ export interface NavItem {
 }
 
 export const PASSENGER_NAV: NavItem[] = [
-  { href: "/passenger", label: "Home", icon: Home },
   { href: "/passenger/rides", label: "Rides", icon: Route, matchPrefix: true },
+  { href: "/passenger/request", label: "Request", icon: MapPinned },
   { href: "/passenger/safety", label: "Safety", icon: LifeBuoy },
   { href: "/passenger/profile", label: "Profile", icon: User },
 ];
@@ -40,6 +41,7 @@ export const PASSENGER_NAV: NavItem[] = [
 export const VOLUNTEER_DRIVER_NAV: NavItem[] = [
   { href: "/driver", label: "Home", icon: Home },
   { href: "/driver/requests", label: "Requests", icon: Inbox },
+  { href: "/driver/trip", label: "Journey", icon: Navigation },
   { href: "/driver/volunteer", label: "Service", icon: Heart, matchPrefix: true },
   { href: "/driver/trips", label: "Trips", icon: Route, matchPrefix: true },
   { href: "/driver/profile", label: "Profile", icon: User },
@@ -48,6 +50,7 @@ export const VOLUNTEER_DRIVER_NAV: NavItem[] = [
 export const PROFESSIONAL_DRIVER_NAV: NavItem[] = [
   { href: "/driver", label: "Home", icon: Home },
   { href: "/driver/requests", label: "Requests", icon: Inbox },
+  { href: "/driver/trip", label: "Journey", icon: Navigation },
   { href: "/driver/trips", label: "Trips", icon: Route, matchPrefix: true },
   {
     href: "/driver/professional/earnings",
@@ -101,7 +104,7 @@ export const MARKETING_NAV = [
   { href: "/#tracks", label: "How it works" },
   { href: "/#safety", label: "Safety" },
   { href: "/#drivers", label: "Drivers" },
-  { href: "/#community", label: "Community" },
+  { href: "/#oversight", label: "Oversight" },
 ] as const;
 
 export const FOOTER_LINKS: { heading: string; items: { href: string; label: string }[] }[] =

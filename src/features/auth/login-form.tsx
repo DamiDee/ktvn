@@ -8,12 +8,15 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   AlertCircle,
   ArrowRight,
-  CarFront,
+  BadgeCheck,
+  Car,
+  ChevronRight,
   HandHeart,
   Mail,
-  ShieldCheck,
   UserRound,
+  type LucideIcon,
 } from "lucide-react";
+import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Input, PasswordInput } from "@/components/ui/input";
 import { userService, ApiError } from "@/services";
@@ -22,44 +25,61 @@ import { useSessionStore } from "@/stores/session-store";
 import { loginSchema, type LoginValues } from "./schemas";
 
 const ROLE_HOME: Record<string, string> = {
-  [UserRole.PASSENGER]: "/passenger",
+  [UserRole.PASSENGER]: "/passenger/rides",
   [UserRole.DRIVER]: "/driver",
   [UserRole.ADMIN]: "/admin",
 };
 
-const DEMO_IDENTITIES = [
+interface DemoAccount {
+  id: string;
+  label: string;
+  detail: string;
+  email: string;
+  icon: LucideIcon;
+}
+
+/**
+ * One tap into each side of the product.
+ *
+ * The two driver accounts are deliberately separate: the tracks look and
+ * behave differently, and the quickest way to see that is to sign in as each.
+ */
+const DEMO_ACCOUNTS: DemoAccount[] = [
   {
-    label: "Passenger",
-    detail: "Request and track rides",
-    identifier: "grace.adeyemi@example.com",
+    id: "passenger",
+    label: "Member",
+    detail: "Request a ride, follow a journey",
+    email: "grace.adeyemi@example.com",
     icon: UserRound,
   },
   {
+    id: "volunteer",
     label: "Volunteer driver",
-    detail: "Serve after gatherings",
-    identifier: "emeka.nwosu@example.com",
+    detail: "Serving — never a fare in sight",
+    email: "emeka.nwosu@example.com",
     icon: HandHeart,
   },
   {
+    id: "professional",
     label: "Professional driver",
-    detail: "Drive and view earnings",
-    identifier: "chinedu.okafor@example.com",
-    icon: CarFront,
+    detail: "Requests, trips and earnings",
+    email: "chinedu.okafor@example.com",
+    icon: Car,
   },
   {
-    label: "Oversight admin",
-    detail: "Monitor the network",
-    identifier: "deborah.ajayi@koinonia.example",
-    icon: ShieldCheck,
+    id: "admin",
+    label: "Oversight",
+    detail: "Live rides, verification, incidents",
+    email: "deborah.ajayi@koinonia.example",
+    icon: BadgeCheck,
   },
-] as const;
+];
 
 export function LoginForm() {
   const router = useRouter();
-  const setRole = useSessionStore((state) => state.setRole);
   const setActiveDriverId = useSessionStore((state) => state.setActiveDriverId);
   const [formError, setFormError] = useState<string | null>(null);
-  const [demoLoading, setDemoLoading] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState<string | null>(null);
 
   const {
     register,
@@ -71,19 +91,19 @@ export function LoginForm() {
   });
 
   async function signIn(identifier: string, password: string) {
+    const user = await userService.signIn({ identifier, password });
+
+    // Remember which driver signed in, so the driver screens show that
+    // person's track rather than a fixed demo account.
+    setActiveDriverId(user.role === UserRole.DRIVER ? user.id : null);
+
+    router.push(ROLE_HOME[user.role] ?? "/passenger/rides");
+  }
+
+  async function onSubmit(values: LoginValues) {
     setFormError(null);
     try {
-      const user = await userService.signIn({
-        identifier,
-        password,
-      });
-
-      // Remember which driver signed in, so the driver screens show that
-      // person's track rather than a fixed demo account.
-      setRole(user.role);
-      setActiveDriverId(user.role === UserRole.DRIVER ? user.id : null);
-
-      router.push(ROLE_HOME[user.role] ?? "/passenger");
+      await signIn(values.identifier, values.password);
     } catch (error) {
       setFormError(
         error instanceof ApiError
@@ -93,62 +113,92 @@ export function LoginForm() {
     }
   }
 
-  async function onSubmit(values: LoginValues) {
-    await signIn(values.identifier, values.password);
+  async function enterPreview(account: DemoAccount) {
+    setFormError(null);
+    setPreviewing(account.id);
+    try {
+      await signIn(account.email, "preview");
+    } catch (error) {
+      setPreviewing(null);
+      setFormError(
+        error instanceof ApiError
+          ? error.message
+          : "We couldn't open that preview. Try again in a moment.",
+      );
+    }
   }
 
-  async function quickSignIn(identifier: string) {
-    setDemoLoading(identifier);
-    await signIn(identifier, "demo-password");
-    setDemoLoading(null);
-  }
+  const busy = isSubmitting || previewing !== null;
 
   return (
     <div>
       <h1 className="type-page-title text-ink">Welcome back.</h1>
       <p className="type-body mt-2.5 text-ink-secondary">
-        Sign in with the email, phone number or member ID on your membership
-        record.
+        Sign in with the email or phone number on your membership record.
       </p>
 
-      <div className="mt-7">
-        <div className="flex items-center gap-3" aria-hidden>
-          <span className="h-px flex-1 bg-line" />
-          <span className="type-micro text-ink-muted">Preview the product as</span>
-          <span className="h-px flex-1 bg-line" />
+      {/* Demo accounts — one click into any side of the product */}
+      <div className="mt-7 rounded-[var(--kx-radius-xl)] border border-line bg-surface-nested p-4 sm:p-5">
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="type-card-title text-ink">Preview the product</p>
+          <span className="type-micro text-ink-muted">Demo build</span>
         </div>
+        <p className="type-meta mt-1 text-ink-secondary">
+          Sign in as one of these in a single click. No password needed.
+        </p>
 
-        <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
-          {DEMO_IDENTITIES.map((identity) => {
-            const Icon = identity.icon;
+        <ul className="mt-4 space-y-2">
+          {DEMO_ACCOUNTS.map((account) => {
+            const Icon = account.icon;
+            const loading = previewing === account.id;
+
             return (
-              <button
-                key={identity.identifier}
-                type="button"
-                disabled={Boolean(demoLoading) || isSubmitting}
-                onClick={() => quickSignIn(identity.identifier)}
-                className="group flex min-h-16 items-center gap-3 rounded-[var(--kx-radius-md)] border border-line bg-surface-nested p-3 text-left transition-[border-color,transform,box-shadow] hover:-translate-y-px hover:border-forest-400 hover:shadow-sm disabled:pointer-events-none disabled:opacity-50"
-              >
-                <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-surface text-forest-700 ring-1 ring-line dark:text-gold-400">
-                  <Icon className="size-4" strokeWidth={1.8} aria-hidden />
-                </span>
-                <span className="min-w-0">
-                  <span className="type-meta block font-semibold text-ink">
-                    {demoLoading === identity.identifier
-                      ? "Opening…"
-                      : identity.label}
+              <li key={account.id}>
+                <button
+                  type="button"
+                  onClick={() => enterPreview(account)}
+                  disabled={busy}
+                  aria-busy={loading}
+                  className={cn(
+                    "flex min-h-[60px] w-full items-center gap-3.5 rounded-[var(--kx-radius-md)] border border-line bg-surface px-4 py-3 text-left",
+                    "transition-[border-color,background-color,transform] duration-[165ms]",
+                    "hover:border-line-strong hover:bg-surface-nested active:scale-[0.995]",
+                    "disabled:cursor-not-allowed disabled:opacity-60",
+                    loading && "border-forest-400 dark:border-gold-500/50",
+                  )}
+                >
+                  <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-nested text-ink-secondary">
+                    <Icon className="size-4.5" strokeWidth={1.8} aria-hidden />
                   </span>
-                  <span className="block truncate text-[0.75rem] text-ink-muted">
-                    {identity.detail}
+
+                  <span className="min-w-0 flex-1">
+                    <span className="type-body block truncate font-medium text-ink">
+                      {account.label}
+                    </span>
+                    <span className="type-meta block truncate text-ink-muted">
+                      {loading ? "Signing you in…" : account.detail}
+                    </span>
                   </span>
-                </span>
-              </button>
+
+                  <ChevronRight
+                    className="size-4 shrink-0 text-ink-muted"
+                    strokeWidth={2}
+                    aria-hidden
+                  />
+                </button>
+              </li>
             );
           })}
-        </div>
+        </ul>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="mt-7 space-y-5" noValidate>
+      <div className="mt-7 flex items-center gap-3">
+        <span className="kx-hairline flex-1" role="presentation" />
+        <span className="type-micro text-ink-muted">or sign in</span>
+        <span className="kx-hairline flex-1" role="presentation" />
+      </div>
+
+      <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-5" noValidate>
         {formError ? (
           <div
             role="alert"
@@ -164,11 +214,12 @@ export function LoginForm() {
         ) : null}
 
         <Input
-          label="Email, phone or member ID"
+          label="Email or phone number"
           placeholder="grace.adeyemi@example.com"
           autoComplete="username"
           icon={Mail}
           error={errors.identifier?.message}
+          required
           {...register("identifier")}
         />
 
@@ -176,6 +227,7 @@ export function LoginForm() {
           label="Password"
           placeholder="Your password"
           error={errors.password?.message}
+          required
           {...register("password")}
         />
 
@@ -197,6 +249,7 @@ export function LoginForm() {
           loading={isSubmitting}
           loadingLabel="Signing you in"
           iconRight={ArrowRight}
+          disabled={busy}
         >
           Sign In
         </Button>
@@ -210,11 +263,6 @@ export function LoginForm() {
         >
           Create account
         </Link>
-      </p>
-
-      <p className="type-meta mt-8 rounded-[var(--kx-radius-md)] border border-line bg-surface-nested px-4 py-3 text-ink-muted">
-        Demo build — choose a role above for one-click access, or enter any
-        listed demo account with any password.
       </p>
     </div>
   );

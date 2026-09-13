@@ -56,20 +56,23 @@ export function OnboardingFlow() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-canvas">
-      <header className="flex items-center justify-between px-5 py-5 sm:px-8">
+      <header className="flex items-center justify-between gap-3 px-5 py-5 sm:px-8">
         <Link
           href="/"
           className="kx-tap inline-flex items-center gap-2.5"
-          aria-label="K-Rides — home"
+          aria-label="Koinonia VTN — home"
         >
           <KoinoniaMark className="size-6 text-forest-800 dark:text-gold-400" />
           <span className="text-[0.9375rem] font-semibold tracking-[-0.02em] text-ink">
-            K-Rides
+            Koinonia
+            <span className="ml-1.5 font-normal text-ink-muted">VTN</span>
           </span>
         </Link>
 
-        <div className="flex items-center gap-3">
-          <ThemeToggle />
+        <div className="flex shrink-0 items-center gap-3">
+          <div className="hidden min-[360px]:block">
+            <ThemeToggle />
+          </div>
           {!isLast ? (
             <Link
               href="/signup"

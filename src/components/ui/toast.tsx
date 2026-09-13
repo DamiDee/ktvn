@@ -86,7 +86,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div
         role="region"
         aria-label="Notifications"
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-[70] flex flex-col items-center gap-2 px-4 pb-24 sm:right-6 sm:bottom-6 sm:left-auto sm:items-end sm:px-0 sm:pb-0"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-[70] flex flex-col items-center gap-2 px-4 pb-[calc(9.5rem+env(safe-area-inset-bottom,0px))] sm:right-6 sm:bottom-6 sm:left-auto sm:items-end sm:px-0 sm:pb-0"
       >
         <AnimatePresence initial={false}>
           {toasts.map((item) => {
@@ -103,7 +103,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 exit="exit"
                 role="status"
                 aria-live="polite"
-                className="pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-[var(--kx-radius-md)] border border-line bg-surface px-4 py-3.5 shadow-lg"
+                /*
+                  The card itself stays click-through. A toast is bottom-
+                  anchored on a phone, which is exactly where the trip screen
+                  keeps SOS and Share Trip — a passing message must never take
+                  a tap meant for those. Only the toast's own controls accept
+                  pointer events.
+                */
+                className="pointer-events-none flex w-full max-w-sm items-start gap-3 rounded-[var(--kx-radius-md)] border border-line bg-surface px-4 py-3.5 shadow-lg"
               >
                 <Icon
                   className={cn("mt-0.5 size-4.5 shrink-0", TONE_ACCENT[tone])}
@@ -127,7 +134,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                         item.action?.onClick();
                         dismiss(item.id);
                       }}
-                      className="mt-2 text-[0.8125rem] font-medium text-forest-700 underline-offset-4 hover:underline dark:text-gold-300"
+                      className="pointer-events-auto mt-2 text-[0.8125rem] font-medium text-forest-700 underline-offset-4 hover:underline dark:text-gold-300"
                     >
                       {item.action.label}
                     </button>
@@ -138,7 +145,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   type="button"
                   onClick={() => dismiss(item.id)}
                   aria-label="Dismiss"
-                  className="-mr-1 rounded-full p-1 text-ink-muted transition-colors hover:bg-[color-mix(in_srgb,var(--kx-text)_7%,transparent)] hover:text-ink"
+                  className="kx-tap pointer-events-auto -mr-1 rounded-full p-1 text-ink-muted transition-colors hover:bg-[color-mix(in_srgb,var(--kx-text)_7%,transparent)] hover:text-ink"
                 >
                   <X className="size-3.5" strokeWidth={2} aria-hidden />
                 </button>

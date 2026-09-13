@@ -4,8 +4,18 @@ import {
   VERIFICATION_QUEUE,
 } from "@/mocks/verification";
 import { DocumentStatus, VerificationStatus } from "@/types/enums";
-import type { DriverVerification, VerificationDocument } from "@/types/models";
-import { MockDelay, request, type RequestOptions } from "./api-client";
+import type {
+  DriverVerification,
+  ReviewComment,
+  VerificationDocument,
+} from "@/types/models";
+import {
+  ApiError,
+  createId,
+  MockDelay,
+  request,
+  type RequestOptions,
+} from "./api-client";
 
 export const verificationService = {
   async getMyVerification(
@@ -70,6 +80,63 @@ export const verificationService = {
       delayMs: MockDelay.slow,
       ...options,
     });
+  },
+
+  /**
+   * Records the reviewer's judgement on one document.
+   *
+   * Flagging always carries a reason — a bare "needs attention" tells the
+   * applicant nothing about what to fix.
+   */
+  async setDocumentStatus(
+    verificationId: string,
+    documentId: string,
+    status: DocumentStatus,
+    note?: string,
+    options?: RequestOptions,
+  ): Promise<VerificationDocument> {
+    return request(
+      () => {
+        const record = VERIFICATION_QUEUE.find(
+          (entry) => entry.id === verificationId,
+        );
+        const document = record?.documents.find((doc) => doc.id === documentId);
+
+        if (!document) {
+          throw new ApiError(
+            "We couldn't find that document.",
+            "NOT_FOUND",
+            false,
+          );
+        }
+
+        return { ...document, status, note: note ?? document.note };
+      },
+      { delayMs: MockDelay.fast, ...options },
+    );
+  },
+
+  /** Adds a note to the review thread, internal or sent to the applicant. */
+  async addComment(
+    verificationId: string,
+    comment: {
+      body: string;
+      visibility: ReviewComment["visibility"];
+      documentId?: string;
+    },
+    options?: RequestOptions,
+  ): Promise<ReviewComment> {
+    return request(
+      () => ({
+        id: createId("vc"),
+        author: "You",
+        body: comment.body,
+        at: new Date().toISOString(),
+        visibility: comment.visibility,
+        documentId: comment.documentId,
+      }),
+      { delayMs: MockDelay.fast, ...options },
+    );
   },
 
   async decide(

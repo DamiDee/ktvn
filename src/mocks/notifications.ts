@@ -6,7 +6,7 @@ export const NOTIFICATIONS: Notification[] = [
     id: "ntf-1",
     category: NotificationCategory.SERVICE,
     title: "Confirm your availability",
-    body: "Are you available to drive after tonight's midweek service?",
+    body: "Are you available to drive this evening?",
     createdAt: "2026-09-09T16:05:00.000Z",
     read: false,
     priority: "HIGH",

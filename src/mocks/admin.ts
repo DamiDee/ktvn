@@ -1,6 +1,8 @@
 import { buildRoute } from "@/lib/geo";
 import {
   DriverTrack,
+  MembershipStatus,
+  RidePassengerState,
   IncidentCategory,
   IncidentSeverity,
   IncidentStatus,
@@ -11,6 +13,7 @@ import {
 } from "@/types/enums";
 import type {
   AdminMetric,
+  LiveRidePassenger,
   Incident,
   LiveRideSummary,
   QualityFlag,
@@ -107,16 +110,49 @@ export const RIDE_VOLUME_SERIES = [
 
 /* --- Live rides ---------------------------------------------------------- */
 
+/**
+ * Live journeys, as oversight reads them: who is driving, who is on board and
+ * where each of them is going. Phone numbers are withheld until an incident
+ * is opened, which is why they are absent here.
+ */
+function livePassenger(
+  index: number,
+  dropoffLabel: string,
+  state: RidePassengerState = RidePassengerState.PICKED_UP,
+): LiveRidePassenger {
+  const person = PASSENGERS[index];
+  return {
+    id: `lp-${person.id}`,
+    name: person.fullName,
+    avatarUrl: person.avatarUrl,
+    verified: person.membershipStatus === MembershipStatus.VERIFIED,
+    rating: person.rating,
+    dropoffLabel,
+    state,
+  };
+}
+
 export const LIVE_RIDES: LiveRideSummary[] = [
   {
     id: "ride-2291",
     reference: "#2291",
+    driverId: DRIVERS[1].id,
     driverName: DRIVERS[1].fullName,
     driverAvatarUrl: DRIVERS[1].avatarUrl,
+    driverRating: DRIVERS[1].rating,
+    driverTrips: DRIVERS[1].totalTrips,
+    vehicle: DRIVERS[1].vehicle,
     track: DriverTrack.VOLUNTEER,
     rideType: RideType.SHARED,
+    originLabel: LOCATIONS.koinoniaCentre.label,
+    destinationLabel: LOCATIONS.gwarinpa.label,
     passengerCount: 2,
+    passengers: [
+      livePassenger(0, LOCATIONS.gwarinpa.label),
+      livePassenger(1, LOCATIONS.lifeCamp.label),
+    ],
     status: RideStatus.IN_PROGRESS,
+    startedAt: "2026-09-09T19:30:00.000Z",
     etaMinutes: 12,
     sosActive: true,
     position: { lat: 9.0402, lng: 7.3932 },
@@ -128,11 +164,20 @@ export const LIVE_RIDES: LiveRideSummary[] = [
   {
     id: "ride-2292",
     reference: "#2292",
+    driverId: DRIVERS[0].id,
     driverName: DRIVERS[0].fullName,
     driverAvatarUrl: DRIVERS[0].avatarUrl,
+    driverRating: DRIVERS[0].rating,
+    driverTrips: DRIVERS[0].totalTrips,
+    vehicle: DRIVERS[0].vehicle,
     track: DriverTrack.PROFESSIONAL,
     rideType: RideType.PRIVATE,
+    originLabel: LOCATIONS.koinoniaCentre.label,
+    destinationLabel: LOCATIONS.wuseII.label,
     passengerCount: 1,
+    passengers: [
+      livePassenger(2, LOCATIONS.wuseII.label, RidePassengerState.AWAITING_PICKUP),
+    ],
     status: RideStatus.DRIVER_APPROACHING,
     etaMinutes: 4,
     sosActive: false,
@@ -145,12 +190,24 @@ export const LIVE_RIDES: LiveRideSummary[] = [
   {
     id: "ride-2293",
     reference: "#2293",
+    driverId: DRIVERS[3].id,
     driverName: DRIVERS[3].fullName,
     driverAvatarUrl: DRIVERS[3].avatarUrl,
+    driverRating: DRIVERS[3].rating,
+    driverTrips: DRIVERS[3].totalTrips,
+    vehicle: DRIVERS[3].vehicle,
     track: DriverTrack.PROFESSIONAL,
     rideType: RideType.SHARED,
+    originLabel: LOCATIONS.koinoniaCentre.label,
+    destinationLabel: LOCATIONS.garki.label,
     passengerCount: 3,
+    passengers: [
+      livePassenger(0, LOCATIONS.garki.label),
+      livePassenger(1, LOCATIONS.wuseII.label),
+      livePassenger(2, LOCATIONS.garki.label, RidePassengerState.AWAITING_PICKUP),
+    ],
     status: RideStatus.IN_PROGRESS,
+    startedAt: "2026-09-09T20:12:00.000Z",
     etaMinutes: 18,
     sosActive: false,
     position: { lat: 9.0512, lng: 7.4402 },
@@ -162,11 +219,20 @@ export const LIVE_RIDES: LiveRideSummary[] = [
   {
     id: "ride-2294",
     reference: "#2294",
+    driverId: DRIVERS[2].id,
     driverName: DRIVERS[2].fullName,
     driverAvatarUrl: DRIVERS[2].avatarUrl,
+    driverRating: DRIVERS[2].rating,
+    driverTrips: DRIVERS[2].totalTrips,
+    vehicle: DRIVERS[2].vehicle,
     track: DriverTrack.VOLUNTEER,
     rideType: RideType.SHARED,
+    originLabel: LOCATIONS.koinoniaCentre.label,
+    destinationLabel: LOCATIONS.lugbe.label,
     passengerCount: 1,
+    passengers: [
+      livePassenger(1, LOCATIONS.lugbe.label, RidePassengerState.AWAITING_PICKUP),
+    ],
     status: RideStatus.SEARCHING,
     etaMinutes: 0,
     sosActive: false,
@@ -176,11 +242,20 @@ export const LIVE_RIDES: LiveRideSummary[] = [
   {
     id: "ride-2295",
     reference: "#2295",
+    driverId: DRIVERS[4].id,
     driverName: DRIVERS[4].fullName,
     driverAvatarUrl: DRIVERS[4].avatarUrl,
+    driverRating: DRIVERS[4].rating,
+    driverTrips: DRIVERS[4].totalTrips,
+    vehicle: DRIVERS[4].vehicle,
     track: DriverTrack.VOLUNTEER,
     rideType: RideType.PRIVATE,
+    originLabel: LOCATIONS.jabi.label,
+    destinationLabel: LOCATIONS.kubwa.label,
     passengerCount: 1,
+    passengers: [
+      livePassenger(0, LOCATIONS.kubwa.label, RidePassengerState.AWAITING_PICKUP),
+    ],
     status: RideStatus.DRIVER_ARRIVED,
     etaMinutes: 0,
     sosActive: false,

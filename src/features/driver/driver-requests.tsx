@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Inbox, MapPin, Radar } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -25,6 +26,7 @@ import { isDriverOnline } from "@/lib/state-machines";
  * screen serves both without a money-related branch here.
  */
 export function DriverRequests() {
+  const router = useRouter();
   const { data: driver, isLoading: loadingDriver } = useCurrentDriver();
 
   const {
@@ -98,6 +100,16 @@ export function DriverRequests() {
             icon={Inbox}
             title="No requests right now."
             description="When a member is heading your way, their request appears here with the detour it would add to your route."
+            action={
+              <ButtonLink
+                href="/driver/waiting"
+                variant="secondary"
+                size="md"
+                icon={Radar}
+              >
+                Watch your route
+              </ButtonLink>
+            }
           />
         </Card>
       ) : (
@@ -113,7 +125,15 @@ export function DriverRequests() {
           />
           <div className="mt-5 space-y-3">
             {requests.map((request) => (
-              <RequestCard key={request.id} request={request} />
+              <RequestCard
+                key={request.id}
+                request={request}
+                onAccept={() => {
+                  // The card animates its accepted state first; the journey
+                  // opens a beat later so the confirmation is seen.
+                  window.setTimeout(() => router.push("/driver/trip"), 900);
+                }}
+              />
             ))}
           </div>
         </Card>

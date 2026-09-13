@@ -47,7 +47,7 @@ export function PassengerProfile() {
       <div className="space-y-5">
         {/* Identity */}
         <Card radius="xl">
-          <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+          <div className="flex min-w-0 flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
             <Avatar
               name={passenger.fullName}
               src={passenger.avatarUrl}
@@ -55,13 +55,13 @@ export function PassengerProfile() {
               verified={verified}
             />
 
-            <div className="min-w-0 flex-1">
-              <h2 className="type-section-title text-ink">
+            <div className="w-full min-w-0 flex-1">
+              <h2 className="type-section-title truncate text-ink">
                 {passenger.fullName}
               </h2>
-              <p className="type-meta mt-1 text-ink-muted">
+              <p className="type-meta mt-1 truncate text-ink-muted">
                 Member since {new Date(passenger.joinedAt).getFullYear()} ·{" "}
-                <span className="type-numeric">{passenger.memberId}</span>
+                {passenger.email}
               </p>
               <div className="mt-3 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
                 <VerifiedBadge label="Verified Member" size="md" />
@@ -150,7 +150,7 @@ export function PassengerProfile() {
               href="/passenger/safety"
               icon={MapPin}
               label="Location permissions"
-              detail="Used for your pickup point and live tracking"
+              detail="Used to find a driver near you during a journey"
             />
           </div>
         </Card>

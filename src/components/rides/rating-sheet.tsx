@@ -170,11 +170,12 @@ export function RatingSheet({
               </div>
 
               <Textarea
-                label="Anything else? (optional)"
+                label="Anything else?"
                 placeholder="Your comments go to the oversight team."
                 value={comment}
                 onChange={(event) => setComment(event.target.value)}
                 rows={3}
+                required
               />
             </motion.div>
           ) : null}
@@ -184,7 +185,7 @@ export function RatingSheet({
               variant="primary"
               size="lg"
               className="sm:flex-1"
-              disabled={stars === 0}
+              disabled={stars === 0 || !comment.trim()}
               loading={submitting}
               loadingLabel="Submitting"
               onClick={submit}

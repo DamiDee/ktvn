@@ -13,11 +13,12 @@ export default function NotFound() {
       <Link
         href="/"
         className="kx-tap mb-10 inline-flex items-center gap-2.5"
-        aria-label="K-Rides — home"
+        aria-label="Koinonia VTN — home"
       >
         <KoinoniaMark className="size-6 text-forest-800 dark:text-gold-400" />
         <span className="text-[0.9375rem] font-semibold tracking-[-0.02em] text-ink">
-          K-Rides
+          Koinonia
+          <span className="ml-1.5 font-normal text-ink-muted">VTN</span>
         </span>
       </Link>
 
@@ -35,7 +36,7 @@ export default function NotFound() {
         <ButtonLink href="/" variant="primary" size="lg" pill icon={ArrowLeft}>
           Back to home
         </ButtonLink>
-        <ButtonLink href="/passenger" variant="secondary" size="lg" pill>
+        <ButtonLink href="/passenger/rides" variant="secondary" size="lg" pill>
           Go to your dashboard
         </ButtonLink>
       </div>

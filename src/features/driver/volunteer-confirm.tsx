@@ -23,7 +23,7 @@ import type { RideLocation } from "@/types/models";
 type Seats = "1" | "2" | "3";
 
 /**
- * Volunteer availability for the next service.
+ * Volunteer availability for the evening ahead.
  *
  * Everything here is about the offer being made — destination, seats, timing.
  * No fare, no earnings, no currency: this is Track A.
@@ -59,7 +59,7 @@ export function VolunteerConfirm() {
     <div className="mx-auto max-w-3xl">
       <PageHeader
         eyebrow="Volunteer service"
-        title="Are you available after tonight's service?"
+        title="Are you available to drive this evening?"
         description="Let members know where you're heading and how many seats you can offer."
         action={
           confirmed ? (
@@ -136,7 +136,7 @@ export function VolunteerConfirm() {
               value={destination}
               onSelect={setDestination}
               onClear={() => setDestination(null)}
-              placeholder="Your destination after service"
+              placeholder="Where you're heading"
             />
           </div>
         </Card>
@@ -235,12 +235,12 @@ export function VolunteerConfirm() {
           setDeclining(false);
           toast({
             title: "Marked unavailable",
-            description: "You won't receive requests for tonight's service.",
+            description: "You won't receive requests this evening.",
           });
           router.push("/driver");
         }}
         title="Not available tonight?"
-        description="Members won't be matched to you for this service. You can change this any time before it starts."
+        description="Members won't be matched to you this evening. You can change this any time."
         confirmLabel="I'm not available"
         cancelLabel="Go back"
       />

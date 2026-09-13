@@ -11,10 +11,7 @@ export const identitySchema = z.object({
       (value) => value.trim().split(/\s+/).length >= 2,
       "Enter your first and last name",
     ),
-  memberId: z
-    .string()
-    .min(1, "Enter your membership identifier")
-    .regex(/^KOI-\d{4}-\d{6}$/i, "Member IDs look like KOI-2019-004821"),
+  email: z.string().min(1, "Enter your email").email("Enter a valid email"),
   phone: z
     .string()
     .min(1, "Enter your phone number")

@@ -213,7 +213,7 @@ export function VolunteerDashboard({ driver }: { driver: Driver }) {
                     className="rounded-[var(--kx-radius-md)] bg-white/[0.06] p-3"
                   >
                     <Icon className="size-4 text-white/45" strokeWidth={1.7} aria-hidden />
-                    <p className="type-numeric mt-2.5 text-[1.375rem] leading-none font-semibold text-white">
+                    <p className="type-numeric mt-2.5 text-[1.125rem] leading-none font-semibold text-white">
                       <CountUp value={stat.value} />
                     </p>
                     <p className="type-micro mt-1.5 text-white/45">{stat.label}</p>

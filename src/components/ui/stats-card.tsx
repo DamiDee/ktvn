@@ -124,7 +124,7 @@ export function StatsCard({
         ) : null}
       </div>
 
-      <p className="mt-2.5 text-[1.75rem] leading-none font-semibold tracking-[-0.03em] text-ink">
+      <p className="kx-stat-value mt-2.5 text-[1.75rem] leading-none font-semibold tracking-[-0.03em] text-ink">
         {numericValue !== undefined ? (
           <CountUp
             value={numericValue}

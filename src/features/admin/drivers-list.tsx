@@ -110,8 +110,8 @@ export function DriversList() {
             <span className="type-body block truncate font-medium text-ink">
               {driver.fullName}
             </span>
-            <span className="type-numeric type-meta block text-ink-muted">
-              {driver.memberId}
+            <span className="type-meta block truncate text-ink-muted">
+              {driver.email}
             </span>
           </span>
         </div>

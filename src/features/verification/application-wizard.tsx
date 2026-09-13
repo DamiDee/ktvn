@@ -12,6 +12,7 @@ import {
   ChevronDown,
   HandHeart,
   IdCard,
+  Mail,
   MapPin,
   Phone,
   ShieldCheck,
@@ -214,6 +215,12 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
   const documents = useApplicationStore((state) => state.documents);
   const setDocument = useApplicationStore((state) => state.setDocument);
 
+  const [showMissing, setShowMissing] = useState(false);
+
+  const missingUploads =
+    !documents[DocumentType.GOVERNMENT_ID] ||
+    !documents[DocumentType.PROFILE_PHOTO];
+
   const {
     register,
     handleSubmit,
@@ -222,7 +229,7 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
     resolver: zodResolver(identitySchema),
     defaultValues: {
       fullName: identity.fullName ?? "",
-      memberId: identity.memberId ?? "",
+      email: identity.email ?? "",
       phone: identity.phone ?? "",
       address: identity.address ?? "",
     },
@@ -231,6 +238,12 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
   return (
     <form
       onSubmit={handleSubmit((values) => {
+        // The photographs are part of this step, so the step isn't finished
+        // until they're both here.
+        if (missingUploads) {
+          setShowMissing(true);
+          return;
+        }
         setIdentity(values);
         onNext();
       })}
@@ -251,12 +264,15 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
           {...register("fullName")}
         />
         <Input
-          label="Member ID"
-          placeholder="KOI-2017-001188"
-          icon={IdCard}
-          error={errors.memberId?.message}
+          label="Email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          placeholder="emeka.nwosu@example.com"
+          icon={Mail}
+          error={errors.email?.message}
           required
-          {...register("memberId")}
+          {...register("email")}
         />
         <div className="grid gap-5 sm:grid-cols-2">
           <Input
@@ -286,6 +302,9 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
             document={documents[DocumentType.GOVERNMENT_ID]}
             onUploaded={(doc) => setDocument(DocumentType.GOVERNMENT_ID, doc)}
             onRemoved={() => setDocument(DocumentType.GOVERNMENT_ID, null)}
+            missingError={
+              showMissing ? "Upload your government ID to continue" : undefined
+            }
           />
           <DocumentUpload
             type={DocumentType.PROFILE_PHOTO}
@@ -294,6 +313,9 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
             document={documents[DocumentType.PROFILE_PHOTO]}
             onUploaded={(doc) => setDocument(DocumentType.PROFILE_PHOTO, doc)}
             onRemoved={() => setDocument(DocumentType.PROFILE_PHOTO, null)}
+            missingError={
+              showMissing ? "Upload a profile photo to continue" : undefined
+            }
           />
         </div>
       </div>
@@ -317,6 +339,9 @@ function LicenceStep({
   const documents = useApplicationStore((state) => state.documents);
   const setDocument = useApplicationStore((state) => state.setDocument);
 
+  const [showMissing, setShowMissing] = useState(false);
+  const missingLicence = !documents[DocumentType.DRIVERS_LICENCE];
+
   const {
     register,
     handleSubmit,
@@ -333,6 +358,10 @@ function LicenceStep({
   return (
     <form
       onSubmit={handleSubmit((values) => {
+        if (missingLicence) {
+          setShowMissing(true);
+          return;
+        }
         setLicence(values);
         onNext();
       })}
@@ -377,6 +406,11 @@ function LicenceStep({
           document={documents[DocumentType.DRIVERS_LICENCE]}
           onUploaded={(doc) => setDocument(DocumentType.DRIVERS_LICENCE, doc)}
           onRemoved={() => setDocument(DocumentType.DRIVERS_LICENCE, null)}
+          missingError={
+            showMissing
+              ? "Upload a photo of your licence to continue"
+              : undefined
+          }
         />
       </div>
 
@@ -552,6 +586,7 @@ function DocumentsStep({
   const documents = useApplicationStore((state) => state.documents);
   const setDocument = useApplicationStore((state) => state.setDocument);
 
+  const [showMissing, setShowMissing] = useState(false);
   const missing = VEHICLE_DOCUMENTS.filter((doc) => !documents[doc.type]);
 
   return (
@@ -571,18 +606,38 @@ function DocumentsStep({
             document={documents[required.type]}
             onUploaded={(doc) => setDocument(required.type, doc)}
             onRemoved={() => setDocument(required.type, null)}
+            missingError={
+              showMissing ? `Upload your ${required.label.toLowerCase()}` : undefined
+            }
           />
         ))}
       </div>
 
       {missing.length > 0 ? (
-        <p className="type-meta mt-4 text-ink-muted">
-          {missing.length} of {VEHICLE_DOCUMENTS.length} still to upload. You
-          can continue and add them before submitting.
+        <p
+          className={cn(
+            "type-meta mt-4",
+            showMissing
+              ? "text-danger-600 dark:text-red-300"
+              : "text-ink-muted",
+          )}
+        >
+          {missing.length} of {VEHICLE_DOCUMENTS.length} still to upload. All
+          three are required before you can submit.
         </p>
       ) : null}
 
-      <StepActions onBack={onBack} type="button" onNext={onNext} />
+      <StepActions
+        onBack={onBack}
+        type="button"
+        onNext={() => {
+          if (missing.length > 0) {
+            setShowMissing(true);
+            return;
+          }
+          onNext();
+        }}
+      />
     </div>
   );
 }
@@ -689,7 +744,7 @@ function ReviewStep({
           onEdit={() => onEditStep(0)}
           rows={[
             ["Full name", identity.fullName],
-            ["Member ID", identity.memberId],
+            ["Email", identity.email],
             ["Phone", identity.phone],
             ["Address", identity.address],
           ]}
