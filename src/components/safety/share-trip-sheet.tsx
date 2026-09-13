@@ -56,7 +56,7 @@ export function ShareTripSheet({
   const [copied, setCopied] = useState(false);
 
   const lines = [
-    `I'm on a Koinonia VTN journey (${details.reference}).`,
+    `I'm on a K-Rides journey (${details.reference}).`,
     `Driver: ${details.driverName}`,
     `Vehicle: ${details.vehicle} · ${formatPlate(details.plateNumber)}`,
     `Track: ${TRACK_LABEL[details.track]}`,

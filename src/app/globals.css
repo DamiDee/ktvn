@@ -593,6 +593,26 @@
     );
     background-size: 22px 22px;
   }
+
+  /* Organic brand language: slow, low-contrast forms that stay behind content. */
+  .kx-liquid-drop {
+    border-radius: 72% 28% 64% 36% / 76% 38% 62% 24%;
+    transform: rotate(18deg);
+    filter: saturate(1.03);
+    will-change: transform, border-radius;
+  }
+
+  .kx-liquid-drop-a {
+    animation: kx-liquid-drift-a 22s var(--kx-ease-in-out) infinite alternate;
+  }
+
+  .kx-liquid-drop-b {
+    animation: kx-liquid-drift-b 26s var(--kx-ease-in-out) infinite alternate;
+  }
+
+  .kx-liquid-drop-c {
+    animation: kx-liquid-drift-c 19s var(--kx-ease-in-out) infinite alternate;
+  }
 }
 
 /* ============================================================================
@@ -641,6 +661,37 @@
 @keyframes kx-marquee-dash {
   to {
     stroke-dashoffset: -32;
+  }
+}
+
+@keyframes kx-liquid-drift-a {
+  from {
+    transform: translate3d(0, 0, 0) rotate(16deg) scale(1);
+    border-radius: 72% 28% 64% 36% / 76% 38% 62% 24%;
+  }
+  to {
+    transform: translate3d(-12px, 16px, 0) rotate(22deg) scale(1.035);
+    border-radius: 62% 38% 70% 30% / 68% 46% 54% 32%;
+  }
+}
+
+@keyframes kx-liquid-drift-b {
+  from {
+    transform: translate3d(0, 0, 0) rotate(-18deg) scale(1);
+    border-radius: 64% 36% 52% 48% / 72% 42% 58% 28%;
+  }
+  to {
+    transform: translate3d(16px, -12px, 0) rotate(-12deg) scale(0.975);
+    border-radius: 52% 48% 64% 36% / 60% 58% 42% 40%;
+  }
+}
+
+@keyframes kx-liquid-drift-c {
+  from {
+    transform: translate3d(0, 0, 0) rotate(28deg) scale(0.96);
+  }
+  to {
+    transform: translate3d(-8px, 12px, 0) rotate(36deg) scale(1.04);
   }
 }
 
