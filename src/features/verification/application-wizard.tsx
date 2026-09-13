@@ -294,7 +294,7 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
           />
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2">
           <DocumentUpload
             type={DocumentType.GOVERNMENT_ID}
             label="Government ID"

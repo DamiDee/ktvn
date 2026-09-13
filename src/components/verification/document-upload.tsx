@@ -238,12 +238,12 @@ export function DocumentUpload({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               transition={transitions.card}
-              className="px-5 py-4"
+              className="px-4 py-4 sm:px-5"
             >
-              <div className="flex items-center gap-3.5">
+              <div className="flex flex-wrap items-center gap-3 sm:gap-3.5">
                 <span
                   className={cn(
-                    "relative inline-flex size-11 shrink-0 items-center justify-center rounded-[var(--kx-radius-sm)]",
+                    "relative inline-flex size-10 shrink-0 items-center justify-center rounded-[var(--kx-radius-sm)] sm:size-11",
                     status === DocumentStatus.VERIFIED
                       ? "bg-success-50 text-success-700 dark:bg-success-500/14 dark:text-emerald-300"
                       : needsAttention
@@ -262,7 +262,7 @@ export function DocumentUpload({
                   )}
                 </span>
 
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 basis-[120px]">
                   <p className="type-body truncate font-medium text-ink">
                     {label}
                   </p>
