@@ -32,14 +32,19 @@ import {
 } from "@/constants/status-presentation";
 import { DriverTrack, VerificationStatus } from "@/types/enums";
 import { formatNaira } from "@/lib/format";
+import { useSessionStore } from "@/stores/session-store";
 
 /** The driver's own profile: identity, vehicle, verification and settings. */
 export function DriverProfile() {
   const { data: driver, isLoading } = useCurrentDriver();
+  const selectedTrack = useSessionStore((state) => state.driverTrack);
 
   if (isLoading || !driver) return <PageLoader message="Loading your profile" />;
 
-  const isVolunteer = driver.track === DriverTrack.VOLUNTEER;
+  const activeTrack = driver.eligibleTracks?.includes(selectedTrack)
+    ? selectedTrack
+    : driver.track;
+  const isVolunteer = activeTrack === DriverTrack.VOLUNTEER;
   const approved = driver.verificationStatus === VerificationStatus.APPROVED;
 
   return (
@@ -72,9 +77,11 @@ export function DriverProfile() {
                   tone={isVolunteer ? "gold" : "lilac"}
                   size="md"
                 />
-                <StatusChip tone={TRACK_TONE[driver.track]} size="md">
-                  {TRACK_LABEL[driver.track]}
-                </StatusChip>
+                {(driver.eligibleTracks ?? [driver.track]).map((track) => (
+                  <StatusChip key={track} tone={TRACK_TONE[track]} size="md">
+                    {TRACK_LABEL[track]}
+                  </StatusChip>
+                ))}
               </div>
             </div>
           </div>
@@ -177,19 +184,15 @@ export function DriverProfile() {
         {/* Track */}
         <Card radius="xl">
           <CardHeader
-            title="Driver track"
-            description="Switching tracks needs approval — it isn't a toggle."
+            title="Approved driving tracks"
+            description="Choose the active track each time you go online."
           />
           <div className="mt-5">
             <ProfileLink
-              href="/driver/track"
+              href="/driver"
               icon={isVolunteer ? HandHeart : Wallet}
-              label={`Currently ${TRACK_LABEL[driver.track].toLowerCase()}`}
-              detail={
-                driver.trackSwitch
-                  ? "A switch request is under review"
-                  : `Request a switch to ${isVolunteer ? "professional" : "volunteer"}`
-              }
+              label={`Active selection: ${TRACK_LABEL[activeTrack].toLowerCase()}`}
+              detail="Go offline to choose another approved track"
             />
           </div>
         </Card>

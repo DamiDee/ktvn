@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   Car,
+  CalendarClock,
   ClipboardCheck,
   Clock,
   Flag,
@@ -19,7 +20,8 @@ import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { StatusBadge, StatusChip, VerifiedBadge } from "@/components/ui/badge";
 import { CountUp } from "@/components/ui/stats-card";
-import { ConfirmDialog } from "@/components/ui/modal";
+import { ConfirmDialog, Modal } from "@/components/ui/modal";
+import { Input, Textarea } from "@/components/ui/input";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { PageLoader } from "@/components/ui/route-loader";
@@ -35,9 +37,15 @@ import {
   TRACK_TONE,
   VERIFICATION_PRESENTATION,
 } from "@/constants/status-presentation";
-import { DriverTrack, VerificationStatus } from "@/types/enums";
+import {
+  DriverAccountStatus,
+  DriverTrack,
+  InspectionStatus,
+  VerificationStatus,
+} from "@/types/enums";
 import {
   formatDate,
+  formatDateTime,
   formatNaira,
   formatPlate,
   pluralise,
@@ -52,8 +60,14 @@ import {
  */
 export function DriverDetail({ driverId }: { driverId: string }) {
   const { toast } = useToast();
-  const [suspending, setSuspending] = useState(false);
-  const [suspended, setSuspended] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
+  const [accountOverride, setAccountOverride] = useState<DriverAccountStatus | null>(null);
+  const [flagOverride, setFlagOverride] = useState<boolean | null>(null);
+  const [inspectionOpen, setInspectionOpen] = useState(false);
+  const [inspectionDate, setInspectionDate] = useState("");
+  const [inspectionLocation, setInspectionLocation] = useState("Koinonia Centre vehicle bay");
+  const [inspectionNote, setInspectionNote] = useState("");
+  const [savingInspection, setSavingInspection] = useState(false);
 
   const { data: driver, isLoading, isError, refetch } = useQuery({
     queryKey: queryKeys.admin.driver(driverId),
@@ -83,8 +97,11 @@ export function DriverDetail({ driverId }: { driverId: string }) {
   }
 
   const volunteer = driver.track === DriverTrack.VOLUNTEER;
+  const accountStatus = accountOverride ?? driver.accountStatus ?? DriverAccountStatus.ACTIVE;
+  const deactivated = accountStatus === DriverAccountStatus.DEACTIVATED;
+  const flagged = flagOverride ?? driver.flagged ?? false;
   const approved =
-    driver.verificationStatus === VerificationStatus.APPROVED && !suspended;
+    driver.verificationStatus === VerificationStatus.APPROVED && !deactivated;
   const recentTrips = (trips ?? []).slice(0, 4);
 
   return (
@@ -101,9 +118,9 @@ export function DriverDetail({ driverId }: { driverId: string }) {
         eyebrow="Driver record"
         title={driver.fullName}
         action={
-          suspended ? (
+          deactivated ? (
             <StatusChip tone="danger" size="md">
-              Suspended
+              Deactivated
             </StatusChip>
           ) : (
             <StatusBadge
@@ -142,7 +159,7 @@ export function DriverDetail({ driverId }: { driverId: string }) {
                     {TRACK_LABEL[driver.track]}
                   </StatusChip>
                   {approved ? <VerifiedBadge label="Verified driver" /> : null}
-                  {driver.flagged ? (
+                  {flagged ? (
                     <StatusChip tone="pending" icon={Flag}>
                       Flagged for review
                     </StatusChip>
@@ -264,6 +281,34 @@ export function DriverDetail({ driverId }: { driverId: string }) {
                 </p>
               </div>
             </NestedTile>
+
+            <NestedTile className="mt-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="type-micro text-ink-muted">3-month inspection</p>
+                  <p className="type-meta mt-1 font-semibold text-ink">
+                    {driver.inspection?.scheduledAt
+                      ? formatDateTime(driver.inspection.scheduledAt)
+                      : driver.inspection?.nextDueAt
+                        ? `Due ${formatDate(driver.inspection.nextDueAt)}`
+                        : "No appointment scheduled"}
+                  </p>
+                  {driver.inspection?.location ? (
+                    <p className="type-meta mt-1 text-ink-muted">
+                      {driver.inspection.location}
+                    </p>
+                  ) : null}
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={CalendarClock}
+                  onClick={() => setInspectionOpen(true)}
+                >
+                  Schedule
+                </Button>
+              </div>
+            </NestedTile>
           </Card>
 
           {/* Recent trips */}
@@ -337,6 +382,20 @@ export function DriverDetail({ driverId }: { driverId: string }) {
                 />
               </NestedTile>
 
+              <NestedTile>
+                <DataPoint
+                  label="Identity"
+                  value={driver.ninVerified ? "NIN verified" : "NIN needs review"}
+                  hint={
+                    driver.affiliation?.isKoinoniaWorker
+                      ? `Koinonia worker · ${driver.affiliation.department}`
+                      : driver.affiliation?.guarantor
+                        ? `Guarantor: ${driver.affiliation.guarantor.name}`
+                        : "Community eligibility not recorded"
+                  }
+                />
+              </NestedTile>
+
               {driver.trackSwitch ? (
                 <NestedTile className="flex items-start gap-3">
                   <ClipboardCheck
@@ -362,14 +421,21 @@ export function DriverDetail({ driverId }: { driverId: string }) {
                 size="lg"
                 icon={Flag}
                 className="w-full"
-                onClick={() =>
+                disabled={flagged || deactivated}
+                onClick={async () => {
+                  await userService.updateDriverAccountStatus(
+                    driver.id,
+                    DriverAccountStatus.FLAGGED,
+                  );
+                  setAccountOverride(DriverAccountStatus.FLAGGED);
+                  setFlagOverride(true);
                   toast({
                     title: "Flagged for quality review",
                     description: "This driver now appears on the quality board.",
-                  })
-                }
+                  });
+                }}
               >
-                Flag for review
+                {flagged ? "Flagged for review" : "Flag for review"}
               </Button>
 
               <Button
@@ -377,38 +443,112 @@ export function DriverDetail({ driverId }: { driverId: string }) {
                 size="lg"
                 icon={AlertTriangle}
                 className="w-full text-danger-600 dark:text-red-300"
-                disabled={suspended}
-                onClick={() => setSuspending(true)}
+                disabled={deactivated}
+                onClick={() => setDeactivating(true)}
               >
-                {suspended ? "Suspended" : "Suspend driver"}
+                {deactivated ? "Deactivated" : "Deactivate driver"}
               </Button>
             </div>
 
             <p className="type-meta mt-5 text-ink-muted">
-              Suspension stops new ride offers immediately. Any journey already
-              in progress is monitored to its end.
+              Deactivation stops new ride offers immediately. Missing a vehicle
+              inspection is recorded as a deactivation reason and shown to the driver.
             </p>
           </Card>
         </div>
       </div>
 
       <ConfirmDialog
-        open={suspending}
-        onClose={() => setSuspending(false)}
-        onConfirm={() => {
-          setSuspended(true);
-          setSuspending(false);
+        open={deactivating}
+        onClose={() => setDeactivating(false)}
+        onConfirm={async () => {
+          const reason =
+            driver.inspection?.status === InspectionStatus.MISSED ||
+            (driver.inspection?.nextDueAt && new Date(driver.inspection.nextDueAt) < new Date())
+              ? "Your account was deactivated because you missed the scheduled vehicle inspection."
+              : "Your driving access was deactivated by the oversight team pending review.";
+          await userService.updateDriverAccountStatus(
+            driver.id,
+            DriverAccountStatus.DEACTIVATED,
+            reason,
+          );
+          setAccountOverride(DriverAccountStatus.DEACTIVATED);
+          setDeactivating(false);
           toast({
-            title: `${driver.fullName} suspended`,
+            title: `${driver.fullName} deactivated`,
             description: "They will receive no further ride offers.",
             tone: "danger",
           });
         }}
-        title="Suspend this driver?"
-        description="They stop receiving ride offers straight away. You can lift a suspension later from this record."
-        confirmLabel="Suspend"
+        title="Deactivate this driver?"
+        description="They stop receiving ride offers straight away and will see the reason on their dashboard."
+        confirmLabel="Deactivate"
         tone="danger"
       />
+
+      <Modal
+        open={inspectionOpen}
+        onClose={() => setInspectionOpen(false)}
+        title="Schedule vehicle inspection"
+        description={`Create an appointment for ${driver.fullName}. The driver will see it on their dashboard.`}
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setInspectionOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              loading={savingInspection}
+              loadingLabel="Scheduling"
+              disabled={!inspectionDate || !inspectionLocation.trim()}
+              onClick={async () => {
+                setSavingInspection(true);
+                try {
+                  await userService.scheduleDriverInspection(driver.id, {
+                    scheduledAt: new Date(inspectionDate).toISOString(),
+                    location: inspectionLocation,
+                    note: inspectionNote || undefined,
+                  });
+                  await refetch();
+                  setInspectionOpen(false);
+                  toast({
+                    title: "Inspection scheduled",
+                    description: "The appointment is now visible to the driver.",
+                    tone: "success",
+                  });
+                } finally {
+                  setSavingInspection(false);
+                }
+              }}
+            >
+              Schedule appointment
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Date and time"
+            type="datetime-local"
+            value={inspectionDate}
+            onChange={(event) => setInspectionDate(event.target.value)}
+            required
+          />
+          <Input
+            label="Inspection location"
+            value={inspectionLocation}
+            onChange={(event) => setInspectionLocation(event.target.value)}
+            required
+          />
+          <Textarea
+            label="Instructions for the driver"
+            placeholder="Bring the vehicle, keys and original documents."
+            value={inspectionNote}
+            onChange={(event) => setInspectionNote(event.target.value)}
+          />
+        </div>
+      </Modal>
     </div>
   );
 }

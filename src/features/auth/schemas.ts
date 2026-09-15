@@ -40,6 +40,9 @@ export const signUpSchema = z
       .string()
       .min(1, "Enter your phone number")
       .regex(/^\+?[\d\s-]{7,}$/, "Enter a valid phone number"),
+    nin: z
+      .string()
+      .regex(/^\d{11}$/, "Enter your 11-digit National Identity Number"),
     password: z
       .string()
       .min(8, "Use at least 8 characters")

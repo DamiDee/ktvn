@@ -22,7 +22,7 @@ interface ApplicationState {
   identity: Partial<IdentityValues>;
   licence: Partial<LicenceValues>;
   vehicle: Partial<VehicleValues>;
-  track: DriverTrack | null;
+  tracks: DriverTrack[];
   documents: Partial<Record<DocumentType, VerificationDocument>>;
   submitted: boolean;
 
@@ -33,7 +33,7 @@ interface ApplicationState {
   setIdentity: (values: IdentityValues) => void;
   setLicence: (values: LicenceValues) => void;
   setVehicle: (values: VehicleValues) => void;
-  setTrack: (track: DriverTrack) => void;
+  toggleTrack: (track: DriverTrack) => void;
   setDocument: (type: DocumentType, doc: VerificationDocument | null) => void;
   markSubmitted: () => void;
   reset: () => void;
@@ -44,7 +44,7 @@ const INITIAL = {
   identity: {},
   licence: {},
   vehicle: {},
-  track: null,
+  tracks: [] as DriverTrack[],
   documents: {},
   submitted: false,
 } as const;
@@ -60,7 +60,12 @@ export const useApplicationStore = create<ApplicationState>((set) => ({
   setIdentity: (identity) => set({ identity }),
   setLicence: (licence) => set({ licence }),
   setVehicle: (vehicle) => set({ vehicle }),
-  setTrack: (track) => set({ track }),
+  toggleTrack: (track) =>
+    set((state) => ({
+      tracks: state.tracks.includes(track)
+        ? state.tracks.filter((candidate) => candidate !== track)
+        : [...state.tracks, track],
+    })),
 
   setDocument: (type, doc) =>
     set((state) => {

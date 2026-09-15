@@ -15,8 +15,8 @@ export const REQUIRED_DOCUMENTS: {
 }[] = [
   {
     type: DocumentType.GOVERNMENT_ID,
-    label: "Government ID",
-    hint: "NIN slip, international passport or voter's card",
+    label: "NIN slip",
+    hint: "Mandatory 11-digit NIN record for identity verification",
   },
   {
     type: DocumentType.PROFILE_PHOTO,
@@ -67,7 +67,7 @@ export const DRIVER_VERIFICATION: DriverVerification = {
     "Your documents have been accepted. A physical vehicle inspection is required before final approval.",
   vehicle: VEHICLES.corolla,
   documents: [
-    doc(DocumentType.GOVERNMENT_ID, "Government ID", DocumentStatus.VERIFIED, {
+    doc(DocumentType.GOVERNMENT_ID, "NIN slip", DocumentStatus.VERIFIED, {
       fileName: "nin-slip.pdf",
       fileType: "PDF",
       sizeBytes: 482_112,
@@ -195,7 +195,7 @@ export const VERIFICATION_QUEUE: DriverVerification[] = [
     statusDetail: "Licence and insurance documents are being reviewed.",
     vehicle: VEHICLES.accent,
     documents: [
-      doc(DocumentType.GOVERNMENT_ID, "Government ID", DocumentStatus.UPLOADED, {
+      doc(DocumentType.GOVERNMENT_ID, "NIN slip", DocumentStatus.UPLOADED, {
         fileName: "id.pdf",
         fileType: "PDF",
         uploadedAt: "2026-09-07T16:40:00.000Z",

@@ -20,12 +20,15 @@ import { EmptyState } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { PageHeader } from "@/components/layout/app-shell";
 import { RequestCard } from "@/components/drivers/request-card";
+import { DriverOnlineControl } from "@/components/drivers/driver-online-control";
+import { InspectionCountdownCard } from "@/components/drivers/inspection-countdown-card";
 import { queryKeys } from "@/constants/query-keys";
 import { rideService } from "@/services";
 import { DriverTrack } from "@/types/enums";
 import { greetingForHour, formatTime } from "@/lib/format";
 import { UPCOMING_EVENT } from "@/mocks/rides";
 import type { Driver } from "@/types/models";
+import { useSessionStore } from "@/stores/session-store";
 
 /**
  * Volunteer dashboard. Deliberately service-oriented — no fares, no earnings,
@@ -36,6 +39,7 @@ export function VolunteerDashboard({ driver }: { driver: Driver }) {
   const [confirmed, setConfirmed] = useState(
     driver.service?.nextEventConfirmed ?? false,
   );
+  const online = useSessionStore((state) => state.driverOnline);
 
   const { data: requests, isLoading } = useQuery({
     queryKey: queryKeys.driver.requests(DriverTrack.VOLUNTEER),
@@ -60,6 +64,8 @@ export function VolunteerDashboard({ driver }: { driver: Driver }) {
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         <div className="min-w-0 space-y-5">
+          <DriverOnlineControl driver={driver} />
+
           {/* Service confirmation */}
           <Card radius="xl">
             <CardHeader
@@ -155,7 +161,7 @@ export function VolunteerDashboard({ driver }: { driver: Driver }) {
               title="Passenger requests"
               description="Members heading in your direction."
               action={
-                requests && requests.length > 0 ? (
+                requests && requests.length > 0 && online ? (
                   <StatusChip tone="pending" dot live>
                     {requests.length} waiting
                   </StatusChip>
@@ -164,7 +170,14 @@ export function VolunteerDashboard({ driver }: { driver: Driver }) {
             />
 
             <div className="mt-5 space-y-3">
-              {isLoading ? (
+              {!online ? (
+                <EmptyState
+                  icon={Inbox}
+                  size="sm"
+                  title="You're offline."
+                  description="Choose a track and go online to receive passenger requests."
+                />
+              ) : isLoading ? (
                 <div className="space-y-3">
                   <div className="kx-skeleton h-32 rounded-[var(--kx-radius-lg)]" />
                   <div className="kx-skeleton h-32 rounded-[var(--kx-radius-lg)]" />
@@ -186,6 +199,8 @@ export function VolunteerDashboard({ driver }: { driver: Driver }) {
         </div>
 
         <div className="min-w-0 space-y-5">
+          <InspectionCountdownCard inspection={driver.inspection} />
+
           {/* Service record */}
           <Card radius="xl" elevation="dark" className="border-white/8">
             <div className="flex items-start justify-between gap-3">

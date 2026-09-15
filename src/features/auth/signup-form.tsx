@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertCircle, ArrowRight, Mail, Phone, User } from "lucide-react";
+import { AlertCircle, ArrowRight, IdCard, Mail, Phone, User } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Input, PasswordInput } from "@/components/ui/input";
@@ -36,6 +36,7 @@ export function SignUpForm() {
       fullName: "",
       email: "",
       phone: "",
+      nin: "",
       password: "",
       confirmPassword: "",
     },
@@ -51,6 +52,7 @@ export function SignUpForm() {
         fullName: values.fullName,
         email: values.email,
         phone: values.phone,
+        nin: values.nin,
         password: values.password,
       });
       router.push("/verify-member");
@@ -67,8 +69,8 @@ export function SignUpForm() {
     <div>
       <h1 className="type-page-title text-ink">Create your account.</h1>
       <p className="type-body mt-2.5 text-ink-secondary">
-        Your membership identifier connects this account to your record in the
-        community register.
+        Your NIN and membership details securely connect this account to your
+        community record.
       </p>
 
       <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-5" noValidate>
@@ -119,6 +121,19 @@ export function SignUpForm() {
             {...register("phone")}
           />
         </div>
+
+        <Input
+          label="National Identity Number (NIN)"
+          placeholder="12345678901"
+          inputMode="numeric"
+          autoComplete="off"
+          maxLength={11}
+          icon={IdCard}
+          hint="Required for every passenger and driver account."
+          error={errors.nin?.message}
+          required
+          {...register("nin")}
+        />
 
         <div>
           <PasswordInput

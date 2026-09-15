@@ -8,7 +8,12 @@ import {
   findPassenger,
 } from "@/mocks/people";
 import { NOTIFICATIONS } from "@/mocks/notifications";
-import { MembershipStatus } from "@/types/enums";
+import {
+  DriverAccountStatus,
+  DriverAvailability,
+  InspectionStatus,
+  MembershipStatus,
+} from "@/types/enums";
 import { CODE_LENGTH } from "@/features/auth/schemas";
 import type { Driver, Notification, Passenger, User } from "@/types/models";
 import { ApiError, MockDelay, request, type RequestOptions } from "./api-client";
@@ -22,7 +27,18 @@ export interface SignUpPayload {
   fullName: string;
   email: string;
   phone: string;
+  nin: string;
   password: string;
+}
+
+function enforceInspectionPolicy(driver: Driver): Driver {
+  if (driver.inspection?.status === InspectionStatus.MISSED) {
+    driver.accountStatus = DriverAccountStatus.DEACTIVATED;
+    driver.availability = DriverAvailability.OFFLINE;
+    driver.deactivationReason =
+      "Your account was deactivated because you missed the scheduled vehicle inspection.";
+  }
+  return driver;
 }
 
 export const userService = {
@@ -63,6 +79,7 @@ export const userService = {
         fullName: payload.fullName,
         email: payload.email,
         phone: payload.phone,
+        ninVerified: true,
         membershipStatus: MembershipStatus.CHECKING,
         joinedAt: new Date().toISOString(),
       }),
@@ -184,7 +201,10 @@ export const userService = {
     options?: RequestOptions,
   ): Promise<Driver> {
     return request(
-      () => (driverId ? (findDriver(driverId) ?? CURRENT_DRIVER) : CURRENT_DRIVER),
+      () =>
+        enforceInspectionPolicy(
+          driverId ? (findDriver(driverId) ?? CURRENT_DRIVER) : CURRENT_DRIVER,
+        ),
       { delayMs: MockDelay.fast, ...options },
     );
   },
@@ -194,7 +214,10 @@ export const userService = {
   },
 
   async listDrivers(options?: RequestOptions): Promise<Driver[]> {
-    return request(() => DRIVERS, { delayMs: MockDelay.normal, ...options });
+    return request(() => DRIVERS.map(enforceInspectionPolicy), {
+      delayMs: MockDelay.normal,
+      ...options,
+    });
   },
 
   async listPassengers(options?: RequestOptions): Promise<Passenger[]> {
@@ -202,10 +225,55 @@ export const userService = {
   },
 
   async getDriver(id: string, options?: RequestOptions): Promise<Driver | null> {
-    return request(() => findDriver(id) ?? null, {
+    return request(() => {
+      const driver = findDriver(id);
+      return driver ? enforceInspectionPolicy(driver) : null;
+    }, {
       delayMs: MockDelay.fast,
       ...options,
     });
+  },
+
+  async scheduleDriverInspection(
+    driverId: string,
+    appointment: { scheduledAt: string; location: string; note?: string },
+    options?: RequestOptions,
+  ): Promise<Driver> {
+    return request(() => {
+      const driver = findDriver(driverId);
+      if (!driver) {
+        throw new ApiError("Driver not found.", "NOT_FOUND", false);
+      }
+      driver.inspection = {
+        ...driver.inspection,
+        status: InspectionStatus.SCHEDULED,
+        nextDueAt: driver.inspection?.nextDueAt ?? appointment.scheduledAt,
+        ...appointment,
+      };
+      return driver;
+    }, { delayMs: MockDelay.normal, ...options });
+  },
+
+  async updateDriverAccountStatus(
+    driverId: string,
+    accountStatus: DriverAccountStatus,
+    reason?: string,
+    options?: RequestOptions,
+  ): Promise<Driver> {
+    return request(() => {
+      const driver = findDriver(driverId);
+      if (!driver) {
+        throw new ApiError("Driver not found.", "NOT_FOUND", false);
+      }
+      driver.accountStatus = accountStatus;
+      driver.flagged = accountStatus === DriverAccountStatus.FLAGGED;
+      driver.deactivationReason =
+        accountStatus === DriverAccountStatus.DEACTIVATED ? reason : undefined;
+      if (accountStatus === DriverAccountStatus.DEACTIVATED) {
+        driver.availability = DriverAvailability.OFFLINE;
+      }
+      return driver;
+    }, { delayMs: MockDelay.normal, ...options });
   },
 
   async getPassenger(

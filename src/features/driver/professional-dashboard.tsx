@@ -11,20 +11,20 @@ import {
   Users,
 } from "lucide-react";
 import { Card, CardHeader, NestedTile } from "@/components/ui/card";
-import { Button, ButtonLink } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/badge";
 import { StatsCard, Sparkline } from "@/components/ui/stats-card";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { EmptyState } from "@/components/ui/states";
-import { ConfirmDialog } from "@/components/ui/modal";
-import { useToast } from "@/components/ui/toast";
 import { PageHeader } from "@/components/layout/app-shell";
 import { RequestCard } from "@/components/drivers/request-card";
+import { DriverOnlineControl } from "@/components/drivers/driver-online-control";
+import { InspectionCountdownCard } from "@/components/drivers/inspection-countdown-card";
 import { queryKeys } from "@/constants/query-keys";
 import { rideService } from "@/services";
-import { DriverAvailability, DriverTrack, RideType } from "@/types/enums";
+import { DriverTrack, RideType } from "@/types/enums";
 import { formatNaira, greetingForHour } from "@/lib/format";
-import { goingOfflineNeedsConfirmation } from "@/lib/state-machines";
+import { useSessionStore } from "@/stores/session-store";
 import type { Driver } from "@/types/models";
 
 /**
@@ -32,27 +32,16 @@ import type { Driver } from "@/types/models";
  * are a record of completed rides, never a wallet balance.
  */
 export function ProfessionalDashboard({ driver }: { driver: Driver }) {
-  const { toast } = useToast();
-  const [availability, setAvailability] = useState<DriverAvailability>(
-    driver.availability,
-  );
   const [rideType, setRideType] = useState<RideType>(RideType.SHARED);
-  const [confirmOffline, setConfirmOffline] = useState(false);
+  const online = useSessionStore((state) => state.driverOnline);
 
   const { data: requests, isLoading } = useQuery({
     queryKey: queryKeys.driver.requests(DriverTrack.PROFESSIONAL),
     queryFn: () => rideService.listRequests(DriverTrack.PROFESSIONAL),
   });
 
-  const online = availability !== DriverAvailability.OFFLINE;
   const earnings = driver.earningsSummary;
   const firstName = driver.fullName.split(" ")[0];
-
-  function goOffline() {
-    setAvailability(DriverAvailability.OFFLINE);
-    setConfirmOffline(false);
-    toast({ title: "You're offline", description: "You won't receive new requests." });
-  }
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -73,76 +62,24 @@ export function ProfessionalDashboard({ driver }: { driver: Driver }) {
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         <div className="min-w-0 space-y-5">
-          {/* Online control */}
+          <DriverOnlineControl driver={driver} />
+
           <Card radius="xl">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-3.5">
-                <span className="relative flex size-3 shrink-0">
-                  {online ? (
-                    <span
-                      className="absolute inline-flex size-full rounded-full bg-success-500"
-                      style={{ animation: "kx-pulse-ring 2.2s ease-out infinite" }}
-                      aria-hidden
-                    />
-                  ) : null}
-                  <span
-                    className={`relative inline-flex size-3 rounded-full ${online ? "bg-success-500" : "bg-ink-muted"}`}
-                  />
-                </span>
-                <div>
-                  <p className="type-section-title text-ink">
-                    {online ? "You're online" : "You're offline"}
-                  </p>
-                  <p className="type-meta mt-0.5 text-ink-secondary">
-                    {online
-                      ? "Requests along your route will reach you."
-                      : "Members can't see you or send you requests."}
-                  </p>
-                </div>
-              </div>
-
-              <Button
-                variant={online ? "subtle" : "primary"}
-                size="lg"
-                className="w-full sm:w-auto"
-                onClick={() => {
-                  if (online) {
-                    if (goingOfflineNeedsConfirmation(availability)) {
-                      setConfirmOffline(true);
-                    } else {
-                      goOffline();
-                    }
-                  } else {
-                    setAvailability(DriverAvailability.AVAILABLE);
-                    toast({
-                      title: "You're online",
-                      description: "Set a destination to receive matched requests.",
-                      tone: "success",
-                    });
-                  }
-                }}
-              >
-                {online ? "Go Offline" : "Go Online"}
-              </Button>
-            </div>
-
-            <div className="mt-5 border-t border-line pt-5">
-              <p className="type-micro mb-3 text-ink-muted">Ride types you accept</p>
-              <SegmentedControl
-                label="Ride types you accept"
-                value={rideType}
-                onChange={setRideType}
-                options={[
-                  { value: RideType.PRIVATE, label: "Private" },
-                  { value: RideType.SHARED, label: "Shared" },
-                ]}
-              />
-              <p className="type-meta mt-3 text-ink-muted">
-                {rideType === RideType.SHARED
-                  ? "Up to 3 passengers travelling the same way."
-                  : "One passenger or group, direct to their destination."}
-              </p>
-            </div>
+            <p className="type-micro mb-3 text-ink-muted">Ride types you accept</p>
+            <SegmentedControl
+              label="Ride types you accept"
+              value={rideType}
+              onChange={setRideType}
+              options={[
+                { value: RideType.PRIVATE, label: "Private" },
+                { value: RideType.SHARED, label: "Shared" },
+              ]}
+            />
+            <p className="type-meta mt-3 text-ink-muted">
+              {rideType === RideType.SHARED
+                ? "Up to 3 passengers travelling the same way."
+                : "One passenger or group, direct to their destination."}
+            </p>
           </Card>
 
           {/* Requests */}
@@ -186,6 +123,8 @@ export function ProfessionalDashboard({ driver }: { driver: Driver }) {
         </div>
 
         <div className="min-w-0 space-y-5">
+          <InspectionCountdownCard inspection={driver.inspection} />
+
           {/* Earnings summary */}
           <div className="grid grid-cols-2 gap-3">
             <StatsCard
@@ -256,16 +195,6 @@ export function ProfessionalDashboard({ driver }: { driver: Driver }) {
         </div>
       </div>
 
-      <ConfirmDialog
-        open={confirmOffline}
-        onClose={() => setConfirmOffline(false)}
-        onConfirm={goOffline}
-        title="Go offline now?"
-        description="You have an active availability. Going offline removes you from matching and cancels any requests still waiting on your reply."
-        confirmLabel="Go offline"
-        cancelLabel="Stay online"
-        tone="danger"
-      />
     </div>
   );
 }

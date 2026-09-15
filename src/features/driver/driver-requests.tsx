@@ -18,6 +18,7 @@ import {
   TRACK_LABEL,
 } from "@/constants/status-presentation";
 import { isDriverOnline } from "@/lib/state-machines";
+import { useSessionStore } from "@/stores/session-store";
 
 /**
  * The driver's request inbox.
@@ -28,6 +29,11 @@ import { isDriverOnline } from "@/lib/state-machines";
 export function DriverRequests() {
   const router = useRouter();
   const { data: driver, isLoading: loadingDriver } = useCurrentDriver();
+  const selectedTrack = useSessionStore((state) => state.driverTrack);
+  const sessionOnline = useSessionStore((state) => state.driverOnline);
+  const activeTrack = driver?.eligibleTracks?.includes(selectedTrack)
+    ? selectedTrack
+    : driver?.track;
 
   const {
     data: requests,
@@ -35,22 +41,22 @@ export function DriverRequests() {
     isError,
     refetch,
   } = useQuery({
-    queryKey: queryKeys.driver.requests(driver?.track ?? "none"),
-    queryFn: () => rideService.listRequests(driver!.track),
-    enabled: Boolean(driver),
+    queryKey: queryKeys.driver.requests(activeTrack ?? "none"),
+    queryFn: () => rideService.listRequests(activeTrack!),
+    enabled: Boolean(activeTrack),
   });
 
   if (loadingDriver || !driver) {
     return <PageLoader message="Loading your requests" />;
   }
 
-  const online = isDriverOnline(driver.availability);
+  const online = sessionOnline || isDriverOnline(driver.availability);
   const availability = DRIVER_AVAILABILITY_PRESENTATION[driver.availability];
 
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader
-        eyebrow={`${TRACK_LABEL[driver.track]} track`}
+        eyebrow={`${TRACK_LABEL[activeTrack ?? driver.track]} track`}
         title="Ride requests"
         description="Members heading in your direction. Requests expire, so respond while the countdown runs."
         action={

@@ -21,6 +21,7 @@ import {
 } from "@/constants/status-presentation";
 import {
   DriverAvailability,
+  DriverAccountStatus,
   DriverTrack,
   VerificationStatus,
 } from "@/types/enums";
@@ -33,7 +34,8 @@ type Filter =
   | "PROFESSIONAL"
   | "ONLINE"
   | "PENDING"
-  | "FLAGGED";
+  | "FLAGGED"
+  | "DEACTIVATED";
 
 /**
  * Everyone approved to drive.
@@ -76,6 +78,11 @@ export function DriversList() {
         break;
       case "FLAGGED":
         list = list.filter((driver) => driver.flagged);
+        break;
+      case "DEACTIVATED":
+        list = list.filter(
+          (driver) => driver.accountStatus === DriverAccountStatus.DEACTIVATED,
+        );
         break;
     }
 
@@ -172,13 +179,19 @@ export function DriversList() {
       header: "Status",
       align: "end",
       cell: (driver) => (
-        <StatusBadge
-          presentation={
-            driver.verificationStatus === VerificationStatus.APPROVED
-              ? DRIVER_AVAILABILITY_PRESENTATION[driver.availability]
-              : VERIFICATION_PRESENTATION[driver.verificationStatus]
-          }
-        />
+        driver.accountStatus === DriverAccountStatus.DEACTIVATED ? (
+          <StatusChip tone="danger">Deactivated</StatusChip>
+        ) : driver.accountStatus === DriverAccountStatus.FLAGGED ? (
+          <StatusChip tone="pending">Flagged</StatusChip>
+        ) : (
+          <StatusBadge
+            presentation={
+              driver.verificationStatus === VerificationStatus.APPROVED
+                ? DRIVER_AVAILABILITY_PRESENTATION[driver.availability]
+                : VERIFICATION_PRESENTATION[driver.verificationStatus]
+            }
+          />
+        )
       ),
     },
   ];
@@ -222,6 +235,14 @@ export function DriversList() {
                 label: "Flagged",
                 count: all.filter((driver) => driver.flagged).length,
               },
+              {
+                value: "DEACTIVATED",
+                label: "Deactivated",
+                count: all.filter(
+                  (driver) =>
+                    driver.accountStatus === DriverAccountStatus.DEACTIVATED,
+                ).length,
+              },
             ]}
           />
         }
@@ -240,7 +261,12 @@ export function DriversList() {
           columns={columns}
           rowKey={(driver) => driver.id}
           rowHref={(driver) => `/admin/drivers/${driver.id}`}
-          rowTone={(driver) => (driver.flagged ? "critical" : "default")}
+          rowTone={(driver) =>
+            driver.flagged ||
+            driver.accountStatus === DriverAccountStatus.DEACTIVATED
+              ? "critical"
+              : "default"
+          }
           caption="Drivers"
           empty={
             <Card radius="xl">

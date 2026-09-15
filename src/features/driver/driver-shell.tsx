@@ -7,7 +7,6 @@ import { driverNavForTrack } from "@/constants/navigation";
 import { useCurrentDriver } from "./use-current-driver";
 import {
   DriverAvailability,
-  DriverTrack,
   VerificationStatus,
 } from "@/types/enums";
 import {
@@ -16,19 +15,28 @@ import {
 } from "@/constants/status-presentation";
 import { isDriverOnline } from "@/lib/state-machines";
 import { shortName } from "@/lib/format";
+import { useSessionStore } from "@/stores/session-store";
+import { DriverAccountStatus } from "@/types/enums";
 
 /** Routes whose map fills the viewport and supplies its own padding. */
 const BLEED_ROUTES = ["/driver/trip", "/driver/waiting"];
 
 export function DriverShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const bleed = BLEED_ROUTES.some((route) => pathname.startsWith(route));
+  const bleed = BLEED_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
+  );
 
   const { data: driver } = useCurrentDriver();
+  const sessionTrack = useSessionStore((state) => state.driverTrack);
+  const sessionOnline = useSessionStore((state) => state.driverOnline);
 
   // The shell renders before the driver resolves, so every field falls back —
   // the navigation must never disappear mid-load.
-  const track = driver?.track ?? DriverTrack.VOLUNTEER;
+  const track =
+    driver?.eligibleTracks?.includes(sessionTrack) || !driver
+      ? sessionTrack
+      : driver.track;
   const availability = driver?.availability ?? DriverAvailability.OFFLINE;
   const presentation = DRIVER_AVAILABILITY_PRESENTATION[availability];
 
@@ -44,14 +52,23 @@ export function DriverShell({ children }: { children: ReactNode }) {
       }}
       bleed={bleed}
       railStatus={{
-        label: presentation.label,
+        label:
+          driver?.accountStatus === DriverAccountStatus.DEACTIVATED
+            ? "Deactivated"
+            : sessionOnline
+              ? "Online"
+              : "Offline",
         tone:
-          presentation.tone === "active"
+          driver?.accountStatus === DriverAccountStatus.DEACTIVATED
+            ? "pending"
+            : sessionOnline || presentation.tone === "active"
             ? "active"
             : presentation.tone === "pending"
               ? "pending"
               : "neutral",
-        live: isDriverOnline(availability),
+        live:
+          driver?.accountStatus !== DriverAccountStatus.DEACTIVATED &&
+          (sessionOnline || isDriverOnline(availability)),
       }}
     >
       {/* Driver screens run a notch tighter than the rest of the product. */}

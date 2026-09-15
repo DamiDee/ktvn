@@ -23,6 +23,7 @@ import { DriverTrack, MAX_SHARED_PASSENGERS } from "@/types/enums";
 import { isDriverOnline } from "@/lib/state-machines";
 import { buildRoute } from "@/lib/geo";
 import { pluralise } from "@/lib/format";
+import { useSessionStore } from "@/stores/session-store";
 
 /**
  * Waiting for a match.
@@ -36,20 +37,25 @@ export function DriverWaiting() {
   const mapInset = useRideSheetInset();
 
   const { data: driver, isLoading } = useCurrentDriver();
+  const selectedTrack = useSessionStore((state) => state.driverTrack);
+  const sessionOnline = useSessionStore((state) => state.driverOnline);
+  const activeTrack = driver?.eligibleTracks?.includes(selectedTrack)
+    ? selectedTrack
+    : driver?.track;
 
   const { data: requests } = useQuery({
-    queryKey: queryKeys.driver.requests(driver?.track ?? "none"),
-    queryFn: () => rideService.listRequests(driver!.track),
-    enabled: Boolean(driver),
+    queryKey: queryKeys.driver.requests(activeTrack ?? "none"),
+    queryFn: () => rideService.listRequests(activeTrack!),
+    enabled: Boolean(activeTrack),
   });
 
   if (isLoading || !driver) {
     return <PageLoader message="Checking your availability" />;
   }
 
-  const online = isDriverOnline(driver.availability);
+  const online = sessionOnline || isDriverOnline(driver.availability);
   const availability = DRIVER_AVAILABILITY_PRESENTATION[driver.availability];
-  const volunteer = driver.track === DriverTrack.VOLUNTEER;
+  const volunteer = activeTrack === DriverTrack.VOLUNTEER;
 
   // The driver's own journey: where they are, and where they are going anyway.
   const origin = driver.currentLocation ?? LOCATIONS.koinoniaCentre;
@@ -66,7 +72,7 @@ export function DriverWaiting() {
         description={`Map showing your route to ${destination.label} while the network looks for members heading your way.`}
         routes={[{ id: "route", path: route, variant: "primary" }]}
         markers={[
-          { id: "you", position: origin, kind: "vehicle", track: driver.track },
+          { id: "you", position: origin, kind: "vehicle", track: activeTrack },
           { id: "destination", position: destination, kind: "destination" },
         ]}
         viewport={{ focus: [origin, destination], ...mapInset }}
@@ -100,8 +106,8 @@ export function DriverWaiting() {
         detent="medium"
       >
         <div className="flex flex-wrap items-center gap-2">
-          <StatusChip tone={TRACK_TONE[driver.track]}>
-            {TRACK_LABEL[driver.track]}
+          <StatusChip tone={TRACK_TONE[activeTrack ?? driver.track]}>
+            {TRACK_LABEL[activeTrack ?? driver.track]}
           </StatusChip>
           <StatusChip
             tone={availability.tone === "active" ? "active" : "neutral"}

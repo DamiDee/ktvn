@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Check, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Check, PhoneCall, ShieldAlert, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { SOSStatus } from "@/types/enums";
 import { SOS_PRESENTATION } from "@/constants/status-presentation";
 import { isSosRaised } from "@/lib/state-machines";
 import { useReducedMotionSafe } from "@/hooks/use-reduced-motion-safe";
+import { EMERGENCY_CONTACTS } from "@/mocks/safety";
 
 const HOLD_MS = 1400;
 
@@ -221,6 +222,39 @@ export function SosStatusPanel({
           ) : null}
         </div>
       </div>
+
+      {!resolved ? (
+        <div className="mt-4 border-t border-sos-500/20 pt-4">
+          <p className="type-micro text-sos-700 dark:text-red-200">
+            Emergency contacts alerted
+          </p>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {EMERGENCY_CONTACTS.map((contact) => (
+              <div
+                key={contact.id}
+                className="flex items-center gap-2.5 rounded-[var(--kx-radius-sm)] bg-white/65 px-3 py-2.5 dark:bg-white/[0.05]"
+              >
+                <PhoneCall
+                  className="size-4 shrink-0 text-sos-600 dark:text-red-300"
+                  strokeWidth={1.9}
+                  aria-hidden
+                />
+                <div className="min-w-0">
+                  <p className="type-meta truncate font-medium text-ink">
+                    {contact.name}
+                  </p>
+                  <p className="type-micro mt-0.5 text-ink-muted">
+                    {contact.phone} · Alert delivered
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="type-meta mt-3 text-ink-muted">
+            Your live location and journey details were included in the alert.
+          </p>
+        </div>
+      ) : null}
     </motion.div>
   );
 }

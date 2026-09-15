@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Car,
+  Check,
   ChevronDown,
   HandHeart,
   IdCard,
@@ -23,7 +24,6 @@ import { cn } from "@/lib/cn";
 import { Card, NestedTile } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
-import { ChoiceCards } from "@/components/ui/segmented-control";
 import { StepIndicator } from "@/components/ui/progress";
 import { VerifiedBadge } from "@/components/ui/badge";
 import { SafetyNote } from "@/components/ui/states";
@@ -34,7 +34,6 @@ import { useApplicationStore } from "@/stores/application-store";
 import { verificationService } from "@/services";
 import { APPLICATION_STEPS, REQUIRED_DOCUMENTS } from "@/mocks/verification";
 import { DocumentType, DriverTrack } from "@/types/enums";
-import { TRACK_DESCRIPTION } from "@/constants/status-presentation";
 import { transitions } from "@/lib/motion";
 import {
   identitySchema,
@@ -42,6 +41,7 @@ import {
   vehicleSchema,
   LICENCE_CLASSES,
   SEAT_OPTIONS,
+  KOINONIA_DEPARTMENTS,
   type IdentityValues,
   type LicenceValues,
   type VehicleValues,
@@ -217,13 +217,10 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
 
   const [showMissing, setShowMissing] = useState(false);
 
-  const missingUploads =
-    !documents[DocumentType.GOVERNMENT_ID] ||
-    !documents[DocumentType.PROFILE_PHOTO];
-
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<IdentityValues>({
     resolver: zodResolver(identitySchema),
@@ -231,9 +228,21 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
       fullName: identity.fullName ?? "",
       email: identity.email ?? "",
       phone: identity.phone ?? "",
+      nin: identity.nin ?? "",
       address: identity.address ?? "",
+      workerStatus: identity.workerStatus,
+      department: identity.department ?? "",
+      guarantorName: identity.guarantorName ?? "",
+      guarantorPhone: identity.guarantorPhone ?? "",
+      guarantorRelationship: identity.guarantorRelationship ?? "",
     },
   });
+
+  const workerStatus = useWatch({ control, name: "workerStatus" });
+  const missingUploads =
+    !documents[DocumentType.GOVERNMENT_ID] ||
+    !documents[DocumentType.PROFILE_PHOTO] ||
+    (workerStatus === "NO" && !documents[DocumentType.GUARANTOR_PHOTO]);
 
   return (
     <form
@@ -251,7 +260,7 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
     >
       <StepHeading
         title="Who you are"
-        description="These details are checked against your membership record."
+        description="We verify your identity, NIN and connection to the Koinonia community."
       />
 
       <div className="space-y-5">
@@ -294,16 +303,102 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
           />
         </div>
 
+        <Input
+          label="National Identity Number (NIN)"
+          placeholder="12345678901"
+          inputMode="numeric"
+          maxLength={11}
+          icon={IdCard}
+          hint="Your 11-digit NIN is mandatory for driver verification."
+          error={errors.nin?.message}
+          required
+          {...register("nin")}
+        />
+
+        <Select
+          label="Are you a Koinonia worker?"
+          placeholder="Select an answer"
+          options={[
+            { value: "YES", label: "Yes, I am a Koinonia worker" },
+            { value: "NO", label: "No, I will provide a guarantor" },
+          ]}
+          error={errors.workerStatus?.message}
+          required
+          {...register("workerStatus")}
+        />
+
+        {workerStatus === "YES" ? (
+          <Select
+            label="Koinonia department"
+            placeholder="Select your department"
+            options={KOINONIA_DEPARTMENTS.map((department) => ({
+              value: department,
+              label: department,
+            }))}
+            error={errors.department?.message}
+            required
+            {...register("department")}
+          />
+        ) : null}
+
+        {workerStatus === "NO" ? (
+          <div className="space-y-5 rounded-[var(--kx-radius-md)] border border-line bg-surface-nested p-4">
+            <div>
+              <p className="type-card-title text-ink">Guarantor details</p>
+              <p className="type-meta mt-1 text-ink-secondary">
+                Your guarantor must be reachable and known within the community.
+              </p>
+            </div>
+            <Input
+              label="Guarantor's full name"
+              placeholder="Grace Adeyemi"
+              icon={User}
+              error={errors.guarantorName?.message}
+              required
+              {...register("guarantorName")}
+            />
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Input
+                label="Guarantor's phone"
+                type="tel"
+                placeholder="+234 802 000 0000"
+                icon={Phone}
+                error={errors.guarantorPhone?.message}
+                required
+                {...register("guarantorPhone")}
+              />
+              <Input
+                label="Relationship"
+                placeholder="Family friend"
+                error={errors.guarantorRelationship?.message}
+                required
+                {...register("guarantorRelationship")}
+              />
+            </div>
+            <DocumentUpload
+              type={DocumentType.GUARANTOR_PHOTO}
+              label="Guarantor photo"
+              hint="A clear, recent photo used during verification"
+              document={documents[DocumentType.GUARANTOR_PHOTO]}
+              onUploaded={(doc) => setDocument(DocumentType.GUARANTOR_PHOTO, doc)}
+              onRemoved={() => setDocument(DocumentType.GUARANTOR_PHOTO, null)}
+              missingError={
+                showMissing ? "Upload your guarantor's photo to continue" : undefined
+              }
+            />
+          </div>
+        ) : null}
+
         <div className="grid gap-4 md:grid-cols-2">
           <DocumentUpload
             type={DocumentType.GOVERNMENT_ID}
-            label="Government ID"
-            hint="NIN slip, passport or voter's card"
+            label="NIN slip"
+            hint="A clear image or PDF of your official NIN slip"
             document={documents[DocumentType.GOVERNMENT_ID]}
             onUploaded={(doc) => setDocument(DocumentType.GOVERNMENT_ID, doc)}
             onRemoved={() => setDocument(DocumentType.GOVERNMENT_ID, null)}
             missingError={
-              showMissing ? "Upload your government ID to continue" : undefined
+              showMissing ? "Upload your NIN slip to continue" : undefined
             }
           />
           <DocumentUpload
@@ -651,47 +746,82 @@ function TrackStep({
   onNext: () => void;
   onBack: () => void;
 }) {
-  const track = useApplicationStore((state) => state.track);
-  const setTrack = useApplicationStore((state) => state.setTrack);
+  const tracks = useApplicationStore((state) => state.tracks);
+  const toggleTrack = useApplicationStore((state) => state.toggleTrack);
+
+  const options = [
+    {
+      value: DriverTrack.VOLUNTEER,
+      label: "Volunteer",
+      icon: HandHeart,
+      description: "Serve through your journey.",
+      detail: "Offer seats you already have. No fare is charged or collected.",
+    },
+    {
+      value: DriverTrack.PROFESSIONAL,
+      label: "Professional",
+      icon: Wallet,
+      description: "Earn through verified transportation.",
+      detail: "Paid journeys with upfront fares, receipts and earnings records.",
+    },
+  ] as const;
 
   return (
     <div>
       <StepHeading
-        title="Choose your track"
-        description="You can request a switch later, though it needs approval rather than happening instantly."
+        title="Choose your driving tracks"
+        description="Select one or both. Each time you go online, you'll choose which approved track to use."
       />
 
-      <ChoiceCards
-        label="Driver track"
-        value={track}
-        onChange={setTrack}
-        options={[
-          {
-            value: DriverTrack.VOLUNTEER,
-            label: "Volunteer",
-            icon: HandHeart,
-            description: "Serve through your journey.",
-            detail:
-              "Offer seats you already have. No fare is charged and no payment is collected.",
-          },
-          {
-            value: DriverTrack.PROFESSIONAL,
-            label: "Professional",
-            icon: Wallet,
-            description: "Earn through verified transportation.",
-            detail:
-              "Paid journeys with the fare agreed upfront, receipts, and a record of earnings.",
-          },
-        ]}
-      />
+      <div className="grid gap-3 sm:grid-cols-2" aria-label="Driver tracks">
+        {options.map((option) => {
+          const selected = tracks.includes(option.value);
+          const Icon = option.icon;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => toggleTrack(option.value)}
+              className={cn(
+                "relative rounded-[var(--kx-radius-lg)] border p-5 text-left transition-all duration-[200ms]",
+                selected
+                  ? "border-forest-500 bg-forest-50 shadow-sm dark:border-gold-500/70 dark:bg-gold-500/10"
+                  : "border-line bg-surface hover:border-line-strong hover:bg-surface-nested",
+              )}
+            >
+              <span className="flex items-start justify-between gap-4">
+                <span className="grid size-10 place-items-center rounded-full bg-forest-100 text-forest-700 dark:bg-gold-500/15 dark:text-gold-300">
+                  <Icon className="size-5" strokeWidth={1.8} aria-hidden />
+                </span>
+                <span
+                  className={cn(
+                    "grid size-6 place-items-center rounded-full border",
+                    selected
+                      ? "border-forest-600 bg-forest-600 text-white dark:border-gold-400 dark:bg-gold-400 dark:text-forest-950"
+                      : "border-line-strong text-transparent",
+                  )}
+                >
+                  <Check className="size-3.5" strokeWidth={3} aria-hidden />
+                </span>
+              </span>
+              <span className="type-card-title mt-4 block text-ink">{option.label}</span>
+              <span className="type-meta mt-1 block font-medium text-ink-secondary">
+                {option.description}
+              </span>
+              <span className="type-meta mt-2 block text-ink-muted">{option.detail}</span>
+            </button>
+          );
+        })}
+      </div>
 
       <div className="mt-5 flex items-center justify-center gap-2">
         <VerifiedBadge label="Same verification standard" tone="forest" size="md" />
       </div>
 
-      {!track ? (
+      {tracks.length === 0 ? (
         <p className="type-meta mt-4 text-center text-ink-muted">
-          Choose a track to continue.
+          Choose at least one track to continue.
         </p>
       ) : null}
 
@@ -703,7 +833,7 @@ function TrackStep({
           variant="primary"
           size="lg"
           iconRight={ArrowRight}
-          disabled={!track}
+          disabled={tracks.length === 0}
           onClick={onNext}
         >
           Continue
@@ -726,7 +856,7 @@ function ReviewStep({
   submitting: boolean;
   onEditStep: (index: number) => void;
 }) {
-  const { identity, licence, vehicle, track, documents } = useApplicationStore();
+  const { identity, licence, vehicle, tracks, documents } = useApplicationStore();
 
   const uploaded = Object.keys(documents).length;
 
@@ -746,7 +876,16 @@ function ReviewStep({
             ["Full name", identity.fullName],
             ["Email", identity.email],
             ["Phone", identity.phone],
+            ["NIN", identity.nin ? `•••••••${identity.nin.slice(-4)}` : undefined],
             ["Address", identity.address],
+            [
+              "Community eligibility",
+              identity.workerStatus === "YES"
+                ? identity.department
+                : identity.workerStatus === "NO"
+                  ? `Guarantor: ${identity.guarantorName ?? "Provided"}`
+                  : undefined,
+            ],
           ]}
         />
 
@@ -795,19 +934,26 @@ function ReviewStep({
         />
 
         <ReviewSection
-          title="Track"
-          icon={track === DriverTrack.PROFESSIONAL ? Wallet : HandHeart}
+          title="Driving tracks"
+          icon={tracks.includes(DriverTrack.PROFESSIONAL) ? Wallet : HandHeart}
           onEdit={() => onEditStep(4)}
           rows={[
             [
-              "Chosen track",
-              track === DriverTrack.PROFESSIONAL
-                ? "Professional"
-                : track === DriverTrack.VOLUNTEER
-                  ? "Volunteer"
-                  : undefined,
+              "Approved tracks requested",
+              tracks.length
+                ? tracks
+                    .map((track) =>
+                      track === DriverTrack.PROFESSIONAL ? "Professional" : "Volunteer",
+                    )
+                    .join(" and ")
+                : undefined,
             ],
-            ["What that means", track ? TRACK_DESCRIPTION[track] : undefined],
+            [
+              "How it works",
+              tracks.length
+                ? "Choose an active track each time you go online."
+                : undefined,
+            ],
           ]}
         />
       </div>

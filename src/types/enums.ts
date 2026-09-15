@@ -102,6 +102,24 @@ export const DriverAvailability = {
 export type DriverAvailability =
   (typeof DriverAvailability)[keyof typeof DriverAvailability];
 
+export const DriverAccountStatus = {
+  ACTIVE: "ACTIVE",
+  FLAGGED: "FLAGGED",
+  DEACTIVATED: "DEACTIVATED",
+} as const;
+export type DriverAccountStatus =
+  (typeof DriverAccountStatus)[keyof typeof DriverAccountStatus];
+
+export const InspectionStatus = {
+  CURRENT: "CURRENT",
+  DUE_SOON: "DUE_SOON",
+  SCHEDULED: "SCHEDULED",
+  OVERDUE: "OVERDUE",
+  MISSED: "MISSED",
+} as const;
+export type InspectionStatus =
+  (typeof InspectionStatus)[keyof typeof InspectionStatus];
+
 /** Shared rides are capped at 3 passengers — Product Rule 2. */
 export const SharedSeatStatus = {
   EMPTY: "0_OF_3",
@@ -122,6 +140,7 @@ export const DocumentType = {
   INSURANCE: "INSURANCE",
   ROADWORTHINESS: "ROADWORTHINESS",
   VEHICLE_PHOTO: "VEHICLE_PHOTO",
+  GUARANTOR_PHOTO: "GUARANTOR_PHOTO",
 } as const;
 export type DocumentType = (typeof DocumentType)[keyof typeof DocumentType];
 

@@ -31,7 +31,7 @@ import { StatusBadge, StatusChip } from "@/components/ui/badge";
 import { Tabs, TabPanel } from "@/components/ui/tabs";
 import { Timeline, type TimelineItem } from "@/components/ui/timeline";
 import { Modal, ConfirmDialog } from "@/components/ui/modal";
-import { Textarea, Checkbox, Select } from "@/components/ui/input";
+import { Textarea, Checkbox, Input, Select } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { ErrorState } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
@@ -53,7 +53,11 @@ import {
   formatPlate,
   formatRelativeTime,
 } from "@/lib/format";
-import type { ReviewComment, VerificationDocument } from "@/types/models";
+import type {
+  PhysicalInspection,
+  ReviewComment,
+  VerificationDocument,
+} from "@/types/models";
 
 type Tab =
   | "identity"
@@ -112,6 +116,14 @@ export function VerificationReview({ id }: { id: string }) {
   const [note, setNote] = useState("");
   const [checked, setChecked] = useState<string[]>([]);
   const [decided, setDecided] = useState<VerificationStatus | null>(null);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleLocation, setScheduleLocation] = useState(
+    "Koinonia Centre vehicle bay",
+  );
+  const [scheduleNote, setScheduleNote] = useState("");
+  const [inspectionOverride, setInspectionOverride] =
+    useState<PhysicalInspection | null>(null);
 
   // Reviewer decisions on individual documents and the notes they leave, held
   // here until the backend exists.
@@ -172,6 +184,7 @@ export function VerificationReview({ id }: { id: string }) {
   }
 
   const record = data;
+  const inspection = inspectionOverride ?? record.inspection;
   const documents = record.documents.map(
     (document) => documentEdits[document.id] ?? document,
   );
@@ -384,7 +397,7 @@ export function VerificationReview({ id }: { id: string }) {
                   </NestedTile>
                   <NestedTile>
                     <DataPoint
-                      label="Government ID"
+                      label="NIN slip"
                       value={identityDoc?.fileName ?? "Not uploaded"}
                       hint={
                         DOCUMENT_STATUS_PRESENTATION[
@@ -603,7 +616,7 @@ export function VerificationReview({ id }: { id: string }) {
                     <span
                       className={cn(
                         "inline-flex size-10 shrink-0 items-center justify-center rounded-full",
-                        record.inspection.scheduled
+                        inspection.scheduled
                           ? "bg-forest-100 text-forest-800 dark:bg-gold-500/18 dark:text-gold-200"
                           : "bg-surface text-ink-secondary ring-1 ring-line",
                       )}
@@ -616,20 +629,20 @@ export function VerificationReview({ id }: { id: string }) {
                     </span>
                     <div className="min-w-0">
                       <p className="type-body font-medium text-ink">
-                        {!record.inspection.required
+                        {!inspection.required
                           ? "No inspection required"
-                          : record.inspection.scheduled
+                          : inspection.scheduled
                             ? "Inspection scheduled"
                             : "Inspection not yet scheduled"}
                       </p>
                       <p className="type-meta mt-1 text-ink-secondary">
-                        {record.inspection.note ??
+                        {inspection.note ??
                           "A physical check of the vehicle before the driver carries members."}
                       </p>
                     </div>
                   </NestedTile>
 
-                  {record.inspection.scheduled ? (
+                  {inspection.scheduled ? (
                     <div className="grid gap-3 sm:grid-cols-2">
                       <NestedTile>
                         <div className="flex items-center gap-2">
@@ -641,8 +654,8 @@ export function VerificationReview({ id }: { id: string }) {
                           <p className="type-micro text-ink-muted">When</p>
                         </div>
                         <p className="type-body mt-1.5 font-medium text-ink">
-                          {record.inspection.scheduledAt
-                            ? formatDateTime(record.inspection.scheduledAt)
+                          {inspection.scheduledAt
+                            ? formatDateTime(inspection.scheduledAt)
                             : "To be confirmed"}
                         </p>
                       </NestedTile>
@@ -656,23 +669,17 @@ export function VerificationReview({ id }: { id: string }) {
                           <p className="type-micro text-ink-muted">Where</p>
                         </div>
                         <p className="type-body mt-1.5 font-medium text-ink">
-                          {record.inspection.location ?? "To be confirmed"}
+                          {inspection.location ?? "To be confirmed"}
                         </p>
                       </NestedTile>
                     </div>
-                  ) : record.inspection.required ? (
+                  ) : inspection.required ? (
                     <Button
                       variant="secondary"
                       size="lg"
                       icon={Calendar}
                       className="w-full sm:w-auto"
-                      onClick={() =>
-                        toast({
-                          title: "Inspection slot requested",
-                          description:
-                            "The applicant will be offered the next three available times.",
-                        })
-                      }
+                      onClick={() => setScheduleOpen(true)}
                     >
                       Schedule inspection
                     </Button>
@@ -903,6 +910,64 @@ export function VerificationReview({ id }: { id: string }) {
               </p>
             </NestedTile>
           ) : null}
+        </div>
+      </Modal>
+
+      {/* Flag a document */}
+      <Modal
+        open={scheduleOpen}
+        onClose={() => setScheduleOpen(false)}
+        title="Schedule vehicle inspection"
+        description="The appointment becomes visible to the driver immediately."
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setScheduleOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              disabled={!scheduleDate || !scheduleLocation.trim()}
+              onClick={async () => {
+                const updated = await verificationService.scheduleInspection(id, {
+                  scheduledAt: new Date(scheduleDate).toISOString(),
+                  location: scheduleLocation,
+                  note: scheduleNote || undefined,
+                });
+                setInspectionOverride(updated);
+                setScheduleOpen(false);
+                toast({
+                  title: "Inspection scheduled",
+                  description: "The driver can now see the appointment details.",
+                  tone: "success",
+                });
+              }}
+            >
+              Schedule appointment
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Date and time"
+            type="datetime-local"
+            value={scheduleDate}
+            onChange={(event) => setScheduleDate(event.target.value)}
+            required
+          />
+          <Input
+            label="Location"
+            value={scheduleLocation}
+            onChange={(event) => setScheduleLocation(event.target.value)}
+            required
+          />
+          <Textarea
+            label="Instructions"
+            placeholder="Bring the original vehicle documents."
+            value={scheduleNote}
+            onChange={(event) => setScheduleNote(event.target.value)}
+          />
         </div>
       </Modal>
 

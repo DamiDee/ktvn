@@ -3,9 +3,10 @@ import {
   REQUIRED_DOCUMENTS,
   VERIFICATION_QUEUE,
 } from "@/mocks/verification";
-import { DocumentStatus, VerificationStatus } from "@/types/enums";
+import { DocumentStatus, InspectionStatus, VerificationStatus } from "@/types/enums";
 import type {
   DriverVerification,
+  PhysicalInspection,
   ReviewComment,
   VerificationDocument,
 } from "@/types/models";
@@ -80,6 +81,28 @@ export const verificationService = {
       delayMs: MockDelay.slow,
       ...options,
     });
+  },
+
+  async scheduleInspection(
+    id: string,
+    appointment: { scheduledAt: string; location: string; note?: string },
+    options?: RequestOptions,
+  ): Promise<PhysicalInspection> {
+    return request(() => {
+      const record = VERIFICATION_QUEUE.find((entry) => entry.id === id);
+      if (!record) {
+        throw new ApiError("We couldn't find that application.", "NOT_FOUND", false);
+      }
+      record.inspection = {
+        ...record.inspection,
+        required: true,
+        scheduled: true,
+        status: InspectionStatus.SCHEDULED,
+        ...appointment,
+      };
+      record.status = VerificationStatus.INSPECTION_SCHEDULED;
+      return record.inspection;
+    }, { delayMs: MockDelay.normal, ...options });
   },
 
   /**

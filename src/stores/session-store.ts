@@ -16,8 +16,9 @@ import { DriverTrack, UserRole } from "@/types/enums";
 
 interface SessionState {
   role: UserRole;
-  /** Which driver dashboard to render. Switching tracks needs approval. */
+  /** Approved operating track selected for the current online session. */
   driverTrack: DriverTrack;
+  driverOnline: boolean;
   /** Which driver record the driver screens read. Set at sign-in. */
   activeDriverId: string | null;
   notificationsOpen: boolean;
@@ -27,6 +28,7 @@ interface SessionState {
 
   setRole: (role: UserRole) => void;
   setDriverTrack: (track: DriverTrack) => void;
+  setDriverOnline: (online: boolean) => void;
   setActiveDriverId: (driverId: string | null) => void;
   openNotifications: () => void;
   closeNotifications: () => void;
@@ -39,6 +41,7 @@ export const useSessionStore = create<SessionState>()(
     (set) => ({
       role: UserRole.PASSENGER,
       driverTrack: DriverTrack.VOLUNTEER,
+      driverOnline: false,
       activeDriverId: null,
       notificationsOpen: false,
       activeRideId: null,
@@ -46,6 +49,7 @@ export const useSessionStore = create<SessionState>()(
 
       setRole: (role) => set({ role }),
       setDriverTrack: (driverTrack) => set({ driverTrack }),
+      setDriverOnline: (driverOnline) => set({ driverOnline }),
       setActiveDriverId: (activeDriverId) => set({ activeDriverId }),
       openNotifications: () => set({ notificationsOpen: true }),
       closeNotifications: () => set({ notificationsOpen: false }),
@@ -65,6 +69,8 @@ export const useSessionStore = create<SessionState>()(
       partialize: (state) => ({
         role: state.role,
         activeDriverId: state.activeDriverId,
+        driverTrack: state.driverTrack,
+        driverOnline: state.driverOnline,
       }),
     },
   ),

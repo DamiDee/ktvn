@@ -2,11 +2,13 @@ import type {
   BadgeTier,
   DocumentStatus,
   DocumentType,
+  DriverAccountStatus,
   DriverAvailability,
   DriverTrack,
   IncidentCategory,
   IncidentSeverity,
   IncidentStatus,
+  InspectionStatus,
   MembershipStatus,
   NotificationCategory,
   PaymentStatus,
@@ -70,6 +72,7 @@ export interface User {
   avatarUrl?: string;
   membershipStatus: MembershipStatus;
   joinedAt: string;
+  ninVerified?: boolean;
 }
 
 export interface TrustedContact {
@@ -102,6 +105,10 @@ export interface Vehicle {
 export interface Driver extends User {
   role: typeof UserRole.DRIVER;
   track: DriverTrack;
+  /** Tracks approved at onboarding; one is selected before each online session. */
+  eligibleTracks?: DriverTrack[];
+  accountStatus?: DriverAccountStatus;
+  deactivationReason?: string;
   availability: DriverAvailability;
   rating: number;
   totalTrips: number;
@@ -116,6 +123,28 @@ export interface Driver extends User {
   flagged?: boolean;
   currentLocation?: Coordinates;
   heading?: number;
+  affiliation?: DriverAffiliation;
+  inspection?: VehicleInspection;
+}
+
+export interface DriverAffiliation {
+  isKoinoniaWorker: boolean;
+  department?: string;
+  guarantor?: {
+    name: string;
+    phone: string;
+    relationship: string;
+    photoUrl?: string;
+  };
+}
+
+export interface VehicleInspection {
+  status: InspectionStatus;
+  lastCompletedAt?: string;
+  nextDueAt: string;
+  scheduledAt?: string;
+  location?: string;
+  note?: string;
 }
 
 export interface TrackSwitchRequest {
@@ -160,6 +189,9 @@ export interface PhysicalInspection {
   scheduledAt?: string;
   location?: string;
   note?: string;
+  status?: InspectionStatus;
+  lastCompletedAt?: string;
+  nextDueAt?: string;
 }
 
 /**
@@ -184,6 +216,7 @@ export interface DriverVerification {
   applicantName: string;
   applicantAvatarUrl?: string;
   track: DriverTrack;
+  tracks?: DriverTrack[];
   status: VerificationStatus;
   submittedAt?: string;
   updatedAt: string;
@@ -392,6 +425,14 @@ export interface SOSAlert {
   resolvedAt?: string;
   location?: Coordinates;
   note?: string;
+  notifiedContacts?: EmergencyContact[];
+}
+
+export interface EmergencyContact {
+  id: string;
+  name: string;
+  phone: string;
+  kind: "POLICE" | "CHURCH" | "TRUSTED_CONTACT";
 }
 
 export interface Incident {
