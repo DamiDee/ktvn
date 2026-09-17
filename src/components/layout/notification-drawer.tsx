@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -26,6 +27,7 @@ import { EmptyState } from "@/components/ui/states";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs } from "@/components/ui/tabs";
 import { useSessionStore } from "@/stores/session-store";
+import { useFreeBuses } from "@/features/free-buses/use-free-buses";
 
 const CATEGORY_ICON: Record<NotificationCategory, LucideIcon> = {
   [NotificationCategory.RIDE]: Route,
@@ -45,13 +47,36 @@ const CATEGORY_LABEL: Record<NotificationCategory, string> = {
 
 type Filter = "ALL" | NotificationCategory;
 
-/** Notification bell with an unread dot. */
-export function NotificationBell({ tone = "inverse" }: { tone?: "inverse" | "default" }) {
-  const toggle = useSessionStore((state) => state.toggleNotifications);
-  const { data } = useQuery({
+/** Bus broadcasts share the existing inbox, and are never shown to drivers. */
+function useNotificationFeed() {
+  const role = useSessionStore((state) => state.role);
+  const pathname = usePathname();
+  const eligible = role !== "DRIVER" && !pathname.startsWith("/driver");
+  const buses = useFreeBuses(eligible);
+  const base = useQuery({
     queryKey: queryKeys.notifications,
     queryFn: () => userService.listNotifications(),
   });
+  const data = useMemo<Notification[]>(() => [
+    ...(eligible ? buses.data?.notices ?? [] : []).map((notice): Notification => ({
+      id: notice.id,
+      category: NotificationCategory.SERVICE,
+      title: notice.title,
+      body: notice.body,
+      createdAt: notice.createdAt,
+      read: false,
+      priority: "HIGH",
+      href: role === "ADMIN" ? "/admin/free-buses" : "/passenger/free-buses",
+    })),
+    ...(base.data ?? []),
+  ], [base.data, buses.data?.notices, eligible, role]);
+  return { data, isLoading: base.isLoading };
+}
+
+/** Notification bell with an unread dot. */
+export function NotificationBell({ tone = "inverse" }: { tone?: "inverse" | "default" }) {
+  const toggle = useSessionStore((state) => state.toggleNotifications);
+  const { data } = useNotificationFeed();
 
   const unread = data?.filter((item) => !item.read).length ?? 0;
   const hasCritical = data?.some(
@@ -99,11 +124,7 @@ export function NotificationDrawer() {
   const close = useSessionStore((state) => state.closeNotifications);
   const [filter, setFilter] = useState<Filter>("ALL");
 
-  const { data, isLoading } = useQuery({
-    queryKey: queryKeys.notifications,
-    queryFn: () => userService.listNotifications(),
-    enabled: open,
-  });
+  const { data, isLoading } = useNotificationFeed();
 
   const sorted = useMemo(() => {
     if (!data) return [];

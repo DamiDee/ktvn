@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   BadgeCheck,
   BarChart3,
+  BusFront,
   Car,
   ClipboardCheck,
   FileText,
@@ -34,6 +35,7 @@ export interface NavItem {
 export const PASSENGER_NAV: NavItem[] = [
   { href: "/passenger/rides", label: "Rides", icon: Route, matchPrefix: true },
   { href: "/passenger/request", label: "Request", icon: MapPinned },
+  { href: "/passenger/free-buses", label: "Free Buses", icon: BusFront },
   { href: "/passenger/safety", label: "Safety", icon: LifeBuoy },
   { href: "/passenger/profile", label: "Profile", icon: User },
 ];
@@ -69,6 +71,7 @@ export function driverNavForTrack(track: DriverTrack): NavItem[] {
 
 export const ADMIN_NAV: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: Gauge },
+  { href: "/admin/free-buses", label: "Free Buses", icon: BusFront },
   {
     href: "/admin/live-rides",
     label: "Live Rides",

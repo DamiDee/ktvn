@@ -78,6 +78,8 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
 export function LoginForm() {
   const router = useRouter();
   const setActiveDriverId = useSessionStore((state) => state.setActiveDriverId);
+  const setActiveMemberId = useSessionStore((state) => state.setActiveMemberId);
+  const setRole = useSessionStore((state) => state.setRole);
   const [formError, setFormError] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<string | null>(null);
 
@@ -96,6 +98,8 @@ export function LoginForm() {
     // Remember which driver signed in, so the driver screens show that
     // person's track rather than a fixed demo account.
     setActiveDriverId(user.role === UserRole.DRIVER ? user.id : null);
+    setActiveMemberId(user.role === UserRole.PASSENGER ? user.id : null);
+    setRole(user.role);
 
     router.push(ROLE_HOME[user.role] ?? "/passenger/rides");
   }

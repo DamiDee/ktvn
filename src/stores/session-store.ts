@@ -21,6 +21,7 @@ interface SessionState {
   driverOnline: boolean;
   /** Which driver record the driver screens read. Set at sign-in. */
   activeDriverId: string | null;
+  activeMemberId: string | null;
   notificationsOpen: boolean;
   /** Ride currently in progress, surfaced as a persistent indicator. */
   activeRideId: string | null;
@@ -30,6 +31,7 @@ interface SessionState {
   setDriverTrack: (track: DriverTrack) => void;
   setDriverOnline: (online: boolean) => void;
   setActiveDriverId: (driverId: string | null) => void;
+  setActiveMemberId: (memberId: string | null) => void;
   openNotifications: () => void;
   closeNotifications: () => void;
   toggleNotifications: () => void;
@@ -43,6 +45,7 @@ export const useSessionStore = create<SessionState>()(
       driverTrack: DriverTrack.VOLUNTEER,
       driverOnline: false,
       activeDriverId: null,
+      activeMemberId: null,
       notificationsOpen: false,
       activeRideId: null,
       activeRideMinutesRemaining: null,
@@ -51,6 +54,7 @@ export const useSessionStore = create<SessionState>()(
       setDriverTrack: (driverTrack) => set({ driverTrack }),
       setDriverOnline: (driverOnline) => set({ driverOnline }),
       setActiveDriverId: (activeDriverId) => set({ activeDriverId }),
+      setActiveMemberId: (activeMemberId) => set({ activeMemberId }),
       openNotifications: () => set({ notificationsOpen: true }),
       closeNotifications: () => set({ notificationsOpen: false }),
       toggleNotifications: () =>
@@ -69,6 +73,7 @@ export const useSessionStore = create<SessionState>()(
       partialize: (state) => ({
         role: state.role,
         activeDriverId: state.activeDriverId,
+        activeMemberId: state.activeMemberId,
         driverTrack: state.driverTrack,
         driverOnline: state.driverOnline,
       }),
