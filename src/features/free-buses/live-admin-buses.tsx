@@ -12,7 +12,9 @@ import { EmptyState, ErrorState } from "@/components/ui/states";
 import { StatusChip } from "@/components/ui/badge";
 import { PageLoader } from "@/components/ui/route-loader";
 import { useToast } from "@/components/ui/toast";
+import { MapPicker } from "@/components/ui/map-picker";
 import { freebusRequest, FreebusError } from "@/services/freebus-api";
+import { broadcastPush } from "@/hooks/use-push-notifications";
 import { availableCapacity, queryString } from "@/lib/freebus-contract";
 import type { ApiBooking, ApiBus, ApiPoint, ApiRoute, ApiUser } from "@/types/freebus-api";
 import { useLiveQuery } from "./live-queries";
@@ -63,9 +65,9 @@ export function LiveAdminBuses() {
         <Button variant="ghost" disabled={!bus.current_route_id || busy || bus.status === "Maintenance" || bus.state === "Transit" || bus.state === "Arrived"} onClick={() => { setActionError(""); setDepart(bus); }}>Mark departed</Button>
       </div>
     </Card>)}</div>
-    <p className="type-meta mt-7 text-ink-muted">Changes refresh every 10 seconds on open member pages. Push notifications and automatic full-bus departure are not provided by the current API.</p>
+
     <Modal open={panel !== null} onClose={() => { if (!busy) setPanel(null); }} title={panel === "route" ? "Schedule free buses" : panel === "point" ? "Add a meeting point" : panel === "bus" ? "Register a bus" : "Assign a bus"} size="lg" className="max-h-[90dvh]">
-      {panel ? <OperationsForm key={panel} panel={panel} points={points.data} routes={routes.data} buses={buses.data} busy={busy} error={actionError} onPartialSave={setNotice} onSubmit={async (action) => { if (await run(action, "Saved to the API")) setPanel(null); }} /> : null}
+      {panel ? <OperationsForm key={panel} panel={panel} points={points.data} routes={routes.data} buses={buses.data} busy={busy} error={actionError} onPartialSave={setNotice} onSubmit={async (action, notifyPayload) => { if (await run(action, "Saved to the API")) { setPanel(null); if (notifyPayload) void broadcastPush(notifyPayload); } }} /> : null}
     </Modal>
     <Modal open={Boolean(manifest)} onClose={() => { if (!busy) setManifest(""); }} title="Passenger manifest" description={buses.data.find((b) => b.id === manifest)?.license_plate} size="lg">
       {passengers.error ? <ErrorState title="Couldn't load passengers" description={passengers.error.message} onRetry={() => void passengers.refetch()} /> : passengers.isPending ? <p>Loading passengers…</p> : <div className="space-y-3">{passengers.data?.filter((b) => b.bus_id === manifest).map((booking) => {
@@ -77,19 +79,24 @@ export function LiveAdminBuses() {
       {actionError ? <p role="alert" className="mt-3 text-danger-600">{actionError}</p> : null}
     </Modal>
     <ConfirmDialog open={Boolean(depart)} onClose={() => { if (!busy) setDepart(null); }} title="Confirm this bus has departed?" description={`Mark ${depart?.license_plate ?? "this bus"} as in transit only after boarding is complete and the bus has actually left. Members will no longer see its seats as available.`} confirmLabel="Mark departed" loading={busy} onConfirm={async () => {
-      if (depart && await run(() => freebusRequest(`buses/${depart.id}/state`, { method: "PATCH", body: JSON.stringify({ state: "Transit" }) }), "Bus marked departed")) setDepart(null);
-      else toast({ title: "Departure could not be confirmed. Refresh and try again.", tone: "danger" });
+      if (depart && await run(() => freebusRequest(`buses/${depart.id}/state`, { method: "PATCH", body: JSON.stringify({ state: "Transit" }) }), "Bus marked departed")) {
+        const route = routes.data.find((r) => r.id === depart?.current_route_id);
+        void broadcastPush({ title: "🚌 Bus has departed", body: route ? `${route.name} is now in transit. Have a safe journey!` : "Your bus has left. Have a safe journey!", url: "/passenger/free-buses", tag: "freebus-departed" });
+        setDepart(null);
+      } else toast({ title: "Departure could not be confirmed. Refresh and try again.", tone: "danger" });
     }} />
   </>;
 }
 
+interface NotifyPayload { title: string; body: string; url?: string; tag?: string; }
 function OperationsForm({ panel, points, routes, buses, busy, error, onSubmit, onPartialSave }: {
   panel: Exclude<Panel, null>; points: ApiPoint[]; routes: ApiRoute[]; buses: ApiBus[]; busy: boolean; error: string;
-  onSubmit: (action: () => Promise<unknown>) => Promise<void>;
+  onSubmit: (action: () => Promise<unknown>, notify?: NotifyPayload) => Promise<void>;
   onPartialSave: (message: string) => void;
 }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [validation, setValidation] = useState("");
+  const [pickedLocation, setPickedLocation] = useState<{ lat: number; lng: number } | null>(null);
   const availableBuses = buses.filter((b) => !b.current_route_id && b.current_passenger_count === 0 && b.status !== "Maintenance" && b.state !== "Transit");
   const pointOptions = [{ value: "", label: "Choose a location" }, ...points.map((p) => ({ value: p.id, label: p.name }))];
   return <form className="space-y-4" onSubmit={async (event) => {
@@ -97,9 +104,10 @@ function OperationsForm({ panel, points, routes, buses, busy, error, onSubmit, o
     const data = new FormData(event.currentTarget);
     const value = (key: string) => String(data.get(key) ?? "").trim();
     if (panel === "point") {
-      const lat = Number(value("lat")), long = Number(value("long"));
-      if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(long) || long < -180 || long > 180) { setValidation("Enter valid latitude and longitude coordinates."); return; }
-      await onSubmit(() => freebusRequest("points", { method: "POST", body: JSON.stringify({ name: value("name"), landmark: value("landmark"), description: value("description"), geo_location: { lat: value("lat"), long: value("long") } }) }));
+      const lat = pickedLocation?.lat ?? NaN;
+      const long = pickedLocation?.lng ?? NaN;
+      if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(long) || long < -180 || long > 180) { setValidation("Tap the map or enter coordinates to select a location."); return; }
+      await onSubmit(() => freebusRequest("points", { method: "POST", body: JSON.stringify({ name: value("name"), landmark: value("landmark"), description: value("description"), geo_location: { lat: String(lat), long: String(long) } }) }));
     } else if (panel === "bus") {
       await onSubmit(() => freebusRequest("buses", { method: "POST", body: JSON.stringify({ license_plate: value("plate"), capacity: Number(value("capacity")), state: "Stationary", status: "Available" }) }));
     } else if (panel === "assign") {
@@ -109,25 +117,25 @@ function OperationsForm({ panel, points, routes, buses, busy, error, onSubmit, o
       if (!selected.length) { setValidation("Select at least one registered bus. Add buses to the fleet first if needed."); return; }
       const departure = Date.parse(`${value("date")}T${value("time")}:00+01:00`);
       if (!Number.isFinite(departure) || departure <= Date.now()) { setValidation("Choose a future departure time in WAT."); return; }
+      const routeName = `${value("service")} \u00b7 ${value("name")}`;
       await onSubmit(async () => {
         const result = await freebusRequest<ApiRoute[]>("routes", { method: "POST", body: JSON.stringify({
-          name: `${value("service")} · ${value("name")}`, description: value("description"), start_point: value("start"), end_point: value("end"),
+          name: routeName, description: value("description"), start_point: value("start"), end_point: value("end"),
           fare: 0, distance: Number(value("distance")), ride_type: value("direction"), stops: [], departure_date: value("date"), departure_time: `${value("time")}:00`, is_round_trip: false,
         }) });
         const route = result[0];
         if (!route?.id) throw new Error("The route response was unexpected. Refresh before creating another route.");
         const assignments = await Promise.allSettled(selected.map((id) => freebusRequest(`buses/${id}/assign-route`, { method: "POST", body: JSON.stringify({ route_id: route.id }) })));
         const failed = assignments.filter((r) => r.status === "rejected").length;
-        // A route is already saved: do not leave a submit button that would create it again.
-        if (failed) onPartialSave(`Route saved, but ${failed} bus assignments failed. Use “Assign a bus” to finish; do not recreate the route.`);
+        if (failed) onPartialSave(`Route saved, but ${failed} bus assignments failed. Use \u201cAssign a bus\u201d to finish; do not recreate the route.`);
         return route;
-      });
+      }, { title: "\ud83d\ude8c New free bus available!", body: `${routeName} \u2013 ${value("date")} at ${value("time")} WAT. Book your seat now.`, url: "/passenger/free-buses", tag: "freebus-new-route" });
     }
   }}>
     {panel === "point" ? <>
       <Input label="Location name" name="name" required placeholder="Lugbe Police Signpost" />
       <Input label="Meeting landmark" name="landmark" required /><Input label="Directions" name="description" required />
-      <div className="grid grid-cols-2 gap-3"><Input label="Latitude" name="lat" type="number" step="any" min={-90} max={90} required /><Input label="Longitude" name="long" type="number" step="any" min={-180} max={180} required /></div>
+      <MapPicker value={pickedLocation} onChange={setPickedLocation} />
     </> : panel === "bus" ? <><Input label="Registration plate" name="plate" required /><Input label="Passenger seats" name="capacity" type="number" min={1} max={100} step={1} defaultValue={18} required /></> : panel === "assign" ? <>
       <Select label="Unassigned bus" name="bus" required options={[{ value: "", label: "Choose a bus" }, ...availableBuses.map((b) => ({ value: b.id, label: `${b.license_plate} · ${b.capacity} seats` }))]} />
       <Select label="Free route" name="route" required options={[{ value: "", label: "Choose a route" }, ...routes.filter((r) => r.fare === 0 && !r.is_completed).map((r) => ({ value: r.id, label: `${r.name} · ${r.departure_date}` }))]} />

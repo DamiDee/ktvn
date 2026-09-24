@@ -13,6 +13,7 @@ import { StatusChip } from "@/components/ui/badge";
 import { PageLoader } from "@/components/ui/route-loader";
 import { useToast } from "@/components/ui/toast";
 import { freebusRequest, FreebusError } from "@/services/freebus-api";
+import { PushNotificationBanner } from "@/components/ui/push-notification-banner";
 import { activeBooking, availableCapacity, busCanBoard, queryString, routeCanBook } from "@/lib/freebus-contract";
 import type { ApiBooking, ApiBus, ApiPoint, ApiRoute } from "@/types/freebus-api";
 import { useLiveQuery } from "./live-queries";
@@ -66,6 +67,7 @@ export function LiveMemberBuses() {
   }
   return <>
     <PageHeader eyebrow="Community transport" title="Free Buses" description="A seat to service. A journey home. Always free." />
+    <PushNotificationBanner />
     <div className="mb-6 flex items-center gap-4 rounded-[var(--kx-radius-xl)] bg-forest-900 p-5 text-white"><BusFront className="size-8 shrink-0 text-gold-300" /><div><p className="type-card-title">Together, to where we gather.</p><p className="type-meta mt-1 text-white/70">Bus availability updates automatically. No need to refresh.</p></div></div>
     <Card className="mb-6"><div className="grid gap-4 sm:grid-cols-2">
       <Select label="Service name" value={service} onChange={(e) => setService(e.target.value)} options={[{ value: "", label: "All service names" }, { value: "Koinonia", label: "Koinonia Sunday Service" }, { value: "T.G.A", label: "T.G.A" }]} />
@@ -102,7 +104,7 @@ export function LiveMemberBuses() {
         </Card>;
       })}</div>}
     </section>
-    <p className="type-meta mt-8 text-ink-muted">A full bus is not automatically marked departed. The oversight team confirms movement. Push notifications are not connected yet.</p>
+
     <Modal open={Boolean(pending)} onClose={() => { if (!busy) setPending(null); }} title="Reserve your free seat" footer={<><Button variant="ghost" disabled={busy} onClick={() => setPending(null)}>Go back</Button><Button loading={busy} onClick={reserve}>Confirm free seat</Button></>}>
       <p className="type-body text-ink">{pending?.name}</p><p className="type-meta mt-3 text-ink-secondary">The API assigns the next available seat. Your return journey needs its own booking.</p>{actionError ? <p role="alert" className="mt-4 text-danger-600">{actionError}</p> : null}
     </Modal>
