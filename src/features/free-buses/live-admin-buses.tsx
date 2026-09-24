@@ -97,6 +97,7 @@ function OperationsForm({ panel, points, routes, buses, busy, error, onSubmit, o
   const [selected, setSelected] = useState<string[]>([]);
   const [validation, setValidation] = useState("");
   const [pickedLocation, setPickedLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationName, setLocationName] = useState("");
   const availableBuses = buses.filter((b) => !b.current_route_id && b.current_passenger_count === 0 && b.status !== "Maintenance" && b.state !== "Transit");
   const pointOptions = [{ value: "", label: "Choose a location" }, ...points.map((p) => ({ value: p.id, label: p.name }))];
   return <form className="space-y-4" onSubmit={async (event) => {
@@ -133,9 +134,9 @@ function OperationsForm({ panel, points, routes, buses, busy, error, onSubmit, o
     }
   }}>
     {panel === "point" ? <>
-      <Input label="Location name" name="name" required placeholder="Lugbe Police Signpost" />
+      <Input label="Location name" name="name" required placeholder="Lugbe Police Signpost" value={locationName} onChange={(e) => setLocationName(e.target.value)} hint="Auto-filled when you select a place on the map below" />
       <Input label="Meeting landmark" name="landmark" required /><Input label="Directions" name="description" required />
-      <MapPicker value={pickedLocation} onChange={setPickedLocation} />
+      <MapPicker value={pickedLocation} onChange={setPickedLocation} onPlaceSelect={(place) => { if (!locationName) setLocationName(place.name); }} />
     </> : panel === "bus" ? <><Input label="Registration plate" name="plate" required /><Input label="Passenger seats" name="capacity" type="number" min={1} max={100} step={1} defaultValue={18} required /></> : panel === "assign" ? <>
       <Select label="Unassigned bus" name="bus" required options={[{ value: "", label: "Choose a bus" }, ...availableBuses.map((b) => ({ value: b.id, label: `${b.license_plate} · ${b.capacity} seats` }))]} />
       <Select label="Free route" name="route" required options={[{ value: "", label: "Choose a route" }, ...routes.filter((r) => r.fare === 0 && !r.is_completed).map((r) => ({ value: r.id, label: `${r.name} · ${r.departure_date}` }))]} />
