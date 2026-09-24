@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:free-buses": "node --experimental-strip-types --test tests/free-buses.test.mjs"
+    "test:free-buses": "node --experimental-strip-types --test tests/*.test.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

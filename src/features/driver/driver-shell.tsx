@@ -17,11 +17,17 @@ import { isDriverOnline } from "@/lib/state-machines";
 import { shortName } from "@/lib/format";
 import { useSessionStore } from "@/stores/session-store";
 import { DriverAccountStatus } from "@/types/enums";
+import { LIVE_FREE_BUSES } from "@/lib/freebus-config";
+import { LiveFreeBusShell } from "@/features/free-buses/live-shell";
 
 /** Routes whose map fills the viewport and supplies its own padding. */
 const BLEED_ROUTES = ["/driver/trip", "/driver/waiting"];
 
 export function DriverShell({ children }: { children: ReactNode }) {
+  return LIVE_FREE_BUSES ? <LiveFreeBusShell>{children}</LiveFreeBusShell> : <DemoDriverShell>{children}</DemoDriverShell>;
+}
+
+function DemoDriverShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const bleed = BLEED_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`),

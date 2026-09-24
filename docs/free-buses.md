@@ -1,5 +1,7 @@
 # Free Buses
 
+This page describes the **original demo mode** (`NEXT_PUBLIC_FREE_BUSES_MODE=demo`). Live mode is now the default; see [Free Buses API integration](free-buses-api.md) for setup, supported real operations, verification and backend gaps.
+
 Member page: `/passenger/free-buses`. Admin page: `/admin/free-buses`.
 
 ## Booking rules
@@ -15,7 +17,7 @@ Member page: `/passenger/free-buses`. Admin page: `/admin/free-buses`.
 
 ## Demo persistence and updates
 
-This repository currently has mock authentication and no shared production backend. Free Buses uses an IndexedDB repository, `src/services/free-bus-service.ts`, so schedules, bookings and notices survive a reload in the same browser. Database read/write transactions serialize booking attempts across tabs; a booking and its final-seat departure notification commit together. BroadcastChannel updates other tabs, with periodic query refresh as a fallback.
+Demo mode has mock authentication. It uses an IndexedDB repository, `src/services/free-bus-service.ts`, so schedules, bookings and notices survive a reload in the same browser. Database read/write transactions serialize booking attempts across tabs; a booking and its final-seat departure notification commit together. BroadcastChannel updates other tabs, with periodic query refresh as a fallback. Live mode does not read or import these records.
 
 The notification bell and drawer include bus broadcasts for members and admins. These are in-app notices in the current browser, not push/SMS messages or broadcasts to other devices. The supplied venues and passenger manifests are demo fixtures. The admin manifest includes an explicitly labelled demo action to fill the next bus and exercise departure notifications.
 

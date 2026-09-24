@@ -13,8 +13,13 @@ npx eslint .     # lint
 npx tsc --noEmit # type check
 ```
 
-Node 20+ required. No API keys or environment variables are needed — the app
-runs entirely on the mock layer described below.
+Node 20+ is required for the app; the TypeScript-stripping tests need Node 22.6+.
+Free Buses now defaults to live API mode. See [API setup and current limitations](docs/free-buses-api.md).
+Use `.env.example` for configuration. The browser calls the Free Buses API directly,
+so that API must allow this app's origin with credentials and set `SameSite=None; Secure`
+cookies. Keep `.env.local` out of Git.
+Set `NEXT_PUBLIC_FREE_BUSES_MODE=demo` and restart/rebuild to use the original
+mock product described below. Live mode does not silently fall back to mocks.
 
 ## Architecture
 
@@ -40,9 +45,9 @@ src/
 
 Three rules hold the structure together:
 
-1. **No component fetches directly.** Everything goes through `services/`, which
-   goes through `services/api-client.ts`. Replacing mocks with a real backend
-   means editing `request()` in that one file.
+1. **No component fetches directly.** Demo repositories use `services/api-client.ts`.
+   Live Free Buses uses `services/freebus-api.ts`, which calls the API directly with
+   `credentials: "include"`; the API's HTTP-only cookies are the whole session.
 2. **No component hardcodes a status string.** Status labels, tones and human
    phrasing live in `constants/status-presentation.ts`; transitions live in
    `lib/state-machines.ts`.
@@ -75,7 +80,7 @@ Swapping in Mapbox or Google Maps means writing one component that satisfies
 The projection fits the container's measured aspect ratio, so routes are never
 distorted and markers are never cropped out of frame.
 
-## Product rules enforced in code
+## Demo product rules enforced in code
 
 | Rule | Where it is enforced |
 | --- | --- |
@@ -100,7 +105,7 @@ distorted and markers are never cropped out of frame.
 - Maps carry a text description; the same information is available in the
   surrounding cards.
 
-## Mock layer
+## Mock layer (demo mode only)
 
 `services/api-client.ts` simulates latency (`MockDelay`) and can simulate
 failure (`failureRate`) so error states are reachable. Ride matching, driver

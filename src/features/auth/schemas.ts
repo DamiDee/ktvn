@@ -25,6 +25,11 @@ export const loginSchema = z.object({
 });
 
 export type LoginValues = z.infer<typeof loginSchema>;
+export const liveLoginSchema = z.object({
+  identifier: z.string().trim().min(1, "Enter your email or username"),
+  password: z.string().min(1, "Enter your password"),
+  remember: z.boolean().optional(),
+});
 
 export const signUpSchema = z
   .object({
@@ -40,9 +45,6 @@ export const signUpSchema = z
       .string()
       .min(1, "Enter your phone number")
       .regex(/^\+?[\d\s-]{7,}$/, "Enter a valid phone number"),
-    nin: z
-      .string()
-      .regex(/^\d{11}$/, "Enter your 11-digit National Identity Number"),
     password: z
       .string()
       .min(8, "Use at least 8 characters")
@@ -60,6 +62,12 @@ export const signUpSchema = z
   });
 
 export type SignUpValues = z.infer<typeof signUpSchema>;
+export const liveSignUpSchema = signUpSchema.safeExtend({
+  username: z.string().trim().min(3, "Use at least 3 characters for your username"),
+  address: z.string().trim().min(3, "Enter your address"),
+  country: z.string().trim().min(2, "Enter your country"),
+});
+export type LiveSignUpValues = z.infer<typeof liveSignUpSchema>;
 
 export const resetIdentifierSchema = z.object({
   identifier: z

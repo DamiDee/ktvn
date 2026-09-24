@@ -22,7 +22,10 @@ import { Checkbox, Input, PasswordInput } from "@/components/ui/input";
 import { userService, ApiError } from "@/services";
 import { UserRole } from "@/types/enums";
 import { useSessionStore } from "@/stores/session-store";
-import { loginSchema, type LoginValues } from "./schemas";
+import { loginSchema, liveLoginSchema, type LoginValues } from "./schemas";
+import { LIVE_FREE_BUSES } from "@/lib/freebus-config";
+import { FreebusError } from "@/services/freebus-api";
+import { useQueryClient } from "@tanstack/react-query";
 
 const ROLE_HOME: Record<string, string> = {
   [UserRole.PASSENGER]: "/passenger/rides",
@@ -77,6 +80,7 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
 
 export function LoginForm() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const setActiveDriverId = useSessionStore((state) => state.setActiveDriverId);
   const setActiveMemberId = useSessionStore((state) => state.setActiveMemberId);
   const setRole = useSessionStore((state) => state.setRole);
@@ -88,7 +92,7 @@ export function LoginForm() {
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<LoginValues>({
-    resolver: zodResolver(loginSchema),
+    resolver: zodResolver(LIVE_FREE_BUSES ? liveLoginSchema : loginSchema),
     defaultValues: { identifier: "", password: "", remember: true },
   });
 
@@ -101,7 +105,8 @@ export function LoginForm() {
     setActiveMemberId(user.role === UserRole.PASSENGER ? user.id : null);
     setRole(user.role);
 
-    router.push(ROLE_HOME[user.role] ?? "/passenger/rides");
+    queryClient.clear();
+    router.push(LIVE_FREE_BUSES ? (user.role === UserRole.ADMIN ? "/admin/free-buses" : "/passenger/free-buses") : ROLE_HOME[user.role] ?? "/passenger/rides");
   }
 
   async function onSubmit(values: LoginValues) {
@@ -110,7 +115,7 @@ export function LoginForm() {
       await signIn(values.identifier, values.password);
     } catch (error) {
       setFormError(
-        error instanceof ApiError
+        error instanceof ApiError || error instanceof FreebusError
           ? error.message
           : "We couldn't sign you in just now. Try again in a moment.",
       );
@@ -138,11 +143,11 @@ export function LoginForm() {
     <div>
       <h1 className="type-page-title text-ink">Welcome back.</h1>
       <p className="type-body mt-2.5 text-ink-secondary">
-        Sign in with the email or phone number on your membership record.
+        {LIVE_FREE_BUSES ? "Sign in with your email or username to use Free Buses." : "Sign in with the email or phone number on your membership record."}
       </p>
 
       {/* Demo accounts — one click into any side of the product */}
-      <div className="mt-7 rounded-[var(--kx-radius-xl)] border border-line bg-surface-nested p-4 sm:p-5">
+      {!LIVE_FREE_BUSES ? <><div className="mt-7 rounded-[var(--kx-radius-xl)] border border-line bg-surface-nested p-4 sm:p-5">
         <div className="flex items-baseline justify-between gap-3">
           <p className="type-card-title text-ink">Preview the product</p>
           <span className="type-micro text-ink-muted">Demo build</span>
@@ -202,6 +207,7 @@ export function LoginForm() {
         <span className="kx-hairline flex-1" role="presentation" />
       </div>
 
+      </> : null}
       <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-5" noValidate>
         {formError ? (
           <div
@@ -218,7 +224,7 @@ export function LoginForm() {
         ) : null}
 
         <Input
-          label="Email or phone number"
+          label={LIVE_FREE_BUSES ? "Email or username" : "Email or phone number"}
           placeholder="grace.adeyemi@example.com"
           autoComplete="username"
           icon={Mail}
@@ -235,7 +241,7 @@ export function LoginForm() {
           {...register("password")}
         />
 
-        <div className="flex items-center justify-between gap-4">
+        {!LIVE_FREE_BUSES ? <div className="flex items-center justify-between gap-4">
           <Checkbox label="Remember me" {...register("remember")} />
           <Link
             href="/forgot-password"
@@ -243,7 +249,7 @@ export function LoginForm() {
           >
             Forgot password?
           </Link>
-        </div>
+        </div> : <p className="type-meta text-ink-muted">Your session stays signed in for up to 8 hours. Password recovery is not connected yet.</p>}
 
         <Button
           type="submit"

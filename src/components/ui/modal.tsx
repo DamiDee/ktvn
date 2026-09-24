@@ -90,6 +90,9 @@ export function Modal({
     document.addEventListener("keydown", onKeyDown);
     // Move focus into the dialog on open.
     const focusTimer = window.setTimeout(() => {
+      // A fast tap/keystroke may already have focused a field during the
+      // entrance animation. Do not steal focus from someone typing.
+      if (panelRef.current?.contains(document.activeElement)) return;
       panelRef.current
         ?.querySelector<HTMLElement>(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',

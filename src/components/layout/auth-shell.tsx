@@ -8,6 +8,7 @@ import { MapPin, ShieldCheck } from "lucide-react";
 import { KoinoniaMark } from "@/components/ui/route-loader";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { LiquidBackdrop } from "@/components/ui/liquid-backdrop";
+import { LIVE_FREE_BUSES } from "@/lib/freebus-config";
 
 /**
  * Split-screen auth layout: a warm human transport moment on the left and the
@@ -108,7 +109,7 @@ function AuthVisual({
               <ShieldCheck className="size-4.5" strokeWidth={1.9} aria-hidden />
             </span>
             <span>
-              <span className="type-micro block text-gold-300">Verified journey</span>
+              <span className="type-micro block text-gold-300">{LIVE_FREE_BUSES ? "Community journey" : "Verified journey"}</span>
               <span className="type-meta mt-0.5 flex items-center gap-1.5 text-white/80">
                 <MapPin className="size-3.5" strokeWidth={1.8} aria-hidden />
                 Koinonia Centre · Abuja
@@ -123,8 +124,7 @@ function AuthVisual({
               "Every rider and every driver on this network is verified before a single journey begins."}
           </p>
           <p className="type-meta mt-4 text-white/55">
-            Member identity, driver licence, vehicle documents and a physical
-            inspection — the same five checks for both tracks.
+            {LIVE_FREE_BUSES ? "Choose your pickup point, reserve a free seat, and find your assigned bus." : "Member identity, driver licence, vehicle documents and a physical inspection — the same five checks for both tracks."}
           </p>
         </div>
       </div>

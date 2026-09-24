@@ -15,6 +15,9 @@ import {
   MembershipStatus,
 } from "@/types/enums";
 import { CODE_LENGTH } from "@/features/auth/schemas";
+import { LIVE_FREE_BUSES } from "@/lib/freebus-config";
+import { liveAuth } from "./freebus-api";
+import type { ApiUser } from "@/types/freebus-api";
 import type { Driver, Notification, Passenger, User } from "@/types/models";
 import { ApiError, MockDelay, request, type RequestOptions } from "./api-client";
 
@@ -27,8 +30,19 @@ export interface SignUpPayload {
   fullName: string;
   email: string;
   phone: string;
-  nin: string;
   password: string;
+  username?: string;
+  address?: string;
+  country?: string;
+}
+
+function appUser(user: ApiUser): User {
+  return {
+    id: user.id, fullName: `${user.first_name} ${user.last_name}`, email: user.email,
+    phone: user.phone, joinedAt: user.created_at, ninVerified: user.is_identity_verified,
+    membershipStatus: MembershipStatus.UNVERIFIED,
+    role: user.role === "Admin" || user.role === "Root" ? "ADMIN" : user.role === "User" ? "PASSENGER" : "DRIVER",
+  };
 }
 
 function enforceInspectionPolicy(driver: Driver): Driver {
@@ -46,6 +60,7 @@ export const userService = {
     credentials: Credentials,
     options?: RequestOptions,
   ): Promise<User> {
+    if (LIVE_FREE_BUSES) return appUser(await liveAuth.login(credentials.identifier, credentials.password));
     return request(
       () => {
         const identifier = credentials.identifier.trim().toLowerCase();
@@ -72,6 +87,14 @@ export const userService = {
   },
 
   async signUp(payload: SignUpPayload, options?: RequestOptions): Promise<User> {
+    if (LIVE_FREE_BUSES) {
+      const [first_name, ...last] = payload.fullName.trim().split(/\s+/);
+      return appUser(await liveAuth.register({
+        first_name, last_name: last.join(" "), email: payload.email, phone: payload.phone,
+        username: payload.username ?? "", address: payload.address ?? "", country: payload.country ?? "",
+        password: payload.password,
+      }));
+    }
     return request(
       () => ({
         ...CURRENT_PASSENGER,
@@ -79,7 +102,7 @@ export const userService = {
         fullName: payload.fullName,
         email: payload.email,
         phone: payload.phone,
-        ninVerified: true,
+        ninVerified: false,
         membershipStatus: MembershipStatus.CHECKING,
         joinedAt: new Date().toISOString(),
       }),

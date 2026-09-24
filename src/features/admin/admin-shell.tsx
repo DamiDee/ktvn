@@ -10,8 +10,14 @@ import { isSosLive } from "@/lib/state-machines";
 import { shortName } from "@/lib/format";
 import { ADMIN_USER } from "@/mocks/people";
 import { SosBanner } from "@/components/safety/sos-banner";
+import { LIVE_FREE_BUSES } from "@/lib/freebus-config";
+import { LiveFreeBusShell } from "@/features/free-buses/live-shell";
 
 export function AdminShell({ children }: { children: ReactNode }) {
+  return LIVE_FREE_BUSES ? <LiveFreeBusShell admin>{children}</LiveFreeBusShell> : <DemoAdminShell>{children}</DemoAdminShell>;
+}
+
+function DemoAdminShell({ children }: { children: ReactNode }) {
   const { data: admin } = useQuery({
     queryKey: queryKeys.admin.root,
     queryFn: () => userService.getAdmin(),

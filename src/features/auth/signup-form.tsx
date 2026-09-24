@@ -5,12 +5,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertCircle, ArrowRight, IdCard, Mail, Phone, User } from "lucide-react";
+import { AlertCircle, ArrowRight, Mail, Phone, User } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Input, PasswordInput } from "@/components/ui/input";
 import { userService, ApiError } from "@/services";
-import { signUpSchema, passwordStrength, type SignUpValues } from "./schemas";
+import { signUpSchema, liveSignUpSchema, passwordStrength, type SignUpValues, type LiveSignUpValues } from "./schemas";
+import { LIVE_FREE_BUSES } from "@/lib/freebus-config";
+import { FreebusError } from "@/services/freebus-api";
+import type { Resolver } from "react-hook-form";
+import { useToast } from "@/components/ui/toast";
 
 const STRENGTH_COLOURS = [
   "bg-line-strong",
@@ -22,6 +26,7 @@ const STRENGTH_COLOURS = [
 
 export function SignUpForm() {
   const router = useRouter();
+  const { toast } = useToast();
   const [formError, setFormError] = useState<string | null>(null);
 
   const {
@@ -29,14 +34,16 @@ export function SignUpForm() {
     handleSubmit,
     control,
     formState: { errors, isSubmitting },
-  } = useForm<SignUpValues>({
-    resolver: zodResolver(signUpSchema),
+  } = useForm<SignUpValues & Partial<LiveSignUpValues>>({
+    resolver: zodResolver(LIVE_FREE_BUSES ? liveSignUpSchema : signUpSchema) as Resolver<SignUpValues & Partial<LiveSignUpValues>>,
     mode: "onBlur",
     defaultValues: {
       fullName: "",
       email: "",
       phone: "",
-      nin: "",
+      username: "",
+      address: "",
+      country: "Nigeria",
       password: "",
       confirmPassword: "",
     },
@@ -45,20 +52,23 @@ export function SignUpForm() {
   const password = useWatch({ control, name: "password" });
   const strength = passwordStrength(password ?? "");
 
-  async function onSubmit(values: SignUpValues) {
+  async function onSubmit(values: SignUpValues & Partial<LiveSignUpValues>) {
     setFormError(null);
     try {
       await userService.signUp({
         fullName: values.fullName,
         email: values.email,
         phone: values.phone,
-        nin: values.nin,
         password: values.password,
+        username: values.username,
+        address: values.address,
+        country: values.country,
       });
-      router.push("/verify-member");
+      if (LIVE_FREE_BUSES) toast({ title: "Account created", description: "Sign in with your new email or username.", tone: "success" });
+      router.push(LIVE_FREE_BUSES ? "/login" : "/verify-member");
     } catch (error) {
       setFormError(
-        error instanceof ApiError
+        error instanceof ApiError || error instanceof FreebusError
           ? error.message
           : "We couldn't create your account just now. Try again in a moment.",
       );
@@ -69,8 +79,7 @@ export function SignUpForm() {
     <div>
       <h1 className="type-page-title text-ink">Create your account.</h1>
       <p className="type-body mt-2.5 text-ink-secondary">
-        Your NIN and membership details securely connect this account to your
-        community record.
+        Join your community and book a seat on a free bus to service.
       </p>
 
       <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-5" noValidate>
@@ -122,18 +131,11 @@ export function SignUpForm() {
           />
         </div>
 
-        <Input
-          label="National Identity Number (NIN)"
-          placeholder="12345678901"
-          inputMode="numeric"
-          autoComplete="off"
-          maxLength={11}
-          icon={IdCard}
-          hint="Required for every passenger and driver account."
-          error={errors.nin?.message}
-          required
-          {...register("nin")}
-        />
+        {LIVE_FREE_BUSES ? <>
+          <Input label="Username" autoComplete="username" required error={errors.username?.message} {...register("username")} />
+          <Input label="Address" autoComplete="street-address" required error={errors.address?.message} {...register("address")} />
+          <Input label="Country" autoComplete="country-name" required error={errors.country?.message} {...register("country")} />
+        </> : null}
 
         <div>
           <PasswordInput

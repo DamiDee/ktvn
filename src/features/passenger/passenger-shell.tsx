@@ -10,11 +10,17 @@ import { userService } from "@/services";
 import { MembershipStatus } from "@/types/enums";
 import { useSessionStore } from "@/stores/session-store";
 import { shortName } from "@/lib/format";
+import { LIVE_FREE_BUSES } from "@/lib/freebus-config";
+import { LiveFreeBusShell } from "@/features/free-buses/live-shell";
 
 /** Routes whose map fills the viewport and supplies its own padding. */
 const BLEED_ROUTES = ["/passenger/matching", "/passenger/trip"];
 
 export function PassengerShell({ children }: { children: ReactNode }) {
+  return LIVE_FREE_BUSES ? <LiveFreeBusShell>{children}</LiveFreeBusShell> : <DemoPassengerShell>{children}</DemoPassengerShell>;
+}
+
+function DemoPassengerShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const bleed = BLEED_ROUTES.some((route) => pathname.startsWith(route));
 

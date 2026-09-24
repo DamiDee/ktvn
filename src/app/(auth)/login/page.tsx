@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AuthShell } from "@/components/layout/auth-shell";
 import { LoginForm } from "@/features/auth/login-form";
+import { LIVE_FREE_BUSES } from "@/lib/freebus-config";
 
 export const metadata: Metadata = {
   title: "Sign in",
@@ -11,7 +12,7 @@ export default function LoginPage() {
   return (
     <AuthShell
       eyebrow="Welcome back"
-      trustStatement="Your journeys, your drivers and your trip history are waiting where you left them."
+      trustStatement={LIVE_FREE_BUSES ? "Find your bus, reserve your seat, and travel to service together." : "Your journeys, your drivers and your trip history are waiting where you left them."}
     >
       <LoginForm />
     </AuthShell>
