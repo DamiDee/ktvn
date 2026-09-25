@@ -25,7 +25,7 @@ export function PushNotificationBanner() {
           <Bell className="size-5 shrink-0 text-forest-600 dark:text-gold-400" aria-hidden />
           <div>
             <p className="type-meta font-medium text-forest-800 dark:text-gold-300">Notifications on</p>
-            <p className="type-meta text-forest-700/70 dark:text-gold-400/60">You'll be notified when a bus is available or about to depart.</p>
+            <p className="type-meta text-forest-700/70 dark:text-gold-400/60">You&rsquo;ll be notified when a bus is available or about to depart.</p>
           </div>
         </div>
         <Button size="sm" variant="ghost" onClick={unsubscribe} aria-label="Turn off notifications">
@@ -50,7 +50,7 @@ export function PushNotificationBanner() {
           type="button"
           onClick={() => setDismissed(true)}
           aria-label="Dismiss"
-          className="rounded-lg p-1 text-ink-muted hover:text-ink transition-colors"
+          className="kx-tap rounded-lg p-1 text-ink-muted transition-colors hover:text-ink"
         >
           <X className="size-4" />
         </button>

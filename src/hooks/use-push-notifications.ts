@@ -22,12 +22,13 @@ export function usePushNotifications() {
   const swRef = useRef<ServiceWorkerRegistration | null>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) {
-      setState("unsupported");
-      return;
-    }
     let cancelled = false;
     void (async () => {
+      // Resolved inside the async body so the effect never sets state synchronously.
+      if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+        if (!cancelled) setState("unsupported");
+        return;
+      }
       try {
         const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
         swRef.current = reg;

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -13,13 +13,15 @@ import {
   MapPin,
   ScanLine,
   History,
+  LineChart,
   LogOut,
   Menu,
   X,
   ChevronRight,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { Button, ButtonLink } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { PageLoader } from "@/components/ui/route-loader";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
@@ -38,24 +40,219 @@ export function useLiveUser() {
 
 // ─── Navigation definitions ───────────────────────────────────────────────────
 
-const ADMIN_NAV = [
-  { href: "/admin/free-buses",          label: "Overview",  icon: LayoutDashboard },
-  { href: "/admin/free-buses/buses",    label: "Buses",     icon: BusFront },
-  { href: "/admin/free-buses/routes",   label: "Routes",    icon: Route },
-  { href: "/admin/free-buses/points",   label: "Points",    icon: MapPin },
-  { href: "/admin/free-buses/boarding", label: "Boarding",  icon: ScanLine },
-  { href: "/admin/free-buses/activity", label: "Activity",  icon: History },
+interface NavItem {
+  href: string;
+  label: string;
+  /** Short label for the mobile tab bar, where width is scarce. */
+  short?: string;
+  icon: LucideIcon;
+}
+
+const ADMIN_NAV: NavItem[] = [
+  { href: "/admin/free-buses", label: "Overview", icon: LayoutDashboard },
+  { href: "/admin/free-buses/buses", label: "Buses", icon: BusFront },
+  { href: "/admin/free-buses/routes", label: "Routes", icon: Route },
+  { href: "/admin/free-buses/points", label: "Points", icon: MapPin },
+  { href: "/admin/free-buses/boarding", label: "Boarding", icon: ScanLine },
+  { href: "/admin/free-buses/activity", label: "Activity", icon: History },
 ];
 
-const MEMBER_NAV = [
-  { href: "/passenger/free-buses",       label: "Find a Bus",     icon: BusFront },
-  { href: "/passenger/free-buses/passes", label: "Boarding Passes", icon: Ticket },
-  { href: "/passenger/profile",          label: "Profile",         icon: UserRound },
+const MEMBER_NAV: NavItem[] = [
+  { href: "/passenger/free-buses", label: "Find a bus", short: "Buses", icon: BusFront },
+  { href: "/passenger/free-buses/passes", label: "Boarding passes", short: "Passes", icon: Ticket },
+  { href: "/passenger/free-buses/trips", label: "My journeys", short: "Journeys", icon: LineChart },
+  { href: "/passenger/profile", label: "Profile", short: "Profile", icon: UserRound },
 ];
 
-// ─── Admin sidebar ────────────────────────────────────────────────────────────
+function initials(user: ApiUser) {
+  return `${user.first_name[0] ?? ""}${user.last_name[0] ?? ""}`.toUpperCase();
+}
 
-function AdminSidebar({
+function roleLabel(user: ApiUser) {
+  return isOversight(user.role) ? "Oversight" : user.role === "User" ? "Member" : user.role;
+}
+
+/** Closes a transient overlay on Escape and stops the page behind it scrolling. */
+function useOverlay(open: boolean, close: () => void) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previous;
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, close]);
+}
+
+// ─── Shared pieces ────────────────────────────────────────────────────────────
+
+function Brand({ compact = false }: { compact?: boolean }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <div
+        className={cn(
+          "flex items-center justify-center rounded-[10px] bg-forest-800 dark:bg-gold-400",
+          compact ? "size-7" : "size-8",
+        )}
+      >
+        <BusFront
+          className={cn("text-white dark:text-forest-950", compact ? "size-4" : "size-4.5")}
+          aria-hidden
+        />
+      </div>
+      <div>
+        <p className="text-sm font-semibold leading-tight text-ink">K-Rides</p>
+        {!compact ? (
+          <p className="text-[0.7rem] font-medium text-ink-muted">Free Buses</p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function NavLink({
+  item,
+  active,
+  onNavigate,
+}: {
+  item: NavItem;
+  active: boolean;
+  onNavigate?: () => void;
+}) {
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      onClick={onNavigate}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "group flex items-center gap-3 rounded-[var(--kx-radius-md)] px-3 py-2.5 text-sm font-medium transition-all duration-150",
+        active
+          ? "bg-forest-800 text-white shadow-md dark:bg-gold-400 dark:text-forest-950"
+          : "text-ink-secondary hover:bg-surface-nested hover:text-ink",
+      )}
+    >
+      <Icon
+        className={cn(
+          "size-[1.05rem] shrink-0 transition-colors",
+          active
+            ? "text-white/90 dark:text-forest-950/80"
+            : "text-ink-muted group-hover:text-ink-secondary",
+        )}
+        aria-hidden
+      />
+      <span className="truncate">{item.label}</span>
+      {active ? <ChevronRight className="ml-auto size-3.5 opacity-50" aria-hidden /> : null}
+    </Link>
+  );
+}
+
+function SignOutButton({
+  onSignOut,
+  signingOut,
+  className,
+}: {
+  onSignOut: () => void;
+  signingOut: boolean;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSignOut}
+      disabled={signingOut}
+      className={cn(
+        "flex w-full items-center gap-3 rounded-[var(--kx-radius-md)] px-3 py-2.5 text-sm font-medium text-ink-secondary transition-colors hover:bg-danger-50 hover:text-danger-600 disabled:opacity-50 dark:hover:bg-danger-700/20 dark:hover:text-red-400",
+        className,
+      )}
+    >
+      <LogOut className="size-[1.05rem] shrink-0" aria-hidden />
+      {signingOut ? "Signing out…" : "Sign out"}
+    </button>
+  );
+}
+
+function UserChip({ user }: { user: ApiUser }) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-[var(--kx-radius-md)] bg-surface-nested px-3 py-2.5">
+      <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-forest-700 text-[0.65rem] font-bold text-white dark:bg-gold-500 dark:text-forest-950">
+        {initials(user)}
+      </div>
+      <div className="min-w-0">
+        <p className="truncate text-[0.8125rem] font-semibold text-ink">
+          {user.first_name} {user.last_name}
+        </p>
+        <p className="text-[0.7rem] text-ink-muted">{roleLabel(user)}</p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The sidebar body, shared by the desktop rail and the mobile drawer. The drawer
+ * supplies its own header, so it asks for this without the brand block.
+ */
+function SidebarBody({
+  user,
+  items,
+  pathname,
+  onSignOut,
+  signingOut,
+  onNavigate,
+  withBrand = true,
+  navLabel,
+}: {
+  user: ApiUser;
+  items: NavItem[];
+  pathname: string;
+  onSignOut: () => void;
+  signingOut: boolean;
+  onNavigate?: () => void;
+  withBrand?: boolean;
+  navLabel: string;
+}) {
+  return (
+    <div className="flex h-full flex-col">
+      {withBrand ? (
+        <>
+          <div className="px-4 py-5">
+            <Brand />
+          </div>
+          <div className="mx-3 mb-3 h-px bg-line" />
+        </>
+      ) : null}
+
+      <div className="mx-3 mb-4">
+        <UserChip user={user} />
+      </div>
+
+      <nav aria-label={navLabel} className="flex-1 space-y-0.5 overflow-y-auto px-3">
+        {items.map((item) => (
+          <NavLink
+            key={item.href}
+            item={item}
+            active={pathname === item.href}
+            onNavigate={onNavigate}
+          />
+        ))}
+      </nav>
+
+      <div className="mt-auto space-y-1 border-t border-line p-3">
+        <ThemeToggle />
+        <SignOutButton onSignOut={onSignOut} signingOut={signingOut} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Admin chrome: desktop rail + labelled mobile drawer ──────────────────────
+
+function AdminChrome({
   user,
   pathname,
   onSignOut,
@@ -66,147 +263,91 @@ function AdminSidebar({
   onSignOut: () => void;
   signingOut: boolean;
 }) {
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [open, setOpen] = useState(false);
+  const close = () => setOpen(false);
+  useOverlay(open, close);
 
-  const NavLink = ({ href, label, icon: Icon }: (typeof ADMIN_NAV)[0]) => {
-    const active = pathname === href;
-    return (
-      <Link
-        href={href}
-        onClick={() => setMobileOpen(false)}
-        aria-current={active ? "page" : undefined}
-        className={cn(
-          "group flex items-center gap-3 rounded-[var(--kx-radius-md)] px-3 py-2.5 text-sm font-medium transition-all duration-150",
-          active
-            ? "bg-forest-800 text-white shadow-md dark:bg-gold-400 dark:text-forest-950"
-            : "text-ink-secondary hover:bg-surface-nested hover:text-ink",
-        )}
-      >
-        <Icon
-          className={cn(
-            "size-[1.05rem] shrink-0 transition-colors",
-            active ? "text-white/90 dark:text-forest-950/80" : "text-ink-muted group-hover:text-ink-secondary",
-          )}
-          aria-hidden
-        />
-        <span className="truncate">{label}</span>
-        {active && <ChevronRight className="ml-auto size-3.5 opacity-50" aria-hidden />}
-      </Link>
-    );
-  };
-
-  const sidebarContent = (
-    <div className="flex h-full flex-col">
-      {/* Brand */}
-      <div className="flex items-center gap-2.5 px-4 py-5">
-        <div className="flex size-8 items-center justify-center rounded-[10px] bg-forest-800 dark:bg-gold-400">
-          <BusFront className="size-4.5 text-white dark:text-forest-950" aria-hidden />
-        </div>
-        <div>
-          <p className="text-sm font-semibold leading-tight text-ink">K-Rides</p>
-          <p className="text-[0.7rem] font-medium text-ink-muted">Free Buses</p>
-        </div>
-      </div>
-
-      <div className="mx-3 mb-3 h-px bg-line" />
-
-      {/* User chip */}
-      <div className="mx-3 mb-4 flex items-center gap-2.5 rounded-[var(--kx-radius-md)] bg-surface-nested px-3 py-2.5">
-        <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-forest-700 text-[0.65rem] font-bold text-white dark:bg-gold-500 dark:text-forest-950">
-          {user.first_name[0]}{user.last_name[0]}
-        </div>
-        <div className="min-w-0">
-          <p className="truncate text-[0.8125rem] font-semibold text-ink">
-            {user.first_name} {user.last_name}
-          </p>
-          <p className="text-[0.7rem] text-ink-muted">Oversight</p>
-        </div>
-      </div>
-
-      {/* Nav links */}
-      <nav aria-label="Admin navigation" className="flex-1 space-y-0.5 px-3 overflow-y-auto">
-        {ADMIN_NAV.map((item) => (
-          <NavLink key={item.href} {...item} />
-        ))}
-      </nav>
-
-      {/* Footer controls */}
-      <div className="mt-auto space-y-1 p-3 border-t border-line">
-        <ThemeToggle />
-        <button
-          onClick={onSignOut}
-          disabled={signingOut}
-          className="flex w-full items-center gap-3 rounded-[var(--kx-radius-md)] px-3 py-2.5 text-sm font-medium text-ink-secondary transition-colors hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-700/20 dark:hover:text-red-400 disabled:opacity-50"
-        >
-          <LogOut className="size-[1.05rem] shrink-0" aria-hidden />
-          {signingOut ? "Signing out…" : "Sign out"}
-        </button>
-      </div>
-    </div>
-  );
+  const active = ADMIN_NAV.find((item) => item.href === pathname);
 
   return (
     <>
-      {/* Desktop sidebar */}
       <aside className="hidden lg:flex lg:w-60 lg:shrink-0 lg:flex-col lg:border-r lg:border-line lg:bg-surface">
-        {sidebarContent}
+        <SidebarBody
+          user={user}
+          items={ADMIN_NAV}
+          pathname={pathname}
+          onSignOut={onSignOut}
+          signingOut={signingOut}
+          navLabel="Oversight navigation"
+        />
       </aside>
 
-      {/* Mobile top bar */}
-      <header className="flex items-center justify-between border-b border-line bg-surface px-4 py-3 lg:hidden">
-        <div className="flex items-center gap-2">
-          <div className="flex size-7 items-center justify-center rounded-[8px] bg-forest-800 dark:bg-gold-400">
-            <BusFront className="size-4 text-white dark:text-forest-950" aria-hidden />
-          </div>
-          <span className="text-sm font-semibold text-ink">K-Rides</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <ThemeToggle />
-          <button
-            onClick={() => setMobileOpen(true)}
-            aria-label="Open navigation"
-            className="inline-flex size-9 items-center justify-center rounded-[var(--kx-radius-sm)] text-ink-secondary hover:bg-surface-nested"
-          >
-            <Menu className="size-5" />
-          </button>
-        </div>
+      {/* Mobile bar. The menu control says what it opens and where you already are. */}
+      <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-line bg-surface/95 px-4 py-2.5 backdrop-blur lg:hidden">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-expanded={open}
+          aria-label={`Open menu${active ? `. Current page: ${active.label}` : ""}`}
+          className="kx-tap -ml-1 flex min-w-0 items-center gap-2 rounded-[var(--kx-radius-md)] px-2 py-1.5 text-left transition-colors hover:bg-surface-nested"
+        >
+          <Menu className="size-5 shrink-0 text-ink-secondary" aria-hidden />
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold leading-tight text-ink">
+              {active?.label ?? "Free Buses"}
+            </span>
+            <span className="block text-[0.7rem] leading-tight text-ink-muted">Tap for menu</span>
+          </span>
+        </button>
+        <ThemeToggle />
       </header>
 
-      {/* Mobile drawer */}
-      {mobileOpen && (
+      {open ? (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div
             className="absolute inset-0 bg-[var(--kx-overlay)] backdrop-blur-[4px]"
-            onClick={() => setMobileOpen(false)}
+            onClick={close}
             aria-hidden
           />
-          <aside className="absolute inset-y-0 left-0 w-72 bg-surface shadow-2xl">
-            <div className="flex items-center justify-between px-4 pt-4 pb-2">
-              <div className="flex items-center gap-2">
-                <div className="flex size-7 items-center justify-center rounded-[8px] bg-forest-800 dark:bg-gold-400">
-                  <BusFront className="size-4 text-white dark:text-forest-950" aria-hidden />
-                </div>
-                <span className="text-sm font-semibold text-ink">K-Rides</span>
-              </div>
+          <aside
+            className="absolute inset-y-0 left-0 flex w-[17.5rem] flex-col bg-surface shadow-2xl"
+            role="dialog"
+            aria-modal
+            aria-label="Oversight menu"
+          >
+            <div className="flex items-center justify-between px-4 py-4">
+              <Brand compact />
               <button
-                onClick={() => setMobileOpen(false)}
-                aria-label="Close navigation"
-                className="inline-flex size-8 items-center justify-center rounded-lg text-ink-muted hover:bg-surface-nested"
+                type="button"
+                onClick={close}
+                aria-label="Close menu"
+                className="kx-tap inline-flex size-8 items-center justify-center rounded-lg text-ink-muted hover:bg-surface-nested"
               >
-                <X className="size-4.5" />
+                <X className="size-4.5" aria-hidden />
               </button>
             </div>
-            {sidebarContent}
+            <div className="min-h-0 flex-1">
+              <SidebarBody
+                user={user}
+                items={ADMIN_NAV}
+                pathname={pathname}
+                onSignOut={onSignOut}
+                signingOut={signingOut}
+                onNavigate={close}
+                withBrand={false}
+                navLabel="Oversight navigation"
+              />
+            </div>
           </aside>
         </div>
-      )}
+      ) : null}
     </>
   );
 }
 
-// ─── Member sidebar ───────────────────────────────────────────────────────────
+// ─── Member chrome: desktop rail + mobile tab bar and account sheet ───────────
 
-function MemberSidebar({
+function MemberChrome({
   user,
   pathname,
   onSignOut,
@@ -217,145 +358,106 @@ function MemberSidebar({
   onSignOut: () => void;
   signingOut: boolean;
 }) {
-  const [mobileOpen, setMobileOpen] = useState(false);
-
-  const NavLink = ({ href, label, icon: Icon }: (typeof MEMBER_NAV)[0]) => {
-    const active = pathname === href;
-    return (
-      <Link
-        href={href}
-        onClick={() => setMobileOpen(false)}
-        aria-current={active ? "page" : undefined}
-        className={cn(
-          "group flex items-center gap-3 rounded-[var(--kx-radius-md)] px-3 py-2.5 text-sm font-medium transition-all duration-150",
-          active
-            ? "bg-forest-800 text-white shadow-md dark:bg-gold-400 dark:text-forest-950"
-            : "text-ink-secondary hover:bg-surface-nested hover:text-ink",
-        )}
-      >
-        <Icon
-          className={cn(
-            "size-[1.05rem] shrink-0 transition-colors",
-            active ? "text-white/90 dark:text-forest-950/80" : "text-ink-muted group-hover:text-ink-secondary",
-          )}
-          aria-hidden
-        />
-        <span className="truncate">{label}</span>
-        {active && <ChevronRight className="ml-auto size-3.5 opacity-50" aria-hidden />}
-      </Link>
-    );
-  };
-
-  const sidebarContent = (
-    <div className="flex h-full flex-col">
-      {/* Brand */}
-      <div className="flex items-center gap-2.5 px-4 py-5">
-        <div className="flex size-8 items-center justify-center rounded-[10px] bg-forest-800 dark:bg-gold-400">
-          <BusFront className="size-4.5 text-white dark:text-forest-950" aria-hidden />
-        </div>
-        <div>
-          <p className="text-sm font-semibold leading-tight text-ink">K-Rides</p>
-          <p className="text-[0.7rem] font-medium text-ink-muted">Free Buses</p>
-        </div>
-      </div>
-
-      <div className="mx-3 mb-3 h-px bg-line" />
-
-      {/* User chip */}
-      <div className="mx-3 mb-4 flex items-center gap-2.5 rounded-[var(--kx-radius-md)] bg-surface-nested px-3 py-2.5">
-        <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-forest-700 text-[0.65rem] font-bold text-white dark:bg-gold-500 dark:text-forest-950">
-          {user.first_name[0]}{user.last_name[0]}
-        </div>
-        <div className="min-w-0">
-          <p className="truncate text-[0.8125rem] font-semibold text-ink">
-            {user.first_name} {user.last_name}
-          </p>
-          <p className="text-[0.7rem] text-ink-muted">Member</p>
-        </div>
-      </div>
-
-      {/* Nav links */}
-      <nav aria-label="Member navigation" className="flex-1 space-y-0.5 px-3 overflow-y-auto">
-        {MEMBER_NAV.map((item) => (
-          <NavLink key={item.href} {...item} />
-        ))}
-      </nav>
-
-      {/* Footer */}
-      <div className="mt-auto space-y-1 p-3 border-t border-line">
-        <ThemeToggle />
-        <button
-          onClick={onSignOut}
-          disabled={signingOut}
-          className="flex w-full items-center gap-3 rounded-[var(--kx-radius-md)] px-3 py-2.5 text-sm font-medium text-ink-secondary transition-colors hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-700/20 dark:hover:text-red-400 disabled:opacity-50"
-        >
-          <LogOut className="size-[1.05rem] shrink-0" aria-hidden />
-          {signingOut ? "Signing out…" : "Sign out"}
-        </button>
-      </div>
-    </div>
-  );
+  const [account, setAccount] = useState(false);
+  const close = () => setAccount(false);
+  useOverlay(account, close);
 
   return (
     <>
-      {/* Desktop sidebar */}
       <aside className="hidden lg:flex lg:w-60 lg:shrink-0 lg:flex-col lg:border-r lg:border-line lg:bg-surface">
-        {sidebarContent}
+        <SidebarBody
+          user={user}
+          items={MEMBER_NAV}
+          pathname={pathname}
+          onSignOut={onSignOut}
+          signingOut={signingOut}
+          navLabel="Member navigation"
+        />
       </aside>
 
-      {/* Mobile top bar */}
-      <header className="flex items-center justify-between border-b border-line bg-surface px-4 py-3 lg:hidden">
-        <div className="flex items-center gap-2">
-          <div className="flex size-7 items-center justify-center rounded-[8px] bg-forest-800 dark:bg-gold-400">
-            <BusFront className="size-4 text-white dark:text-forest-950" aria-hidden />
-          </div>
-          <span className="text-sm font-semibold text-ink">K-Rides</span>
-        </div>
+      {/* Mobile top bar: brand, theme, and an account button that is visibly an account. */}
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-surface/95 px-4 py-2.5 backdrop-blur lg:hidden">
+        <Brand compact />
         <div className="flex items-center gap-1">
           <ThemeToggle />
           <button
-            onClick={() => setMobileOpen(true)}
-            aria-label="Open navigation"
-            className="inline-flex size-9 items-center justify-center rounded-[var(--kx-radius-sm)] text-ink-secondary hover:bg-surface-nested"
+            type="button"
+            onClick={() => setAccount(true)}
+            aria-expanded={account}
+            aria-label={`Account and sign out. Signed in as ${user.first_name} ${user.last_name}`}
+            className="kx-tap flex size-8 items-center justify-center rounded-full bg-forest-700 text-[0.7rem] font-bold text-white transition-opacity hover:opacity-90 dark:bg-gold-500 dark:text-forest-950"
           >
-            <Menu className="size-5" />
+            {initials(user)}
           </button>
         </div>
       </header>
 
-      {/* Mobile drawer */}
-      {mobileOpen && (
+      {account ? (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div
             className="absolute inset-0 bg-[var(--kx-overlay)] backdrop-blur-[4px]"
-            onClick={() => setMobileOpen(false)}
+            onClick={close}
             aria-hidden
           />
-          <aside className="absolute inset-y-0 left-0 w-72 bg-surface shadow-2xl">
-            <div className="flex items-center justify-between px-4 pt-4 pb-2">
-              <div className="flex items-center gap-2">
-                <div className="flex size-7 items-center justify-center rounded-[8px] bg-forest-800 dark:bg-gold-400">
-                  <BusFront className="size-4 text-white dark:text-forest-950" aria-hidden />
-                </div>
-                <span className="text-sm font-semibold text-ink">K-Rides</span>
+          <div
+            className="absolute inset-x-0 bottom-0 rounded-t-[var(--kx-radius-2xl)] bg-surface pb-[calc(1rem+env(safe-area-inset-bottom,0px))] shadow-2xl"
+            role="dialog"
+            aria-modal
+            aria-label="Your account"
+          >
+            <div className="mx-auto mt-3 h-1 w-10 rounded-full bg-line-strong" aria-hidden />
+            <div className="p-4">
+              <UserChip user={user} />
+              <p className="type-meta mt-3 truncate text-ink-muted">{user.email}</p>
+              <div className="mt-4 space-y-1">
+                <Link
+                  href="/passenger/profile"
+                  onClick={close}
+                  className="flex w-full items-center gap-3 rounded-[var(--kx-radius-md)] px-3 py-2.5 text-sm font-medium text-ink-secondary transition-colors hover:bg-surface-nested hover:text-ink"
+                >
+                  <UserRound className="size-[1.05rem] shrink-0" aria-hidden />
+                  Your profile
+                </Link>
+                <SignOutButton onSignOut={onSignOut} signingOut={signingOut} />
               </div>
-              <button
-                onClick={() => setMobileOpen(false)}
-                aria-label="Close navigation"
-                className="inline-flex size-8 items-center justify-center rounded-lg text-ink-muted hover:bg-surface-nested"
-              >
-                <X className="size-4.5" />
-              </button>
             </div>
-            {sidebarContent}
-          </aside>
+          </div>
         </div>
-      )}
-
+      ) : null}
     </>
   );
 }
 
+function MemberTabBar({ pathname }: { pathname: string }) {
+  return (
+    <nav
+      aria-label="Member sections"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur lg:hidden"
+    >
+      <ul className="flex">
+        {MEMBER_NAV.map((item) => {
+          const Icon = item.icon;
+          const active = pathname === item.href;
+          return (
+            <li key={item.href} className="flex-1">
+              <Link
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "flex min-h-[3.25rem] flex-col items-center justify-center gap-1 px-1 py-2 text-[0.6875rem] font-medium transition-colors",
+                  active ? "text-forest-800 dark:text-gold-300" : "text-ink-muted",
+                )}
+              >
+                <Icon className="size-5" aria-hidden />
+                <span className="truncate">{item.short ?? item.label}</span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
 
 // ─── Shell ────────────────────────────────────────────────────────────────────
 
@@ -381,8 +483,7 @@ export function LiveFreeBusShell({
 
   if (session.isPending) return <PageLoader message="Checking your session" />;
   if (session.error || !session.data) {
-    const signedOut =
-      session.error instanceof FreebusError && session.error.status === 401;
+    const signedOut = session.error instanceof FreebusError && session.error.status === 401;
     return (
       <main className="mx-auto max-w-xl px-5 py-16">
         {signedOut ? (
@@ -411,9 +512,9 @@ export function LiveFreeBusShell({
   const home = isOversight(user.role) ? "/admin/free-buses" : "/passenger/free-buses";
   const memberNav = user.role === "User" && !admin;
 
-  const allNav = memberNav ? MEMBER_NAV : ADMIN_NAV;
+  const items = memberNav ? MEMBER_NAV : ADMIN_NAV;
   const connectedPage =
-    allNav.some((item) => pathname === item.href) ||
+    items.some((item) => pathname === item.href) ||
     (memberNav && /^\/passenger\/free-buses\/passes\/[^/]+$/.test(pathname));
 
   async function signOut() {
@@ -430,95 +531,70 @@ export function LiveFreeBusShell({
     }
   }
 
-  // ── Admin layout: sidebar + content ───────────────────────────────────────
-  if (!memberNav) {
-    return (
-      <SessionContext.Provider value={user}>
-        <div className="flex flex-col min-h-dvh bg-canvas lg:flex-row">
-          <AdminSidebar
+  const body = !allowed ? (
+    <EmptyState
+      icon={BusFront}
+      title="This page isn't available for your role"
+      description={
+        user.role === "Driver"
+          ? "Free Buses booking is reserved for members, excluding drivers."
+          : "Use the Free Buses page for your account."
+      }
+      action={
+        isOversight(user.role) || user.role === "User" ? (
+          <ButtonLink href={home}>Open Free Buses</ButtonLink>
+        ) : undefined
+      }
+    />
+  ) : !connectedPage ? (
+    <EmptyState
+      icon={BusFront}
+      title="We're focused on Free Buses"
+      description="Other modules remain part of the demo and are not connected to this live account."
+      action={<ButtonLink href={home}>Open Free Buses</ButtonLink>}
+    />
+  ) : (
+    children
+  );
+
+  return (
+    <SessionContext.Provider value={user}>
+      <div className="flex min-h-dvh flex-col bg-canvas lg:flex-row">
+        {memberNav ? (
+          <MemberChrome
             user={user}
             pathname={pathname}
             onSignOut={signOut}
             signingOut={busy}
           />
-          <div className="flex min-w-0 flex-1 flex-col">
-            {/* Mobile top bar is rendered inside AdminSidebar already */}
-            <main className="flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-8">
-              {logoutError && (
-                <p role="alert" className="mb-4 text-danger-600">
-                  {logoutError}
-                </p>
-              )}
-              {!allowed ? (
-                <EmptyState
-                  icon={BusFront}
-                  title="This page isn't available for your role"
-                  description="Use the Free Buses page for your account."
-                  action={<ButtonLink href={home}>Open Free Buses</ButtonLink>}
-                />
-              ) : !connectedPage ? (
-                <EmptyState
-                  icon={BusFront}
-                  title="We're focused on Free Buses"
-                  description="Other modules remain part of the demo and are not connected to this live account."
-                  action={<ButtonLink href={home}>Open Free Buses</ButtonLink>}
-                />
-              ) : (
-                children
-              )}
-            </main>
-          </div>
-        </div>
-      </SessionContext.Provider>
-    );
-  }
+        ) : (
+          <AdminChrome
+            user={user}
+            pathname={pathname}
+            onSignOut={signOut}
+            signingOut={busy}
+          />
+        )}
 
-  // ── Member layout: sidebar (desktop) + bottom tab bar (mobile) ───────────
-  return (
-    <SessionContext.Provider value={user}>
-      <div className="flex flex-col min-h-dvh bg-canvas lg:flex-row">
-        <MemberSidebar
-          user={user}
-          pathname={pathname}
-          onSignOut={signOut}
-          signingOut={busy}
-        />
         <div className="flex min-w-0 flex-1 flex-col">
-          <main className="flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-8">
-            {logoutError && (
+          <main
+            className={cn(
+              "flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8",
+              // Clear the fixed tab bar on mobile.
+              memberNav ? "pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] lg:pb-8" : "",
+            )}
+          >
+            {logoutError ? (
               <p role="alert" className="mb-4 text-danger-600">
                 {logoutError}
               </p>
-            )}
-            {!allowed ? (
-              <EmptyState
-                icon={BusFront}
-                title="This page isn't available for your role"
-                description={
-                  user.role === "Driver"
-                    ? "Free Buses booking is reserved for members, excluding drivers."
-                    : "Use the Free Buses page for your account."
-                }
-                action={
-                  isOversight(user.role) || user.role === "User" ? (
-                    <ButtonLink href={home}>Open Free Buses</ButtonLink>
-                  ) : undefined
-                }
-              />
-            ) : !connectedPage ? (
-              <EmptyState
-                icon={BusFront}
-                title="We're focused on Free Buses"
-                description="Other modules remain part of the demo and are not connected to this live account."
-                action={<ButtonLink href={home}>Open Free Buses</ButtonLink>}
-              />
-            ) : (
-              children
-            )}
+            ) : null}
+            {body}
           </main>
         </div>
+
+        {memberNav ? <MemberTabBar pathname={pathname} /> : null}
       </div>
     </SessionContext.Provider>
   );
 }
-

@@ -100,7 +100,7 @@ export function BarChart({
                     isActive ? "opacity-100" : "opacity-80",
                   )}
                   initial={{ height: prefersReduced ? `${ratio * 100}%` : 0 }}
-                  whileInView={{ height: `${Math.max(ratio * 100, 2)}%` }}
+                  whileInView={{ height: datum.value === 0 ? "0%" : `${Math.max(ratio * 100, 2)}%` }}
                   viewport={{ once: true }}
                   transition={{
                     duration: prefersReduced ? 0 : 0.6,
@@ -121,7 +121,10 @@ export function BarChart({
                         : 0,
                     }}
                     whileInView={{
-                      height: `${Math.max((datum.secondary / max) * 100, 2)}%`,
+                      height:
+                        datum.secondary === 0
+                          ? "0%"
+                          : `${Math.max((datum.secondary / max) * 100, 2)}%`,
                     }}
                     viewport={{ once: true }}
                     transition={{
@@ -169,8 +172,10 @@ export function BarChart({
         </div>
       ) : null}
 
-      {/* The same numbers, readable without the chart */}
-      <table id={tableId} className="sr-only">
+      {/* The same numbers, readable without the chart. A table ignores sr-only's
+          width on its own, so the clipping lives on a block wrapper. */}
+      <div className="sr-only">
+      <table id={tableId}>
         <caption>{caption}</caption>
         <tbody>
           {data.map((datum) => (
@@ -184,6 +189,7 @@ export function BarChart({
           ))}
         </tbody>
       </table>
+      </div>
     </figure>
   );
 }
