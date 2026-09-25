@@ -25,6 +25,7 @@ export interface ApiBus {
   status: "Available" | "Maintenance" | "InUse";
 }
 export interface ApiBooking {
+  qr_code?: string | null;
   id: string; booking_ref: string; user_id: string; bus_id: string; route_id: string;
   seat_number: number; status: "Boarded" | "Confirmed" | "Cancelled" | "Revoked";
   payment_status: "Free" | "Pending" | "Paid" | "Failed" | "Refunded";

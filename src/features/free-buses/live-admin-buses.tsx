@@ -18,6 +18,7 @@ import { broadcastPush } from "@/hooks/use-push-notifications";
 import { availableCapacity, queryString } from "@/lib/freebus-contract";
 import type { ApiBooking, ApiBus, ApiPoint, ApiRoute, ApiUser } from "@/types/freebus-api";
 import { useLiveQuery } from "./live-queries";
+import { RouteDistance } from "./route-distance";
 
 type Panel = "route" | "point" | "bus" | "assign" | null;
 export function LiveAdminBuses() {
@@ -89,7 +90,7 @@ export function LiveAdminBuses() {
 }
 
 interface NotifyPayload { title: string; body: string; url?: string; tag?: string; }
-function OperationsForm({ panel, points, routes, buses, busy, error, onSubmit, onPartialSave }: {
+export function OperationsForm({ panel, points, routes, buses, busy, error, onSubmit, onPartialSave }: {
   panel: Exclude<Panel, null>; points: ApiPoint[]; routes: ApiRoute[]; buses: ApiBus[]; busy: boolean; error: string;
   onSubmit: (action: () => Promise<unknown>, notify?: NotifyPayload) => Promise<void>;
   onPartialSave: (message: string) => void;
@@ -98,6 +99,8 @@ function OperationsForm({ panel, points, routes, buses, busy, error, onSubmit, o
   const [validation, setValidation] = useState("");
   const [pickedLocation, setPickedLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationName, setLocationName] = useState("");
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
   const availableBuses = buses.filter((b) => !b.current_route_id && b.current_passenger_count === 0 && b.status !== "Maintenance" && b.state !== "Transit");
   const pointOptions = [{ value: "", label: "Choose a location" }, ...points.map((p) => ({ value: p.id, label: p.name }))];
   return <form className="space-y-4" onSubmit={async (event) => {
@@ -115,6 +118,7 @@ function OperationsForm({ panel, points, routes, buses, busy, error, onSubmit, o
       await onSubmit(() => freebusRequest(`buses/${value("bus")}/assign-route`, { method: "POST", body: JSON.stringify({ route_id: value("route") }) }));
     } else {
       if (value("start") === value("end")) { setValidation("Pickup and destination must be different locations."); return; }
+      if (!Number.isFinite(Number(value("distance"))) || Number(value("distance")) <= 0) { setValidation("Wait for the road distance, or enter a verified distance if routing is unavailable."); return; }
       if (!selected.length) { setValidation("Select at least one registered bus. Add buses to the fleet first if needed."); return; }
       const departure = Date.parse(`${value("date")}T${value("time")}:00+01:00`);
       if (!Number.isFinite(departure) || departure <= Date.now()) { setValidation("Choose a future departure time in WAT."); return; }
@@ -144,9 +148,9 @@ function OperationsForm({ panel, points, routes, buses, busy, error, onSubmit, o
       <Select label="Church service" name="service" options={[{ value: "Koinonia Sunday Service", label: "Koinonia Sunday Service" }, { value: "T.G.A", label: "T.G.A (The General Assembly)" }]} />
       <Input label="Route label" name="name" placeholder="Lugbe to service" required /><Input label="Boarding instructions" name="description" required />
       <Select label="Direction" name="direction" options={[{ value: "Pickup", label: "To service" }, { value: "Dropoff", label: "Going home" }]} />
-      <Select label="Boarding location" name="start" required options={pointOptions} /><Select label="Destination" name="end" required options={pointOptions} />
+      <Select label="Boarding location" name="start" required value={start} onChange={(e) => setStart(e.target.value)} options={pointOptions} /><Select label="Destination" name="end" required value={end} onChange={(e) => setEnd(e.target.value)} options={pointOptions} />
       <div className="grid grid-cols-2 gap-3"><Input label="Departure date" name="date" type="date" required /><Input label="Departure time (WAT)" name="time" type="time" required /></div>
-      <Input label="Route distance (km)" name="distance" type="number" min={0.1} step="any" required />
+      <RouteDistance points={points} ids={[start, end]} />
       <fieldset className="rounded-xl border border-line p-4"><legend className="type-meta px-2 font-medium text-ink">Buses available · {selected.length} selected</legend>
         {!availableBuses.length ? <p className="type-meta text-ink-muted">Register an unassigned bus before scheduling.</p> : availableBuses.map((bus) => <label key={bus.id} className="flex min-h-11 items-center gap-3 text-ink"><input type="checkbox" checked={selected.includes(bus.id)} onChange={(e) => setSelected((ids) => e.target.checked ? [...ids, bus.id] : ids.filter((id) => id !== bus.id))} />{bus.license_plate} · {bus.capacity} seats</label>)}
       </fieldset><p className="type-meta text-ink-muted">Schedule the return separately so its drop-off point can differ. All routes created here have a zero fare.</p>

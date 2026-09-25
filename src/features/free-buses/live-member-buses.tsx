@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { BusFront, Ticket } from "lucide-react";
 import { PageHeader } from "@/components/layout/app-shell";
@@ -19,6 +20,7 @@ import type { ApiBooking, ApiBus, ApiPoint, ApiRoute } from "@/types/freebus-api
 import { useLiveQuery } from "./live-queries";
 
 export function LiveMemberBuses() {
+  const router = useRouter();
   const [direction, setDirection] = useState("Pickup");
   const [date, setDate] = useState("");
   const [point, setPoint] = useState("");
@@ -60,6 +62,7 @@ export function LiveMemberBuses() {
       const booking = await freebusRequest<ApiBooking>("bookings", { method: "POST", body: JSON.stringify({ bus_id: next.id, route_id: pending.id }) });
       setPending(null); await refresh();
       toast({ title: `Seat ${booking.seat_number} reserved`, description: `Booking ${booking.booking_ref}`, tone: "success" });
+      router.push(`/passenger/free-buses/passes/${booking.id}`);
     } catch (error) {
       setActionError(`${error instanceof Error ? error.message : "We couldn't confirm this seat."} Check your boarding passes before trying again.`);
       await refresh();
@@ -92,7 +95,7 @@ export function LiveMemberBuses() {
       </Card>;
     })}</div>
     {!shown.length ? <EmptyState icon={BusFront} title="No free buses match these filters" description="Try another service, date or location. Only published API schedules appear here." /> : null}
-    <section className="mt-9"><h2 className="type-section-title mb-4 text-ink">Your boarding passes</h2>
+    <details className="mt-9"><summary className="cursor-pointer text-ink">Your bookings · {tickets.length}</summary><ButtonLink className="my-4" href="/passenger/free-buses/passes">Open boarding passes</ButtonLink>
       {!tickets.length ? <p className="type-body text-ink-secondary">Your confirmed bookings will appear here.</p> : <div className="grid gap-4 md:grid-cols-2">{tickets.map((ticket) => {
         const route = allRoutes.data.find((r) => r.id === ticket.route_id);
         const bus = buses.data.find((b) => b.id === ticket.bus_id);
@@ -100,10 +103,11 @@ export function LiveMemberBuses() {
           <p className="type-numeric mt-4 text-3xl font-semibold text-ink">Seat {ticket.seat_number}</p><p className="type-body mt-2 text-ink">Bus {bus?.license_plate ?? ticket.bus_id}</p>
           {route ? <><p className="type-meta mt-3 text-ink-secondary">{location(route.start_point)} → {location(route.end_point)}</p><p className="type-meta mt-2 text-ink-secondary">{route.departure_date} · {route.departure_time} WAT</p></> : null}
           <p className="type-meta mt-3 break-all text-ink-muted">Reference: {ticket.booking_ref}</p>
+          <ButtonLink className="mt-4" href={`/passenger/free-buses/passes/${ticket.id}`}>View boarding pass</ButtonLink>
           {ticket.status === "Confirmed" && bus && busCanBoard(bus) ? <Button className="mt-4" variant="ghost" onClick={() => { setActionError(""); setCancel(ticket); }}>Release seat</Button> : null}
         </Card>;
       })}</div>}
-    </section>
+    </details>
 
     <Modal open={Boolean(pending)} onClose={() => { if (!busy) setPending(null); }} title="Reserve your free seat" footer={<><Button variant="ghost" disabled={busy} onClick={() => setPending(null)}>Go back</Button><Button loading={busy} onClick={reserve}>Confirm free seat</Button></>}>
       <p className="type-body text-ink">{pending?.name}</p><p className="type-meta mt-3 text-ink-secondary">The API assigns the next available seat. Your return journey needs its own booking.</p>{actionError ? <p role="alert" className="mt-4 text-danger-600">{actionError}</p> : null}

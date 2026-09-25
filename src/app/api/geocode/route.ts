@@ -8,9 +8,13 @@
  * Nigeria (countrycodes=ng) is prioritised but global results are included
  * as a fallback so venues near the border are still found.
  */
+import { knownPlaces } from "@/lib/transport-locations";
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const q = (searchParams.get("q") ?? "").trim();
+  const known = knownPlaces(q);
+  if (known.length) return Response.json(known);
   if (!q || q.length < 2) {
     return Response.json([]);
   }

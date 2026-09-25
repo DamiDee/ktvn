@@ -68,7 +68,7 @@ export async function freebusRequest<T>(path: string, options: RequestInit = {})
 
   const body = await response.json().catch(() => null);
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403) rememberIdentity(null);
+    if (response.status === 401) rememberIdentity(null);
     throw new FreebusError(
       body?.message ??
         (response.status === 401

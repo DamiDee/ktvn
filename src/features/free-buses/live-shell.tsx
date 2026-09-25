@@ -4,7 +4,7 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BusFront, UserRound } from "lucide-react";
+import { BusFront, UserRound, Ticket, LayoutDashboard, Route, MapPin, ScanLine, History } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { EmptyState, ErrorState } from "@/components/ui/states";
@@ -39,10 +39,22 @@ export function LiveFreeBusShell({ children, admin = false }: { children: ReactN
   const allowed = admin ? isOversight(user.role) : user.role === "User";
   const home = isOversight(user.role) ? "/admin/free-buses" : "/passenger/free-buses";
   const memberNavigation = user.role === "User" && !admin;
-  const connectedPage = pathname === home || (memberNavigation && pathname === "/passenger/profile");
+  const navigation = memberNavigation ? [
+    { href: "/passenger/free-buses", label: "Find a Bus", icon: BusFront },
+    { href: "/passenger/free-buses/passes", label: "Boarding Passes", icon: Ticket },
+    { href: "/passenger/profile", label: "Profile", icon: UserRound },
+  ] : [
+    { href: "/admin/free-buses", label: "Overview", icon: LayoutDashboard },
+    { href: "/admin/free-buses/buses", label: "Buses", icon: BusFront },
+    { href: "/admin/free-buses/routes", label: "Routes", icon: Route },
+    { href: "/admin/free-buses/points", label: "Points", icon: MapPin },
+    { href: "/admin/free-buses/boarding", label: "Boarding", icon: ScanLine },
+    { href: "/admin/free-buses/activity", label: "Activity", icon: History },
+  ];
+  const connectedPage = navigation.some((item) => pathname === item.href) || (memberNavigation && /^\/passenger\/free-buses\/passes\/[^/]+$/.test(pathname));
   return <SessionContext.Provider value={user}>
     <div className="min-h-dvh bg-canvas">
-      <header className="border-b border-line bg-surface"><div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
+      <header className="border-b border-line bg-surface print:hidden"><div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
         <Link href={home} className="flex items-center gap-2 font-semibold text-ink"><BusFront className="size-6 text-forest-700 dark:text-gold-300" />K-Rides <span className="type-meta font-normal text-ink-muted">Free Buses</span></Link>
         <div className="flex items-center gap-2"><span className="type-meta hidden text-ink-secondary sm:block">{user.first_name} · {isOversight(user.role) ? "Oversight" : user.role === "User" ? "Member" : user.role}</span><ThemeToggle /><Button size="sm" variant="ghost" loading={busy} onClick={async () => {
           setBusy(true); setLogoutError("");
@@ -51,9 +63,10 @@ export function LiveFreeBusShell({ children, admin = false }: { children: ReactN
           finally { setBusy(false); }
         }}>Sign out</Button></div>
       </div>
-      {memberNavigation ? <nav aria-label="Member navigation" className="mx-auto flex max-w-6xl gap-2 px-4 pb-3 sm:px-6">
-        {[{ href: "/passenger/free-buses", label: "Free Buses", icon: BusFront }, { href: "/passenger/profile", label: "Profile", icon: UserRound }].map(({ href, label, icon: Icon }) => <Link key={href} href={href} aria-current={pathname === href ? "page" : undefined} className={cn(
-          "inline-flex min-h-11 items-center gap-2 rounded-full px-4 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-500",
+      {allowed ? <nav aria-label={memberNavigation ? "Member navigation" : "Transport navigation"} className={cn("mx-auto max-w-6xl gap-2 px-4 pb-3 sm:px-6", memberNavigation ? "grid grid-cols-3 sm:flex" : "flex overflow-x-auto")}>
+        {navigation.map(({ href, label, icon: Icon }) => <Link key={href} href={href} aria-current={pathname === href ? "page" : undefined} className={cn(
+          "inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-500",
+          memberNavigation && "flex-col justify-center !px-2 py-2 text-center !text-xs sm:flex-row sm:!px-4 sm:!text-sm",
           pathname === href ? "bg-forest-800 text-white dark:bg-gold-400 dark:text-forest-950" : "text-ink-secondary hover:bg-surface-nested",
         )}><Icon className="size-4" aria-hidden />{label}</Link>)}
       </nav> : null}

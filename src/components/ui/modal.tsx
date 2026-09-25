@@ -140,7 +140,7 @@ export function Modal({
               "relative z-10 flex w-full flex-col bg-surface shadow-xl",
               asSheet
                 ? "max-h-[88vh] rounded-t-[var(--kx-radius-2xl)] pb-safe"
-                : cn("m-4 rounded-[var(--kx-radius-xl)]", SIZES[size]),
+                : cn("m-4 max-h-[90dvh] rounded-[var(--kx-radius-xl)]", SIZES[size]),
               className,
             )}
           >

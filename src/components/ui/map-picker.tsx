@@ -42,6 +42,7 @@ export interface MapPickerProps {
 const DEFAULT_CENTER: [number, number] = [9.0579, 7.4951]; // Abuja, Nigeria
 const DEFAULT_ZOOM = 12;
 const DEBOUNCE_MS = 320;
+const round = (n: number) => Math.round(n * 1e6) / 1e6;
 
 // ─── Geocoding ────────────────────────────────────────────────────────────────
 
@@ -161,6 +162,12 @@ export function MapPicker({ value, onChange, onPlaceSelect, className = "" }: Ma
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeIdx, setActiveIdx] = useState(-1);
 
+  const placePin = useCallback((lat: number, lng: number) => {
+    if (!mapRef.current || !LRef.current) return;
+    if (markerRef.current) markerRef.current.setLatLng([lat, lng]);
+    else markerRef.current = LRef.current.marker([lat, lng]).addTo(mapRef.current);
+  }, []);
+
   // ─── Map init ─────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -237,17 +244,6 @@ export function MapPicker({ value, onChange, onPlaceSelect, className = "" }: Ma
   }, []);
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
-
-  const round = (n: number) => Math.round(n * 1e6) / 1e6;
-
-  const placePin = useCallback((lat: number, lng: number) => {
-    if (!mapRef.current || !LRef.current) return;
-    if (markerRef.current) {
-      markerRef.current.setLatLng([lat, lng]);
-    } else {
-      markerRef.current = LRef.current.marker([lat, lng]).addTo(mapRef.current);
-    }
-  }, []);
 
   // Sync external value → map
   useEffect(() => {
@@ -351,6 +347,7 @@ export function MapPicker({ value, onChange, onPlaceSelect, className = "" }: Ma
           <input
             type="text"
             role="combobox"
+            aria-label="Search for a place"
             aria-autocomplete="list"
             aria-controls={listId}
             aria-expanded={showSuggestions}
@@ -459,6 +456,7 @@ export function MapPicker({ value, onChange, onPlaceSelect, className = "" }: Ma
             </label>
             <input
               type="number"
+              aria-label={label}
               step="any"
               min={min}
               max={max}
