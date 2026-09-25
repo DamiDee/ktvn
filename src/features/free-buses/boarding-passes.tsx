@@ -59,6 +59,6 @@ export function BoardingPass({ id }: { id: string }) {
         {active ? <Button variant="ghost" className="order-3 mt-5 print:hidden" onClick={() => setCancel(true)}>Release seat</Button> : null}
       </div>
     </Card>
-    <ConfirmDialog open={cancel} onClose={() => { if (!busy) setCancel(false); }} title="Release this seat?" description={error || "Another member can book the seat after cancellation. Your pass will no longer be valid."} confirmLabel="Release seat" loading={busy} onConfirm={async () => { setBusy(true); setError(""); try { await freebusRequest(`bookings/${id}`, { method: "DELETE" }); setCancel(false); await client.invalidateQueries({ queryKey: ["freebus-live"] }); } catch (e) { setError(e instanceof Error ? e.message : "Cancellation failed."); } finally { setBusy(false); } }} />
+    <ConfirmDialog open={cancel} onClose={() => { if (!busy) setCancel(false); }} tone="danger" title="Release this seat?" description={error || "Your boarding pass stops working straight away and another member can take the seat. This cannot be undone."} confirmLabel="Yes, release it" loading={busy} onConfirm={async () => { setBusy(true); setError(""); try { await freebusRequest(`bookings/${id}`, { method: "DELETE" }); setCancel(false); await client.invalidateQueries({ queryKey: ["freebus-live"] }); } catch (e) { setError(e instanceof Error ? e.message : "Cancellation failed."); } finally { setBusy(false); } }} />
   </>;
 }

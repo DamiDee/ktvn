@@ -13,6 +13,7 @@ import {
   MapPin,
   ScanLine,
   History,
+  UsersRound,
   LineChart,
   LogOut,
   Menu,
@@ -54,6 +55,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: "/admin/free-buses/routes", label: "Routes", icon: Route },
   { href: "/admin/free-buses/points", label: "Points", icon: MapPin },
   { href: "/admin/free-buses/boarding", label: "Boarding", icon: ScanLine },
+  { href: "/admin/free-buses/users", label: "People", icon: UsersRound },
   { href: "/admin/free-buses/activity", label: "Activity", icon: History },
 ];
 

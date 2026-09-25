@@ -730,3 +730,19 @@
     animation: none;
   }
 }
+
+/* ----------------------------------------------------------------------------
+   No sideways drift.
+   With viewport-fit=cover a single over-wide child lets the whole page be
+   dragged left and right on iOS, which reads as the layout "moving about".
+   `clip` rather than `hidden` because `hidden` makes the element a scroll
+   container and silently breaks every `position: sticky` header beneath it.
+   ------------------------------------------------------------------------- */
+html {
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+}
+
+body {
+  overflow-x: clip;
+}

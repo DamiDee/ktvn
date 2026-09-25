@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, ChevronsUpDown, ChevronUp, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 /**
@@ -29,8 +29,21 @@ export interface DataColumn<T> {
   meta?: boolean;
   /** Right-aligned on desktop, top-right on cards. */
   align?: "start" | "end";
+  /**
+   * A cluster of buttons. On a phone these get their own full-width row at the
+   * foot of the card: squeezed beside the headline they cannot wrap, and push
+   * the page sideways.
+   */
+  actions?: boolean;
   /** Hidden below this breakpoint on desktop tables. */
   hideBelow?: "lg" | "xl";
+  /** Opt this column into sorting by returning the value to order on. */
+  sortBy?: (row: T) => string | number;
+}
+
+export interface SortState {
+  id: string;
+  direction: "asc" | "desc";
 }
 
 export interface DataTableProps<T> {
@@ -45,6 +58,13 @@ export interface DataTableProps<T> {
   caption: string;
   empty?: ReactNode;
   className?: string;
+  /** Current sort, for columns that declare `sortBy`. */
+  sort?: SortState | null;
+  onSortChange?: (sort: SortState) => void;
+  /** Keeps the header visible while a long table scrolls. */
+  stickyHeader?: boolean;
+  /** Caps the desktop scroll area so the page itself never grows unbounded. */
+  maxHeight?: number;
 }
 
 export function DataTable<T>({
@@ -57,6 +77,10 @@ export function DataTable<T>({
   caption,
   empty,
   className,
+  sort,
+  onSortChange,
+  stickyHeader = false,
+  maxHeight,
 }: DataTableProps<T>) {
   if (rows.length === 0 && empty) return <>{empty}</>;
 
@@ -64,8 +88,9 @@ export function DataTable<T>({
   const secondary = columns.filter((column) => column.secondary);
   const metas = columns.filter((column) => column.meta);
   const trailing = columns.filter(
-    (column) => column.align === "end" && !column.meta && !column.secondary,
+    (column) => column.align === "end" && !column.meta && !column.secondary && !column.actions,
   );
+  const actionColumns = columns.filter((column) => column.actions);
 
   const interactive = Boolean(rowHref || onRowClick);
 
@@ -97,9 +122,11 @@ export function DataTable<T>({
                   ))}
                 </div>
 
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-2">
                   {trailing.map((column) => (
-                    <div key={column.id}>{column.cell(row)}</div>
+                    <div key={column.id} className="min-w-0">
+                      {column.cell(row)}
+                    </div>
                   ))}
                   {interactive ? (
                     <ChevronRight
@@ -118,10 +145,20 @@ export function DataTable<T>({
                       <dt className="type-micro text-ink-muted">
                         {column.header}
                       </dt>
-                      <dd className="mt-1">{column.cell(row)}</dd>
+                      <dd className="mt-1 break-words">{column.cell(row)}</dd>
                     </div>
                   ))}
                 </dl>
+              ) : null}
+
+              {actionColumns.length > 0 ? (
+                <div className="mt-3 flex min-w-0 flex-wrap items-center gap-1.5 border-t border-line pt-3">
+                  {actionColumns.map((column) => (
+                    <div key={column.id} className="min-w-0 [&>div]:justify-start">
+                      {column.cell(row)}
+                    </div>
+                  ))}
+                </div>
               ) : null}
             </div>
           );
@@ -154,25 +191,57 @@ export function DataTable<T>({
         the cells have a real minimum width, and it is the table that should
         scroll, never the page.
       */}
-      <div className="hidden min-w-0 overflow-x-auto lg:block">
+      <div
+        className="hidden min-w-0 overflow-auto lg:block"
+        style={maxHeight ? { maxHeight } : undefined}
+      >
         <table className="w-full border-collapse">
           <caption className="sr-only">{caption}</caption>
-          <thead>
+          <thead className={cn(stickyHeader && "sticky top-0 z-10 bg-surface")}>
             <tr className="border-b border-line">
-              {columns.map((column) => (
-                <th
-                  key={column.id}
-                  scope="col"
-                  className={cn(
-                    "type-micro px-3 py-2.5 text-ink-muted",
-                    column.align === "end" ? "text-right" : "text-left",
-                    column.hideBelow === "xl" && "hidden xl:table-cell",
-                  )}
-                >
-                  {column.header}
-                </th>
-              ))}
-              {interactive ? <th className="w-8" /> : null}
+              {columns.map((column) => {
+                const sortable = Boolean(column.sortBy && onSortChange);
+                const active = sort?.id === column.id;
+                const Arrow = !active ? ChevronsUpDown : sort?.direction === "asc" ? ChevronUp : ChevronDown;
+                return (
+                  <th
+                    key={column.id}
+                    scope="col"
+                    aria-sort={
+                      !sortable ? undefined : active ? (sort?.direction === "asc" ? "ascending" : "descending") : "none"
+                    }
+                    className={cn(
+                      "type-micro px-3 py-2.5 text-ink-muted",
+                      column.align === "end" ? "text-right" : "text-left",
+                      column.hideBelow === "xl" && "hidden xl:table-cell",
+                      stickyHeader && "border-b border-line bg-surface",
+                    )}
+                  >
+                    {sortable ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onSortChange!({
+                            id: column.id,
+                            direction: active && sort?.direction === "asc" ? "desc" : "asc",
+                          })
+                        }
+                        className={cn(
+                          "-mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 uppercase tracking-[inherit] transition-colors hover:text-ink",
+                          active && "text-ink",
+                          column.align === "end" && "flex-row-reverse",
+                        )}
+                      >
+                        {column.header}
+                        <Arrow className="size-3.5 opacity-70" aria-hidden />
+                      </button>
+                    ) : (
+                      column.header
+                    )}
+                  </th>
+                );
+              })}
+              {interactive ? <th className={cn("w-8", stickyHeader && "bg-surface")} /> : null}
             </tr>
           </thead>
 

@@ -79,7 +79,7 @@ export function LiveAdminBuses() {
       {users.error ? <p className="type-meta mt-3 text-ink-muted">Member names could not be loaded. Booking references remain available.</p> : null}
       {actionError ? <p role="alert" className="mt-3 text-danger-600">{actionError}</p> : null}
     </Modal>
-    <ConfirmDialog open={Boolean(depart)} onClose={() => { if (!busy) setDepart(null); }} title="Confirm this bus has departed?" description={`Mark ${depart?.license_plate ?? "this bus"} as in transit only after boarding is complete and the bus has actually left. Members will no longer see its seats as available.`} confirmLabel="Mark departed" loading={busy} onConfirm={async () => {
+    <ConfirmDialog open={Boolean(depart)} onClose={() => { if (!busy) setDepart(null); }} tone="danger" title="Confirm this bus has departed?" description={`This marks ${depart?.license_plate ?? "this bus"} as in transit. Its remaining seats disappear from every member's screen immediately and nobody else can board it. Only do this once boarding is finished and the bus has actually left.`} confirmLabel="Yes, it has departed" loading={busy} onConfirm={async () => {
       if (depart && await run(() => freebusRequest(`buses/${depart.id}/state`, { method: "PATCH", body: JSON.stringify({ state: "Transit" }) }), "Bus marked departed")) {
         const route = routes.data.find((r) => r.id === depart?.current_route_id);
         void broadcastPush({ title: "🚌 Bus has departed", body: route ? `${route.name} is now in transit. Have a safe journey!` : "Your bus has left. Have a safe journey!", url: "/passenger/free-buses", tag: "freebus-departed" });

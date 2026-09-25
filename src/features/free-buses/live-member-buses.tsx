@@ -469,9 +469,10 @@ export function LiveMemberBuses() {
         onClose={() => {
           if (!busy) setCancel(null);
         }}
+        tone="danger"
         title="Release this seat?"
-        description="Another member can book it once the cancellation succeeds."
-        confirmLabel="Release seat"
+        description="Your boarding pass stops working straight away and another member can take the seat. You can book again only while seats remain."
+        confirmLabel="Yes, release it"
         loading={busy}
         onConfirm={async () => {
           if (!cancel) return;
