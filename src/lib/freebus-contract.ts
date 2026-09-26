@@ -1,4 +1,4 @@
-import type { ApiBooking, ApiBus, ApiRoute } from "../types/freebus-api";
+import type { ApiBooking, ApiBus } from "../types/freebus-api";
 
 export function isOversight(role: string) { return role === "Admin" || role === "Root"; }
 export function activeBooking(booking: ApiBooking) {
@@ -9,11 +9,6 @@ export function busCanBoard(bus: ApiBus) {
 }
 export function availableCapacity(bus: ApiBus) {
   return busCanBoard(bus) ? Math.max(0, bus.capacity - bus.current_passenger_count) : 0;
-}
-export function routeCanBook(route: ApiRoute, now = Date.now()) {
-  // The service operates in Abuja. The API publishes separate WAT date/time values.
-  const departure = Date.parse(`${route.departure_date}T${route.departure_time}+01:00`);
-  return route.fare === 0 && !route.is_completed && Number.isFinite(departure) && departure > now;
 }
 export function queryString(filters: Record<string, string | number | boolean | undefined>) {
   const query = new URLSearchParams();
@@ -29,3 +24,5 @@ export function queryString(filters: Record<string, string | number | boolean | 
  */
 export function canAdminister(role: string) { return isOversight(role); }
 export function canBook(role: string) { return role === "User"; }
+export function canBoard(role: string) { return isOversight(role) || role === "RouteCoordinator"; }
+export function liveHome(role: string) { return role === "RouteCoordinator" ? "/admin/free-buses/boarding" : isOversight(role) ? "/admin/free-buses" : "/passenger/free-buses"; }

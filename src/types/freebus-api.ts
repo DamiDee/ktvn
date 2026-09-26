@@ -16,16 +16,22 @@ export interface ApiPoint {
 }
 export interface ApiRoute {
   id: string; name: string; description: string; start_point: string; end_point: string;
-  fare: number; distance: number; ride_type: ApiRideType; stops: string[];
-  departure_date: string; departure_time: string; is_completed: boolean;
+  fare: number; distance: number; stops: string[];
+}
+export type ApiTripStatus = "Completed" | "Cancelled" | "InProgress" | "NotStarted";
+export interface ApiTrip {
+  id: string; route_id: string; bus_id: string | null; driver_id: string | null;
+  departure_time: string; arrival_time: string; ride_type: ApiRideType; status: ApiTripStatus;
+  actual_departure_time?: string | null; actual_arrival_time?: string | null;
 }
 export interface ApiBus {
   id: string; license_plate: string; capacity: number; current_passenger_count: number;
-  current_route_id: string | null; state: ApiBusState;
+  current_trip_id: string | null; state: ApiBusState;
   status: "Available" | "Maintenance" | "InUse";
 }
 export interface ApiBooking {
   qr_code?: string | null;
+  trip_id?: string | null;
   id: string; booking_ref: string; user_id: string; bus_id: string; route_id: string;
   seat_number: number; status: "Boarded" | "Confirmed" | "Cancelled" | "Revoked";
   payment_status: "Free" | "Pending" | "Paid" | "Failed" | "Refunded";

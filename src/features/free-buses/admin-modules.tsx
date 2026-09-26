@@ -16,8 +16,10 @@ import { PageLoader } from "@/components/ui/route-loader";
 import { MapPicker } from "@/components/ui/map-picker";
 import { freebusRequest } from "@/services/freebus-api";
 import { queryString } from "@/lib/freebus-contract";
-import { broadcastPush } from "@/hooks/use-push-notifications";
-import type { ApiBus, ApiPoint, ApiRoute } from "@/types/freebus-api";
+import { useLiveUser } from "./live-shell";
+import { CoordinatorBuses } from "./coordinator-buses";
+import { watParts } from "@/lib/trips";
+import type { ApiBus, ApiPoint, ApiRoute, ApiTrip } from "@/types/freebus-api";
 import { useLiveQuery } from "./live-queries";
 import { OperationsForm } from "./live-admin-buses";
 import { RouteDistance } from "./route-distance";
@@ -28,6 +30,13 @@ type Action = { title: string; description: string; path: string; method: string
 const labels = { overview: "Overview", buses: "Buses", routes: "Routes", points: "Points" };
 
 export function AdminTransportModule({ module = "overview" }: { module?: Module }) {
+  const user = useLiveUser();
+  if (user.role === "RouteCoordinator") return <CoordinatorBuses />;
+  return <AdminModule module={module} />;
+}
+
+function AdminModule({ module }: { module: Module }) {
+  const trips = useLiveQuery<ApiTrip[]>("trips");
   const routes = useLiveQuery<ApiRoute[]>("routes");
   const buses = useLiveQuery<ApiBus[]>("buses");
   const points = useLiveQuery<ApiPoint[]>("points");
@@ -45,9 +54,9 @@ export function AdminTransportModule({ module = "overview" }: { module?: Module 
     catch (e) { setError(e instanceof Error ? e.message : "The change could not be saved. Refresh before retrying."); await refresh(); return false; }
     finally { setBusy(false); }
   }
-  const loadError = routes.error ?? buses.error ?? points.error;
+  const loadError = trips.error ?? routes.error ?? buses.error ?? points.error;
   if (loadError) return <ErrorState title="Could not load transport" description={loadError.message} onRetry={() => void refresh()} />;
-  if (!routes.data || !buses.data || !points.data) return <PageLoader message="Loading transport" />;
+  if (!trips.data || !routes.data || !buses.data || !points.data) return <PageLoader message="Loading transport" />;
   const open = (value: typeof create) => { setError(""); setCreate(value); };
   const modify = (value: Edit) => { setError(""); setEdit(value); };
   const confirm = (value: Action) => { setError(""); setAction(value); };
@@ -57,29 +66,29 @@ export function AdminTransportModule({ module = "overview" }: { module?: Module 
     {notice ? <p role="status" className="mb-4 rounded-xl border border-line p-4 text-ink">{notice}</p> : null}
     {error && !create && !edit && !action ? <p role="alert" className="mb-4 text-danger-600">{error}</p> : null}
     {module === "overview" ? <>
-      <div className="grid gap-4 sm:grid-cols-3">{[["Buses", buses.data.length], ["Active routes", routes.data.filter((r) => !r.is_completed).length], ["Meeting points", points.data.length]].map(([label, count]) => <Card key={label}><p className="text-3xl font-semibold text-ink">{count}</p><p className="mt-2 text-ink-secondary">{label}</p></Card>)}</div>
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">{[{ path: "routes", title: "Plan a service", description: "Schedule journeys and assign the fleet." }, { path: "boarding", title: "Start boarding", description: "Scan passes or check your passenger manifest." }, { path: "buses", title: "Manage the fleet", description: "Capacity, availability, assignments and resets." }, { path: "activity", title: "Review activity", description: "See who changed what and when." }].map((item) => <Card key={item.path}><h2 className="type-card-title text-ink">{item.title}</h2><p className="my-3 text-ink-secondary">{item.description}</p><ButtonLink href={`/admin/free-buses/${item.path}`} variant="secondary">{item.title}</ButtonLink></Card>)}</div>
+      <div className="grid gap-4 sm:grid-cols-3">{[["Buses", buses.data.length], ["Upcoming trips", trips.data.filter((t) => t.status === "NotStarted").length], ["Meeting points", points.data.length]].map(([label, count]) => <Card key={label}><p className="text-3xl font-semibold text-ink">{count}</p><p className="mt-2 text-ink-secondary">{label}</p></Card>)}</div>
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">{[{ path: "trips", title: "Plan a service", description: "Schedule journeys and assign the fleet." }, { path: "boarding", title: "Start boarding", description: "Scan passes or check your passenger manifest." }, { path: "buses", title: "Manage the fleet", description: "Capacity, availability, assignments and resets." }, { path: "activity", title: "Review activity", description: "See who changed what and when." }].map((item) => <Card key={item.path}><h2 className="type-card-title text-ink">{item.title}</h2><p className="my-3 text-ink-secondary">{item.description}</p><ButtonLink href={`/admin/free-buses/${item.path}`} variant="secondary">{item.title}</ButtonLink></Card>)}</div>
     </> : null}
     {module === "buses" ? <>
       <RecordsTable
         caption="Registered buses"
         rows={buses.data}
         rowKey={(bus) => bus.id}
-        searchIn={(bus) => `${bus.license_plate} ${bus.state} ${bus.status} ${routes.data.find((r) => r.id === bus.current_route_id)?.name ?? ""}`}
+        searchIn={(bus) => `${bus.license_plate} ${bus.state} ${bus.status} ${routes.data.find((r) => r.id === trips.data.find((t) => t.id === bus.current_trip_id)?.route_id)?.name ?? ""}`}
         searchPlaceholder="Search plate, state or route"
         initialSort={{ id: "plate", direction: "asc" }}
         empty={<Card radius="xl"><EmptyState icon={BusFront} size="sm" title="No buses registered yet" description="Register a vehicle to start assigning it to journeys." /></Card>}
-        action={<div className="flex flex-wrap gap-2"><Button onClick={() => open("bus")}>Register bus</Button><Button variant="secondary" onClick={() => open("assign")}>Assign a bus</Button><Button variant="danger" onClick={() => confirm({ danger: true, title: "Reset the entire fleet?", description: "This clears route assignments and passenger counts on EVERY bus and returns them all to Stationary / Available. Only do this after all trips have ended. Existing bookings are not cancelled.", path: "buses/reset-routes", method: "POST", done: "The fleet was reset. Every bus is Stationary and unassigned." })}>Reset fleet</Button></div>}
+        action={<div className="flex flex-wrap gap-2"><Button onClick={() => open("bus")}>Register bus</Button><Button variant="secondary" onClick={() => open("assign")}>Assign a bus</Button><Button variant="danger" onClick={() => confirm({ danger: true, title: "Reset the entire fleet?", description: "This clears trip assignments and passenger counts on EVERY bus and returns them all to Stationary / Available. Only do this after all trips have ended. Existing bookings are not cancelled.", path: "buses/reset-trips", method: "POST", done: "The fleet was reset. Every bus is Stationary and unassigned." })}>Reset fleet</Button></div>}
         columns={[
           { id: "plate", header: "Plate", primary: true, sortBy: (bus) => bus.license_plate, cell: (bus) => <span className="type-numeric font-semibold text-ink">{bus.license_plate}</span> },
-          { id: "route", header: "Assigned route", secondary: true, sortBy: (bus) => routes.data.find((r) => r.id === bus.current_route_id)?.name ?? "\uffff", cell: (bus) => <span className="text-ink-secondary">{routes.data.find((r) => r.id === bus.current_route_id)?.name ?? "Unassigned"}</span> },
+          { id: "route", header: "Assigned trip", secondary: true, sortBy: (bus) => routes.data.find((r) => r.id === trips.data.find((t) => t.id === bus.current_trip_id)?.route_id)?.name ?? "\uffff", cell: (bus) => <span className="text-ink-secondary">{routes.data.find((r) => r.id === trips.data.find((t) => t.id === bus.current_trip_id)?.route_id)?.name ?? "Unassigned"}</span> },
           { id: "seats", header: "Seats", meta: true, sortBy: (bus) => bus.capacity - bus.current_passenger_count, cell: (bus) => <span className="type-numeric text-ink">{bus.current_passenger_count} / {bus.capacity}</span> },
           { id: "state", header: "State", meta: true, sortBy: (bus) => bus.state, cell: (bus) => <StatusChip tone={bus.state === "Boarding" ? "active" : bus.state === "Transit" ? "info" : "neutral"}>{bus.state}</StatusChip> },
           { id: "status", header: "Availability", meta: true, hideBelow: "xl", sortBy: (bus) => bus.status, cell: (bus) => <StatusChip tone={bus.status === "Maintenance" ? "danger" : bus.status === "InUse" ? "info" : "neutral"}>{bus.status}</StatusChip> },
           { id: "actions", header: "Actions", align: "end", actions: true, cell: (bus) => <div className="flex flex-wrap justify-end gap-1.5">
             <Button size="sm" variant="secondary" onClick={() => modify({ kind: "bus", value: bus })}>Manage</Button>
             <ButtonLink size="sm" variant="ghost" href={`/admin/free-buses/boarding?bus=${encodeURIComponent(bus.id)}`}>Boarding</ButtonLink>
-            <Button size="sm" variant="ghost" onClick={() => confirm({ danger: true, title: `Reset ${bus.license_plate}?`, description: `This clears the route and passenger count on ${bus.license_plate} and returns it to Stationary / Available. Finish the current trip first. Tickets are not cancelled.`, path: `buses/${bus.id}/reset`, method: "POST", done: `${bus.license_plate} was reset.` })}>Reset</Button>
+            <Button size="sm" variant="ghost" onClick={() => confirm({ danger: true, title: `Reset ${bus.license_plate}?`, description: `This clears the trip assignment and passenger count on ${bus.license_plate} and returns it to Stationary / Available. Finish the current trip first. Tickets are not cancelled.`, path: `buses/${bus.id}/reset`, method: "POST", done: `${bus.license_plate} was reset.` })}>Reset</Button>
             <Button size="sm" variant="ghost" className="!text-danger-600" onClick={() => confirm({ danger: true, title: `Delete ${bus.license_plate} permanently?`, description: `This removes the vehicle from the fleet for good and cannot be undone. Any history that references it stays, but the bus will no longer be assignable. The API will refuse if it still has active bookings.`, path: `buses/${bus.id}`, method: "DELETE", done: `${bus.license_plate} was deleted.` })}>Delete</Button>
           </div> },
         ]}
@@ -87,25 +96,22 @@ export function AdminTransportModule({ module = "overview" }: { module?: Module 
     </> : null}
     {module === "routes" ? <>
       <RecordsTable
-        caption="Scheduled journeys"
+        caption="Reusable routes"
         rows={routes.data}
         rowKey={(route) => route.id}
-        searchIn={(route) => `${route.name} ${pointName(route.start_point)} ${pointName(route.end_point)} ${route.departure_date} ${route.ride_type}`}
-        searchPlaceholder="Search name, stop or date"
-        initialSort={{ id: "departs", direction: "desc" }}
-        empty={<Card radius="xl"><EmptyState icon={RouteIcon} size="sm" title="No journeys scheduled yet" description="Schedule buses to publish the first journey to members." action={<Button onClick={() => open("route")}>Schedule buses</Button>} /></Card>}
-        action={<Button onClick={() => open("route")}>Schedule buses</Button>}
+        searchIn={(route) => `${route.name} ${pointName(route.start_point)} ${pointName(route.end_point)} `}
+        searchPlaceholder="Search route or stop"
+        initialSort={{ id: "name", direction: "asc" }}
+        empty={<Card radius="xl"><EmptyState icon={RouteIcon} size="sm" title="No routes created yet" description="Create a reusable route, then schedule its first departure in Trips." action={<Button onClick={() => open("route")}>Create route</Button>} /></Card>}
+        action={<Button onClick={() => open("route")}>Create route</Button>}
         columns={[
-          { id: "name", header: "Journey", primary: true, sortBy: (route) => route.name, cell: (route) => <span className="font-medium text-ink">{route.name}</span> },
+          { id: "name", header: "Route name", primary: true, sortBy: (route) => route.name, cell: (route) => <span className="font-medium text-ink">{route.name}</span> },
           { id: "leg", header: "Route", secondary: true, cell: (route) => <span className="text-ink-secondary">{pointName(route.start_point)} → {pointName(route.end_point)}</span> },
-          { id: "departs", header: "Departs", meta: true, sortBy: (route) => `${route.departure_date}T${route.departure_time}`, cell: (route) => <span className="type-numeric text-ink">{route.departure_date} · {route.departure_time.slice(0, 5)}</span> },
-          { id: "fleet", header: "Buses", meta: true, sortBy: (route) => buses.data.filter((b) => b.current_route_id === route.id).length, cell: (route) => <span className="type-numeric text-ink">{buses.data.filter((b) => b.current_route_id === route.id).length}</span> },
-          { id: "state", header: "Status", meta: true, sortBy: (route) => (route.is_completed ? "Completed" : route.ride_type), cell: (route) => <StatusChip tone={route.is_completed ? "neutral" : "active"}>{route.is_completed ? "Completed" : route.ride_type}</StatusChip> },
           { id: "distance", header: "Distance", meta: true, hideBelow: "xl", sortBy: (route) => route.distance, cell: (route) => <span className="type-numeric text-ink-secondary">{route.distance} km</span> },
           { id: "actions", header: "Actions", align: "end", actions: true, cell: (route) => <div className="flex flex-wrap justify-end gap-1.5">
             <Button size="sm" variant="secondary" onClick={() => modify({ kind: "route", value: route })}>Edit</Button>
-            <Button size="sm" variant="ghost" disabled={route.is_completed} onClick={() => confirm({ title: "Mark this journey complete?", description: `This confirms ${route.name} has reached its destination. Members will no longer be able to book a seat on it, and it moves out of the active list.`, path: `routes/${route.id}/complete`, method: "PATCH", done: `${route.name} is marked complete.` })}>Complete</Button>
-            <Button size="sm" variant="ghost" className="!text-danger-600" onClick={() => confirm({ danger: true, title: `Delete ${route.name} permanently?`, description: `This deletes the journey for good and cannot be undone. Members holding a seat on it will lose that journey from their list. The API will refuse if it still has bookings or assigned buses.`, path: `routes/${route.id}`, method: "DELETE", done: `${route.name} was deleted.` })}>Delete</Button>
+            <ButtonLink size="sm" variant="ghost" href={`/admin/free-buses/trips?route=${route.id}`}>Schedule trip</ButtonLink>
+            <Button size="sm" variant="ghost" className="!text-danger-600" onClick={() => confirm({ danger: true, title: `Delete ${route.name} permanently?`, description: `This permanently deletes the reusable route. Its trips and bookings may prevent deletion; the server decides. Cancel individual departures in Trips instead.`, path: `routes/${route.id}`, method: "DELETE", done: `${route.name} was deleted.` })}>Delete</Button>
           </div> },
         ]}
       />
@@ -133,18 +139,18 @@ export function AdminTransportModule({ module = "overview" }: { module?: Module 
         ]}
       />
     </> : null}
-    <Modal open={Boolean(create)} onClose={() => { if (!busy) setCreate(null); }} title={create === "route" ? "Schedule buses" : create === "assign" ? "Assign a bus" : `Add ${create ?? "record"}`} size="lg">
-      {create ? <OperationsForm key={create} panel={create} points={points.data} routes={routes.data} buses={buses.data} busy={busy} error={error} onPartialSave={setNotice} onSubmit={async (fn, push) => { if (await run(fn) && push) void broadcastPush(push); }} /> : null}
+    <Modal open={Boolean(create)} onClose={() => { if (!busy) setCreate(null); }} title={create === "route" ? "Create route" : create === "assign" ? "Assign a bus" : `Add ${create ?? "record"}`} size="lg">
+      {create ? <OperationsForm key={create} panel={create} points={points.data} routes={routes.data} trips={trips.data} buses={buses.data} busy={busy} error={error} onSubmit={async (fn) => { await run(fn, "Saved successfully."); }} /> : null}
     </Modal>
     <Modal open={Boolean(edit)} onClose={() => { if (!busy) setEdit(null); }} title={`Manage ${edit?.kind ?? "record"}`} size="lg">
-      {edit ? <RecordEditor key={`${edit.kind}-${edit.value.id}`} edit={edit} points={points.data} routes={routes.data} busy={busy} error={error} onSave={(path, method, body) => run(() => freebusRequest(path, { method, ...(body === undefined ? {} : { body: JSON.stringify(body) }) }))} /> : null}
+      {edit ? <RecordEditor key={`${edit.kind}-${edit.value.id}`} edit={edit} points={points.data} routes={routes.data} trips={trips.data} busy={busy} error={error} onSave={(path, method, body) => run(() => freebusRequest(path, { method, ...(body === undefined ? {} : { body: JSON.stringify(body) }) }))} /> : null}
     </Modal>
     <ConfirmDialog open={Boolean(action)} onClose={() => { if (!busy) setAction(null); }} tone={action?.danger ? "danger" : "default"} title={action?.title ?? "Confirm change"} description={`${action?.description ?? ""}${error ? ` Error: ${error}` : ""}`} confirmLabel={action?.danger ? "Yes, do it" : "Confirm"} loading={busy} onConfirm={async () => { if (action) await run(() => freebusRequest(action.path, { method: action.method, ...(action.body === undefined ? {} : { body: JSON.stringify(action.body) }) }), action.done); }} />
   </>;
 }
 
 const options = (values: string[]) => values.map((value) => ({ value, label: value }));
-function RecordEditor({ edit, points, routes, busy, error, onSave }: { edit: Edit; points: ApiPoint[]; routes: ApiRoute[]; busy: boolean; error: string; onSave: (path: string, method: string, body?: unknown) => Promise<boolean> }) {
+function RecordEditor({ edit, points, routes, trips, busy, error, onSave }: { edit: Edit; points: ApiPoint[]; routes: ApiRoute[]; trips: ApiTrip[]; busy: boolean; error: string; onSave: (path: string, method: string, body?: unknown) => Promise<boolean> }) {
   const [operation, setOperation] = useState("details");
   const [validation, setValidation] = useState("");
   const [location, setLocation] = useState(edit.kind === "point" ? { lat: Number(edit.value.geo_location.lat), lng: Number(edit.value.geo_location.long) } : null);
@@ -164,7 +170,7 @@ function RecordEditor({ edit, points, routes, busy, error, onSave }: { edit: Edi
         allocation: { path: `${base}/allocation`, method: "PATCH", body: { passenger_count: Number(value("passenger_count")) } },
         state: { path: `${base}/state`, method: "PATCH", body: { state: value("state") } },
         status: { path: `${base}/status`, method: "PATCH", body: { status: value("status") } },
-        route: { path: `${base}/route`, method: "PATCH", body: { route_id: value("route_id") || null } },
+        trip: { path: `${base}/trip`, method: "PATCH", body: { trip_id: value("trip_id") || null } },
         "clear-allocation": { path: `${base}/clear-allocation`, method: "POST" },
       };
       const request = requests[operation];
@@ -175,26 +181,24 @@ function RecordEditor({ edit, points, routes, busy, error, onSave }: { edit: Edi
     } else {
       if (start === end) { setValidation("Boarding point and destination must differ."); return; }
       if (!Number.isFinite(Number(value("distance"))) || Number(value("distance")) <= 0) { setValidation("Wait for the road distance, or enter a verified distance if routing is unavailable."); return; }
-      await onSave(`routes/${edit.value.id}`, "PATCH", { name: value("name"), description: value("description"), start_point: start, end_point: end, stops, distance: Number(value("distance")), departure_date: value("date"), departure_time: value("time").length === 5 ? `${value("time")}:00` : value("time"), ride_type: value("direction") });
+      await onSave(`routes/${edit.value.id}`, "PATCH", { name: value("name"), description: value("description"), start_point: start, end_point: end, stops, distance: Number(value("distance")) });
     }
   }}>
     {edit.kind === "bus" ? <>
-      <Select label="Action" value={operation} onChange={(e) => setOperation(e.target.value)} options={[{ value: "details", label: "Edit registration" }, { value: "capacity", label: "Change seat capacity" }, { value: "state", label: "Change movement state" }, { value: "status", label: "Change availability" }, { value: "route", label: "Change / clear route" }, { value: "allocation", label: "Adjust passenger count" }, { value: "clear-allocation", label: "Clear passenger count" }]} />
+      <Select label="Action" value={operation} onChange={(e) => setOperation(e.target.value)} options={[{ value: "details", label: "Edit registration" }, { value: "capacity", label: "Change seat capacity" }, { value: "state", label: "Change movement state" }, { value: "status", label: "Change availability" }, { value: "trip", label: "Change / clear trip" }, { value: "allocation", label: "Adjust passenger count" }, { value: "clear-allocation", label: "Clear passenger count" }]} />
       {operation === "details" ? <Input label="Registration plate" name="plate" required defaultValue={edit.value.license_plate} /> : null}
       {operation === "capacity" ? <Input label="Passenger seats" name="capacity" type="number" min={Math.max(1, edit.value.current_passenger_count)} max={100} step={1} required defaultValue={edit.value.capacity} /> : null}
       {operation === "allocation" ? <Input label="Passenger count" name="passenger_count" type="number" min={0} max={edit.value.capacity} step={1} required defaultValue={edit.value.current_passenger_count} /> : null}
       {operation === "state" ? <Select label="Movement state" name="state" defaultValue={edit.value.state} options={options(["Stationary", "Boarding", "Transit", "Arrived"])} /> : null}
       {operation === "status" ? <Select label="Availability" name="status" defaultValue={edit.value.status} options={options(["Available", "Maintenance", "InUse"])} /> : null}
-      {operation === "route" ? <Select label="Assigned route" name="route_id" defaultValue={edit.value.current_route_id ?? ""} options={[{ value: "", label: "Clear route assignment" }, ...routes.filter((r) => !r.is_completed || r.id === edit.value.current_route_id).map((r) => ({ value: r.id, label: r.name }))]} /> : null}
-      {["clear-allocation", "allocation", "route", "state"].includes(operation) ? <label className="flex items-start gap-3 text-sm text-ink-secondary"><input type="checkbox" required className="mt-1" />I confirm this reflects the actual bus operation. Count and route changes do not cancel existing bookings.</label> : null}
+      {operation === "trip" ? <Select label="Assigned trip" name="trip_id" defaultValue={edit.value.current_trip_id ?? ""} options={[{ value: "", label: "Clear trip assignment" }, ...trips.filter((t) => t.status === "NotStarted" || t.id === edit.value.current_trip_id).map((t) => ({ value: t.id, label: `${routes.find((r) => r.id === t.route_id)?.name ?? t.route_id} · ${watParts(t.departure_time).date}` }))]} /> : null}
+      {["clear-allocation", "allocation", "trip", "state"].includes(operation) ? <label className="flex items-start gap-3 text-sm text-ink-secondary"><input type="checkbox" required className="mt-1" />I confirm this reflects the actual bus operation. Count and trip changes do not cancel existing bookings.</label> : null}
     </> : edit.kind === "point" ? <>
       <Input label="Location name" name="name" required defaultValue={edit.value.name} /><Input label="Meeting landmark" name="landmark" required defaultValue={edit.value.landmark} /><Input label="Directions" name="description" required defaultValue={edit.value.description} /><MapPicker value={location} onChange={setLocation} />
     </> : <>
       <Input label="Route name" name="name" required defaultValue={edit.value.name} /><Input label="Boarding instructions" name="description" required defaultValue={edit.value.description} />
-      <Select label="Direction" name="direction" defaultValue={edit.value.ride_type} options={options(["Pickup", "Dropoff", "RoundTrip"])} />
       <Select label="Boarding location" value={start} onChange={(e) => { setStart(e.target.value); setStops((v) => v.filter((id) => id !== e.target.value)); }} options={pointOptions} /><Select label="Destination" value={end} onChange={(e) => { setEnd(e.target.value); setStops((v) => v.filter((id) => id !== e.target.value)); }} options={pointOptions} />
       <fieldset className="rounded-xl border border-line p-3"><legend>Intermediate stops (selection order)</legend>{points.filter((p) => p.id !== start && p.id !== end).map((p) => <label key={p.id} className="flex min-h-11 items-center gap-2 text-ink"><input type="checkbox" checked={stops.includes(p.id)} onChange={(e) => setStops((v) => e.target.checked ? [...v, p.id] : v.filter((id) => id !== p.id))} />{p.name}{stops.includes(p.id) ? ` · stop ${stops.indexOf(p.id) + 1}` : ""}</label>)}</fieldset>
-      <div className="grid grid-cols-2 gap-3"><Input label="Departure date" name="date" type="date" required defaultValue={edit.value.departure_date} /><Input label="Departure time (WAT)" name="time" type="time" required defaultValue={edit.value.departure_time.slice(0, 5)} /></div>
       <RouteDistance points={points} ids={[start, ...stops, end]} />
     </>}
     {error || validation ? <p role="alert" className="text-danger-600">{error || validation}</p> : null}<Button block type="submit" loading={busy}>Save changes</Button>

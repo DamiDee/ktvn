@@ -27,7 +27,7 @@ import { EmptyState, ErrorState } from "@/components/ui/states";
 import { PageLoader } from "@/components/ui/route-loader";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { liveAuth, FreebusError } from "@/services/freebus-api";
-import { isOversight } from "@/lib/freebus-contract";
+import { isOversight, canBoard, liveHome } from "@/lib/freebus-contract";
 import type { ApiUser } from "@/types/freebus-api";
 
 // ─── Session context ──────────────────────────────────────────────────────────
@@ -53,10 +53,16 @@ const ADMIN_NAV: NavItem[] = [
   { href: "/admin/free-buses", label: "Overview", icon: LayoutDashboard },
   { href: "/admin/free-buses/buses", label: "Buses", icon: BusFront },
   { href: "/admin/free-buses/routes", label: "Routes", icon: Route },
+  { href: "/admin/free-buses/trips", label: "Trips", icon: Ticket },
   { href: "/admin/free-buses/points", label: "Points", icon: MapPin },
   { href: "/admin/free-buses/boarding", label: "Boarding", icon: ScanLine },
-  { href: "/admin/free-buses/users", label: "People", icon: UsersRound },
+  { href: "/admin/free-buses/users", label: "System Users", icon: UsersRound },
   { href: "/admin/free-buses/activity", label: "Activity", icon: History },
+];
+
+const COORDINATOR_NAV: NavItem[] = [
+  { href: "/admin/free-buses/buses", label: "Buses", icon: BusFront },
+  { href: "/admin/free-buses/boarding", label: "Bookings & boarding", icon: ScanLine },
 ];
 
 const MEMBER_NAV: NavItem[] = [
@@ -71,7 +77,7 @@ function initials(user: ApiUser) {
 }
 
 function roleLabel(user: ApiUser) {
-  return isOversight(user.role) ? "Oversight" : user.role === "User" ? "Member" : user.role;
+  return user.role === "RouteCoordinator" ? "Route Coordinator" : isOversight(user.role) ? "Oversight" : user.role === "User" ? "Member" : user.role;
 }
 
 /** Closes a transient overlay on Escape and stops the page behind it scrolling. */
@@ -98,12 +104,12 @@ function Brand({ compact = false }: { compact?: boolean }) {
     <div className="flex items-center gap-2.5">
       <div
         className={cn(
-          "flex items-center justify-center rounded-[10px] bg-forest-800 dark:bg-gold-400",
+          "flex items-center justify-center rounded-[10px] bg-gold-400",
           compact ? "size-7" : "size-8",
         )}
       >
         <BusFront
-          className={cn("text-white dark:text-forest-950", compact ? "size-4" : "size-4.5")}
+          className={cn("text-forest-950", compact ? "size-4" : "size-4.5")}
           aria-hidden
         />
       </div>
@@ -135,7 +141,7 @@ function NavLink({
       className={cn(
         "group flex items-center gap-3 rounded-[var(--kx-radius-md)] px-3 py-2.5 text-sm font-medium transition-all duration-150",
         active
-          ? "bg-forest-800 text-white shadow-md dark:bg-gold-400 dark:text-forest-950"
+          ? "bg-gold-400 text-forest-950 shadow-gold"
           : "text-ink-secondary hover:bg-surface-nested hover:text-ink",
       )}
     >
@@ -143,7 +149,7 @@ function NavLink({
         className={cn(
           "size-[1.05rem] shrink-0 transition-colors",
           active
-            ? "text-white/90 dark:text-forest-950/80"
+            ? "text-forest-950/80"
             : "text-ink-muted group-hover:text-ink-secondary",
         )}
         aria-hidden
@@ -182,7 +188,7 @@ function SignOutButton({
 function UserChip({ user }: { user: ApiUser }) {
   return (
     <div className="flex items-center gap-2.5 rounded-[var(--kx-radius-md)] bg-surface-nested px-3 py-2.5">
-      <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-forest-700 text-[0.65rem] font-bold text-white dark:bg-gold-500 dark:text-forest-950">
+      <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-gold-500 text-[0.65rem] font-bold text-forest-950">
         {initials(user)}
       </div>
       <div className="min-w-0">
@@ -269,14 +275,15 @@ function AdminChrome({
   const close = () => setOpen(false);
   useOverlay(open, close);
 
-  const active = ADMIN_NAV.find((item) => item.href === pathname);
+  const navigation = user.role === "RouteCoordinator" ? COORDINATOR_NAV : ADMIN_NAV;
+  const active = navigation.find((item) => item.href === pathname);
 
   return (
     <>
       <aside className="hidden lg:flex lg:w-60 lg:shrink-0 lg:flex-col lg:border-r lg:border-line lg:bg-surface">
         <SidebarBody
           user={user}
-          items={ADMIN_NAV}
+          items={navigation}
           pathname={pathname}
           onSignOut={onSignOut}
           signingOut={signingOut}
@@ -331,7 +338,7 @@ function AdminChrome({
             <div className="min-h-0 flex-1">
               <SidebarBody
                 user={user}
-                items={ADMIN_NAV}
+                items={navigation}
                 pathname={pathname}
                 onSignOut={onSignOut}
                 signingOut={signingOut}
@@ -387,7 +394,7 @@ function MemberChrome({
             onClick={() => setAccount(true)}
             aria-expanded={account}
             aria-label={`Account and sign out. Signed in as ${user.first_name} ${user.last_name}`}
-            className="kx-tap flex size-8 items-center justify-center rounded-full bg-forest-700 text-[0.7rem] font-bold text-white transition-opacity hover:opacity-90 dark:bg-gold-500 dark:text-forest-950"
+            className="kx-tap flex size-8 items-center justify-center rounded-full bg-gold-500 text-[0.7rem] font-bold text-forest-950 transition-opacity hover:opacity-90"
           >
             {initials(user)}
           </button>
@@ -447,7 +454,7 @@ function MemberTabBar({ pathname }: { pathname: string }) {
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex min-h-[3.25rem] flex-col items-center justify-center gap-1 px-1 py-2 text-[0.6875rem] font-medium transition-colors",
-                  active ? "text-forest-800 dark:text-gold-300" : "text-ink-muted",
+                  active ? "text-gold-800 dark:text-gold-300" : "text-ink-muted",
                 )}
               >
                 <Icon className="size-5" aria-hidden />
@@ -510,11 +517,11 @@ export function LiveFreeBusShell({
   }
 
   const user = session.data;
-  const allowed = admin ? isOversight(user.role) : user.role === "User";
-  const home = isOversight(user.role) ? "/admin/free-buses" : "/passenger/free-buses";
+  const allowed = admin ? canBoard(user.role) : user.role === "User";
+  const home = liveHome(user.role);
   const memberNav = user.role === "User" && !admin;
 
-  const items = memberNav ? MEMBER_NAV : ADMIN_NAV;
+  const items = memberNav ? MEMBER_NAV : user.role === "RouteCoordinator" ? COORDINATOR_NAV : ADMIN_NAV;
   const connectedPage =
     items.some((item) => pathname === item.href) ||
     (memberNav && /^\/passenger\/free-buses\/passes\/[^/]+$/.test(pathname));
@@ -543,7 +550,7 @@ export function LiveFreeBusShell({
           : "Use the Free Buses page for your account."
       }
       action={
-        isOversight(user.role) || user.role === "User" ? (
+        canBoard(user.role) || user.role === "User" ? (
           <ButtonLink href={home}>Open Free Buses</ButtonLink>
         ) : undefined
       }

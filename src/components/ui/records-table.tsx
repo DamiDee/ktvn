@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/ui/states";
 import { DataTable, type DataColumn, type SortState } from "@/components/ui/data-table";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
-const PAGE_SIZES = [25, 50, 100];
+const PAGE_SIZES = [10, 25, 50];
 
 export interface RecordsTableProps<T> {
   rows: T[];
@@ -26,6 +26,8 @@ export interface RecordsTableProps<T> {
   filters?: ReactNode;
   initialSort?: SortState;
   pageSize?: number;
+  /** Disable client paging when the screen already has a server-side pager. */
+  paginate?: boolean;
   /** Shown when there are no records at all, as opposed to none matching. */
   empty?: ReactNode;
   rowTone?: (row: T) => "default" | "critical";
@@ -54,7 +56,8 @@ export function RecordsTable<T>({
   action,
   filters,
   initialSort,
-  pageSize: initialPageSize = 25,
+  pageSize: initialPageSize = 10,
+  paginate = true,
   empty,
   rowTone,
   rowHref,
@@ -90,8 +93,8 @@ export function RecordsTable<T>({
   // A filter that shortens the list must never strand the reader on page 9.
   const pageCount = Math.max(1, Math.ceil(ordered.length / pageSize));
   const current = Math.min(page, pageCount);
-  const start = (current - 1) * pageSize;
-  const visible = ordered.slice(start, start + pageSize);
+  const start = paginate ? (current - 1) * pageSize : 0;
+  const visible = paginate ? ordered.slice(start, start + pageSize) : ordered;
 
   const changeSort = (next: SortState) => {
     setSort(next);
@@ -107,10 +110,12 @@ export function RecordsTable<T>({
     );
 
   return (
-    <div className={cn("min-w-0", className)}>
-      {/* Toolbar: search on the left, the primary action pinned to the right. */}
+    <div className={cn("min-w-0 overflow-hidden rounded-[24px] border border-line bg-surface shadow-sm", className)}>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-gradient-to-r from-gold-500/8 to-transparent px-5 py-5 sm:px-6">
+        <div className="flex items-center gap-3"><span className="h-6 w-1 rounded-full bg-gold-500" aria-hidden /><h2 className="text-base font-semibold tracking-tight text-ink">{caption}</h2><span className="rounded-full border border-gold-500/20 bg-gold-500/10 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-gold-800 dark:text-gold-300">{rows.length}</span></div>
+      </div>
       {searchIn || filters || action ? (
-        <div className="mb-4 flex flex-wrap items-end gap-3">
+        <div className="flex flex-wrap items-end gap-3 border-b border-line p-4 sm:px-6">
           {searchIn ? (
             <div className="relative min-w-0 flex-1 basis-56">
               <Search
@@ -126,7 +131,7 @@ export function RecordsTable<T>({
                 }}
                 aria-label={searchPlaceholder}
                 placeholder={searchPlaceholder}
-                className="h-11 w-full rounded-[var(--kx-radius-md)] border border-line bg-surface pl-9 pr-9 text-sm text-ink placeholder:text-ink-muted focus:border-line-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-forest-500/40"
+                className="h-11 w-full rounded-[var(--kx-radius-md)] border border-line bg-surface pl-9 pr-9 text-sm text-ink placeholder:text-ink-muted focus:border-line-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-500/40"
               />
               {term ? (
                 <button
@@ -163,6 +168,7 @@ export function RecordsTable<T>({
         </Card>
       ) : (
         <DataTable
+          className="px-3 py-3 lg:p-0"
           rows={visible}
           columns={columns}
           rowKey={rowKey}
@@ -177,17 +183,16 @@ export function RecordsTable<T>({
         />
       )}
 
-      {/* Pager. Hidden entirely while everything already fits on one page. */}
-      {ordered.length > PAGE_SIZES[0] || showCount ? (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+      {paginate || showCount ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-surface-nested/40 px-5 py-4">
           <p className="type-meta text-ink-muted" role="status">
             {ordered.length === 0
               ? "No records"
-              : `${start + 1}–${Math.min(start + pageSize, ordered.length)} of ${ordered.length}`}
+              : `${start + 1}–${paginate ? Math.min(start + pageSize, ordered.length) : ordered.length} of ${ordered.length}`}
             {query.trim() && ordered.length !== rows.length ? ` matching · ${rows.length} total` : ""}
           </p>
 
-          {ordered.length > PAGE_SIZES[0] ? (
+          {paginate && ordered.length > 0 ? (
             <div className="flex flex-wrap items-center gap-2">
               <label className="type-meta flex items-center gap-2 text-ink-muted">
                 <span className="sr-only sm:not-sr-only">Rows</span>
@@ -217,7 +222,7 @@ export function RecordsTable<T>({
                 Previous
               </Button>
               <span className="type-meta text-ink-secondary">
-                {current} / {pageCount}
+                Page {current} of {pageCount}
               </span>
               <Button
                 size="sm"

@@ -166,7 +166,7 @@ export function PassengersList() {
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeader
-        eyebrow="People"
+        eyebrow="System Users"
         title="Passengers"
         description="Members who can request a ride on the network."
         action={

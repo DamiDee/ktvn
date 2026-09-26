@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canAdminister, canBook, queryString, availableCapacity, activeBooking, routeCanBook } from "../src/lib/freebus-contract.ts";
+import { canAdminister, canBook, canBoard, liveHome, queryString, availableCapacity, activeBooking } from "../src/lib/freebus-contract.ts";
 import { liveLoginSchema, liveSignUpSchema } from "../src/features/auth/schemas.ts";
 
-const id = "11111111-1111-4111-8111-111111111111";
 test("query parameters preserve false, encode values and omit empty filters", () => {
   assert.equal(queryString({ is_completed: false, search: "Lugbe Police", empty: "", missing: undefined }), "?is_completed=false&search=Lugbe+Police");
 });
@@ -33,13 +32,13 @@ test("only active bookings occupy a member's ticket list", () => {
   assert.equal(activeBooking({ status: "Cancelled" }), false);
   assert.equal(activeBooking({ status: "Revoked" }), false);
 });
-test("free booking requires a future, open, zero-fare route in WAT", () => {
-  const route = { fare: 0, is_completed: false, departure_date: "2030-01-01", departure_time: "12:00:00" };
-  const now = Date.parse("2030-01-01T10:00:00Z");
-  assert.equal(routeCanBook(route, now), true);
-  assert.equal(routeCanBook({ ...route, fare: 500 }, now), false);
-  assert.equal(routeCanBook({ ...route, is_completed: true }, now), false);
-  assert.equal(routeCanBook(route, Date.parse("2030-01-01T11:00:00Z")), false);
+test("coordinators land at boarding but have no oversight or member booking access", () => {
+  assert.equal(canBoard("RouteCoordinator"), true);
+  assert.equal(canAdminister("RouteCoordinator"), false);
+  assert.equal(canBook("RouteCoordinator"), false);
+  assert.equal(liveHome("RouteCoordinator"), "/admin/free-buses/boarding");
+  assert.equal(canBoard("User"), false);
+  assert.equal(canBoard("Driver"), false);
 });
 test("live login accepts usernames; registration needs API fields, not NIN", () => {
   assert.equal(liveLoginSchema.safeParse({ identifier: "member_username", password: "Test12345" }).success, true);

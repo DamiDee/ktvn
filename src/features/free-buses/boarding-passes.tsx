@@ -10,7 +10,8 @@ import { useLiveQuery } from "./live-queries";
 import { useLiveUser } from "./live-shell";
 import { freebusRequest } from "@/services/freebus-api";
 import { qrImageSource, type BookingQr } from "@/lib/boarding";
-import type { ApiBooking, ApiBus, ApiPoint, ApiRoute } from "@/types/freebus-api";
+import { watParts } from "@/lib/trips";
+import type { ApiBooking, ApiBus, ApiPoint, ApiRoute, ApiTrip } from "@/types/freebus-api";
 
 export function BoardingPasses() {
   const bookings = useLiveQuery<ApiBooking[]>("bookings/me");
@@ -21,10 +22,11 @@ export function BoardingPass({ id }: { id: string }) {
   const user = useLiveUser();
   const booking = useLiveQuery<ApiBooking>(`bookings/${encodeURIComponent(id)}`);
   const route = useLiveQuery<ApiRoute>(`routes/${booking.data?.route_id}`, Boolean(booking.data));
+  const trip = useLiveQuery<ApiTrip>(`trips/${booking.data?.trip_id}`, Boolean(booking.data?.trip_id));
   const bus = useLiveQuery<ApiBus>(`buses/${booking.data?.bus_id}`, Boolean(booking.data));
   const start = useLiveQuery<ApiPoint>(`points/${route.data?.start_point}`, Boolean(route.data));
   const end = useLiveQuery<ApiPoint>(`points/${route.data?.end_point}`, Boolean(route.data));
-  const active = booking.data?.status === "Confirmed";
+  const active = booking.data?.status === "Confirmed" && trip.data?.status === "NotStarted";
   const qr = useLiveQuery<BookingQr>(`bookings/${encodeURIComponent(id)}/qrcode`, active);
   const [cancel, setCancel] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -42,19 +44,19 @@ export function BoardingPass({ id }: { id: string }) {
         <dl className="order-2 mt-6 grid grid-cols-2 gap-4">{[
           ["Bus registration", bus.data?.license_plate ?? ticket.bus_id], ["Booking status", ticket.status],
           ["Boarding point", start.data?.name ?? route.data?.start_point ?? "Loading…"], ["Destination", end.data?.name ?? route.data?.end_point ?? "Loading…"],
-          ["Departure (WAT)", route.data ? `${route.data.departure_date} · ${route.data.departure_time}` : "Loading…"], ["Journey", route.data?.ride_type ?? "Loading…"],
+          ["Departure (WAT)", trip.data ? `${watParts(trip.data.departure_time).date} · ${watParts(trip.data.departure_time).time}` : "Schedule unavailable"], ["Journey", trip.data?.ride_type ?? "Loading…"], ["Trip status", trip.data?.status ?? "Unavailable"],
           ["Meeting landmark", start.data?.landmark ?? "Not available"], ["Payment", ticket.payment_status],
           ["Boarding instructions", route.data?.description ?? "Not available"], ["Distance", route.data ? `${route.data.distance} km` : "Not available"],
           ["Booking reference", ticket.booking_ref], ["Booked at (API time)", ticket.created_at.replace("T", " ")],
         ].map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-xs text-ink-muted">{label}</dt><dd className="mt-1 break-words text-sm font-medium text-ink">{value}</dd></div>)}</dl>
-        {route.error || bus.error || start.error || end.error ? <p role="alert" className="mt-4 text-danger-600">Some journey details are unavailable. <button className="underline" onClick={() => void client.invalidateQueries({ queryKey: ["freebus-live"] })}>Retry</button></p> : null}
+        {trip.error || route.error || bus.error || start.error || end.error ? <p role="alert" className="mt-4 text-danger-600">Some journey details are unavailable. <button className="underline" onClick={() => void client.invalidateQueries({ queryKey: ["freebus-live"] })}>Retry</button></p> : null}
         <div className="order-1 mt-4 border-b border-dashed border-line pb-4 text-center">
-          {active ? qr.error ? <ErrorState title="QR pass unavailable" description={qr.error.message} onRetry={() => void qr.refetch()} /> : image ? <>
+          {booking.data?.trip_id && trip.isPending ? <p role="status" className="text-ink-secondary">Checking departure…</p> : active ? qr.error ? <ErrorState title="QR pass unavailable" description={qr.error.message} onRetry={() => void qr.refetch()} /> : image ? <>
             {/* The API supplies the signed PNG; never generate unsigned lookalike tickets. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={image} alt="Signed QR boarding pass" width={256} height={256} className="mx-auto aspect-square h-auto w-64 max-w-full rounded-xl bg-white p-4" />
             <p className="mt-3 text-sm text-ink-secondary">Show this code to the boarding team. Keep your pass private.</p>
-          </> : <p role="status" className="text-ink-secondary">{qr.data ? "The API returned an unreadable QR image. Please refresh your pass." : "Loading secure QR pass…"}</p> : <p className="font-semibold text-ink">{ticket.status === "Boarded" ? "Already boarded — have a safe journey." : `${ticket.status} — this pass cannot be used for boarding.`}</p>}
+          </> : <p role="status" className="text-ink-secondary">{qr.data ? "The API returned an unreadable QR image. Please refresh your pass." : "Loading secure QR pass…"}</p> : <p className="font-semibold text-ink">{ticket.status === "Boarded" ? "Already boarded — have a safe journey." : trip.data ? `${trip.data.status.replace(/([a-z])([A-Z])/g, "$1 $2")} — this pass cannot be used for boarding.` : "Trip details unavailable — ask the boarding team for help."}</p>}
         </div>
         {active ? <Button variant="ghost" className="order-3 mt-5 print:hidden" onClick={() => setCancel(true)}>Release seat</Button> : null}
       </div>

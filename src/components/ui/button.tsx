@@ -26,7 +26,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary:
-          "bg-forest-800 text-white shadow-sm hover:-translate-y-px hover:bg-forest-700 hover:shadow-md dark:bg-gold-500 dark:text-forest-950 dark:hover:bg-gold-400",
+          "bg-gold-500 text-forest-950 shadow-sm hover:-translate-y-px hover:bg-gold-400 hover:shadow-md",
         gold: "bg-gold-500 text-forest-950 shadow-gold hover:-translate-y-px hover:bg-gold-400 hover:shadow-md",
         secondary:
           "surface-card text-ink hover:-translate-y-px hover:border-line-strong hover:shadow-md",
@@ -40,7 +40,7 @@ const buttonVariants = cva(
         danger:
           "bg-danger-500 text-white shadow-sm hover:-translate-y-px hover:bg-danger-600 hover:shadow-md",
         sos: "bg-sos-500 text-white shadow-sm hover:bg-sos-600",
-        link: "text-forest-700 underline-offset-4 hover:underline dark:text-gold-300",
+        link: "text-gold-800 underline-offset-4 hover:underline dark:text-gold-300",
       },
       size: {
         xs: "h-8 rounded-[var(--kx-radius-xs)] px-3 text-[0.8125rem]",

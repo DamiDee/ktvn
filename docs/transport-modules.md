@@ -1,5 +1,7 @@
 # Free Buses modules — 25 September 2026
 
+> Historical implementation notes. The route/assignment API and session behavior below are superseded by [the 26 September trip migration](./trip-migration.md).
+
 The existing checkout (commit `86506e1`) was re-read before implementation. The user's `public/openapi.json` is preserved. The published [OpenAPI document](https://api.freebus.cloud/api-docs/openapi.json), fetched on 25 September, is newer and adds signed QR generation and verification.
 
 ## Navigation

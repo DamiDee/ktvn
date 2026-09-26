@@ -1,4 +1,5 @@
 import type { ApiUser, ApiRegistration } from "@/types/freebus-api";
+import { createSessionTransport } from "@/lib/session-transport";
 
 /**
  * Direct browser access to the Free Buses API.
@@ -49,15 +50,15 @@ export class FreebusError extends Error {
   }
 }
 
+const transport = createSessionTransport((path, options) => fetch(`${BASE}/${path}`, {
+  ...options, credentials: "include", cache: "no-store",
+  headers: { "Content-Type": "application/json", Accept: "application/json", ...options.headers },
+}), () => rememberIdentity(null));
+
 export async function freebusRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(`${BASE}/${path}`, {
-      ...options,
-      credentials: "include",
-      cache: "no-store",
-      headers: { "Content-Type": "application/json", Accept: "application/json", ...options.headers },
-    });
+    response = await transport.request(path, options);
   } catch {
     // A blocked cross-site cookie or a CORS refusal also lands here, with no status.
     throw new FreebusError(
@@ -109,6 +110,7 @@ export const liveAuth = {
 
   async logout() {
     try {
+      await transport.settleRefresh();
       await freebusRequest<unknown>("auth/logout", { method: "POST" });
     } finally {
       // Signing out locally must succeed even when the API cannot be reached.

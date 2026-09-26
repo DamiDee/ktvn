@@ -105,7 +105,7 @@ export function DataTable<T>({
           const content = (
             <div
               className={cn(
-                "rounded-[var(--kx-radius-lg)] border p-4",
+                "rounded-[var(--kx-radius-lg)] border p-4 shadow-sm",
                 critical
                   ? "border-sos-500/35 bg-sos-50/60 dark:bg-sos-500/8"
                   : "border-line bg-surface",
@@ -211,10 +211,10 @@ export function DataTable<T>({
                       !sortable ? undefined : active ? (sort?.direction === "asc" ? "ascending" : "descending") : "none"
                     }
                     className={cn(
-                      "type-micro px-3 py-2.5 text-ink-muted",
+                      "px-5 py-4 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-ink-secondary",
                       column.align === "end" ? "text-right" : "text-left",
                       column.hideBelow === "xl" && "hidden xl:table-cell",
-                      stickyHeader && "border-b border-line bg-surface",
+                      stickyHeader && "border-b border-line bg-surface-nested",
                     )}
                   >
                     {sortable ? (
@@ -255,10 +255,10 @@ export function DataTable<T>({
                   key={rowKey(row)}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                   className={cn(
-                    "border-b border-line transition-colors last:border-0",
+                    "group border-b border-line/70 transition-colors last:border-0",
                     critical
                       ? "bg-sos-50/60 dark:bg-sos-500/8"
-                      : "hover:bg-surface-nested",
+                      : "even:bg-surface-nested/25 hover:bg-gold-500/5",
                     interactive && "cursor-pointer",
                   )}
                 >
@@ -266,7 +266,7 @@ export function DataTable<T>({
                     <td
                       key={column.id}
                       className={cn(
-                        "px-3 py-3.5 align-middle",
+                        "px-5 py-5 align-middle text-sm leading-relaxed",
                         column.align === "end" && "text-right",
                         column.hideBelow === "xl" && "hidden xl:table-cell",
                       )}

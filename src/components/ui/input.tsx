@@ -16,7 +16,7 @@ const FIELD_BASE = [
 function fieldState(hasError: boolean) {
   return hasError
     ? "border-danger-500/60 focus:border-danger-500 focus:ring-4 focus:ring-danger-500/12"
-    : "border-line-strong focus:border-forest-500 focus:ring-4 focus:ring-forest-500/10 dark:focus:border-gold-500 dark:focus:ring-gold-500/12";
+    : "border-line-strong focus:border-gold-500 focus:ring-4 focus:ring-gold-500/10 dark:focus:border-gold-500 dark:focus:ring-gold-500/12";
 }
 
 export interface FieldWrapperProps {
@@ -317,10 +317,10 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
             className={cn(
               "kx-tap mt-0.5 size-4.5 shrink-0 cursor-pointer appearance-none rounded-[6px] border border-line-strong bg-surface",
               "transition-[background-color,border-color] duration-[165ms]",
-              "checked:border-forest-700 checked:bg-forest-700",
+              "checked:border-gold-500 checked:bg-gold-500",
               "dark:checked:border-gold-500 dark:checked:bg-gold-500",
               "bg-[length:14px_14px] bg-center bg-no-repeat",
-              "checked:bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22 fill=%22none%22><path d=%22M3.5 8.5 6.5 11.5 12.5 5%22 stroke=%22white%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/></svg>')]",
+              "checked:bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22 fill=%22none%22><path d=%22M3.5 8.5 6.5 11.5 12.5 5%22 stroke=%22%23071513%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/></svg>')]",
               "dark:checked:bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22 fill=%22none%22><path d=%22M3.5 8.5 6.5 11.5 12.5 5%22 stroke=%22%23111513%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/></svg>')]",
               className,
             )}

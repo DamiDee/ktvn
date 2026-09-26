@@ -6,7 +6,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { StatusChip } from "@/components/ui/badge";
-import { SegmentedControl } from "@/components/ui/segmented-control";
+import { useLiveUser } from "./live-shell";
+import { isOversight } from "@/lib/freebus-contract";
 import { RecordsTable } from "@/components/ui/records-table";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { Modal } from "@/components/ui/modal";
@@ -14,7 +15,7 @@ import { ScanLine, ListChecks, QrCode, Nfc } from "lucide-react";
 import { freebusRequest, FreebusError } from "@/services/freebus-api";
 import { boardingProblem, qrImageSource, type BookingQr, type BookingVerification } from "@/lib/boarding";
 import { queryString } from "@/lib/freebus-contract";
-import type { ApiBooking, ApiBus, ApiRoute, ApiUser } from "@/types/freebus-api";
+import type { ApiBooking, ApiBus, ApiTrip, ApiUser } from "@/types/freebus-api";
 import { useLiveQuery } from "./live-queries";
 
 interface NdefReader {
@@ -37,6 +38,8 @@ async function boardingRequest<T>(path: string, options: RequestInit = {}) {
 }
 
 export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
+  const user = useLiveUser();
+  const oversight = isOversight(user.role);
   const [busId, setBusId] = useState(initialBus);
   const [mode, setMode] = useState<"qr" | "nfc">("qr");
   const [running, setRunning] = useState(false);
@@ -65,7 +68,7 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
   const client = useQueryClient();
   const buses = useLiveQuery<ApiBus[]>("buses");
   const bookings = useLiveQuery<ApiBooking[]>(`bookings${queryString({ bus_id: busId })}`, Boolean(busId));
-  const users = useLiveQuery<ApiUser[]>("users", Boolean(busId));
+  const users = useLiveQuery<ApiUser[]>("users", Boolean(busId) && oversight);
   function stopDevices() {
     generation.current += 1; controls.current?.stop(); controls.current = null;
     media.current?.getTracks().forEach((track) => track.stop()); media.current = null;
@@ -79,8 +82,9 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
   }, []);
 
   async function board(booking: ApiBooking, session?: number) {
-    const [currentBus, route] = await Promise.all([boardingRequest<ApiBus>(`buses/${busId}`), boardingRequest<ApiRoute>(`routes/${booking.route_id}`)]);
-    const problem = boardingProblem(booking, currentBus, route);
+    if (!booking.trip_id) throw new Error("This older pass has no trip assignment. Ask an admin to resolve it before boarding.");
+    const [currentBus, trip] = await Promise.all([boardingRequest<ApiBus>(`buses/${busId}`), boardingRequest<ApiTrip>(`trips/${booking.trip_id}`)]);
+    const problem = boardingProblem(booking, currentBus, trip);
     if (problem) throw new Error(problem);
     if (session !== undefined && session !== generation.current) return;
     const boarded = await boardingRequest<ApiBooking>(`bookings/${booking.id}/board`, { method: "PATCH" });
@@ -180,7 +184,7 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
     } catch (e) { if (!controller.signal.aborted) setTagMessage(e instanceof Error ? e.message : "Could not write tag. Use the QR pass."); }
     finally { setTagBusy(false); }
   }
-  const manifest = (bookings.data ?? []).filter((b) => b.bus_id === busId);
+  const manifest = (bookings.data ?? []).filter((b) => b.bus_id === busId && b.trip_id === buses.data?.find((bus) => bus.id === busId)?.current_trip_id);
   const boardingBus = buses.data?.find((b) => b.id === busId);
   const memberName = (booking: ApiBooking) => {
     const user = users.data?.find((u) => u.id === booking.user_id);
@@ -196,26 +200,22 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
   }
 
   return <>
-    <PageHeader eyebrow="Free Buses · Oversight" title="Boarding" description={station === "scan" ? "Choose a bus, start once, then scan each passenger's pass." : "Find a passenger on this bus and board, show or issue their pass."} />
+    <PageHeader eyebrow={oversight ? "Free Buses · Oversight" : "Free Buses · Route Coordinator"} title="Boarding" description={station === "scan" ? "Choose a bus, start once, then scan each passenger's pass." : "Find a passenger on this bus and board, show or issue their pass."} />
 
     <Card className="mb-5">
       <Select label="Boarding bus" value={busId} disabled={busy || starting || running} onChange={(e) => { stop(); setBusId(e.target.value); setResult(null); }} options={[{ value: "", label: "Choose a bus" }, ...(buses.data ?? []).map((b) => ({ value: b.id, label: `${b.license_plate} · ${b.state} · ${b.current_passenger_count}/${b.capacity}` }))]} />
       {buses.error ? <p role="alert" className="mt-2 text-danger-600">{buses.error.message}</p> : null}
 
-      <SegmentedControl
-        className="mt-4"
-        label="Boarding method"
-        value={station}
-        onChange={(value) => { stop(); setResult(null); setStation(value); }}
-        options={[
-          { value: "scan", label: "Scan passes", icon: ScanLine },
-          { value: "manifest", label: "Search manifest", icon: ListChecks },
-        ]}
-      />
+      <div role="group" aria-label="Boarding controls" className="my-4 flex flex-wrap items-center gap-2">
+        <Button size="sm" variant={station === "scan" ? "primary" : "secondary"} disabled={busy || starting} aria-pressed={station === "scan"} icon={ScanLine} onClick={() => { stop(); setStation("scan"); }}>Scan passes</Button>
+        <Button size="sm" variant={station === "manifest" ? "primary" : "secondary"} disabled={busy || starting} aria-pressed={station === "manifest"} icon={ListChecks} onClick={() => { stop(); setStation("manifest"); }}>Search manifest</Button>
+        <span className="mx-1 hidden h-5 w-px bg-line sm:block" aria-hidden />
+        <Button size="sm" variant={station === "scan" && mode === "qr" ? "primary" : "ghost"} disabled={busy || starting} aria-pressed={station === "scan" && mode === "qr"} icon={QrCode} onClick={() => { stop(); setStation("scan"); setMode("qr"); }}>QR Camera</Button>
+        <Button size="sm" variant={station === "scan" && mode === "nfc" ? "primary" : "ghost"} disabled={busy || starting} aria-pressed={station === "scan" && mode === "nfc"} icon={Nfc} onClick={() => { stop(); setStation("scan"); setMode("nfc"); }}>NFC tag</Button>
+      </div>
 
       {/* The scanner exists only in scan mode: searching the manifest replaces it. */}
       {station === "scan" ? <>
-        <div className="my-4 flex flex-wrap gap-2"><Button variant={mode === "qr" ? "primary" : "secondary"} disabled={busy || starting} onClick={() => { stop(); setMode("qr"); }}>QR camera</Button><Button variant={mode === "nfc" ? "primary" : "secondary"} disabled={busy || starting} onClick={() => { stop(); setMode("nfc"); }}>NFC tag</Button></div>
         {mode === "qr" ? <video ref={video} muted playsInline className="mb-4 aspect-video max-h-80 w-full rounded-xl bg-black object-cover" aria-label="QR camera preview" /> : <p className="mb-4 text-sm text-ink-secondary">NDEF tags on supported Android Chrome devices. Phone-to-phone NFC passes are not supported by web browsers. Use QR on other devices.</p>}
         <div className="flex gap-3"><Button disabled={!busId || running || busy} loading={starting} onClick={() => void start()}>Start scanner</Button><Button variant="secondary" disabled={!running && !starting} onClick={stop}>Stop scanner</Button></div>
         <p className="mt-3 text-sm text-ink-muted">{running ? "Scanner active. Verified passes for this bus will board automatically." : "Camera / NFC permission is required once. No extra confirmation per successful scan."}</p>
@@ -228,7 +228,7 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
 
     <h2 className="mb-3 text-xl font-semibold text-ink">Passenger manifest{boardingBus ? <span className="type-meta ml-2 font-normal text-ink-muted">{boardingBus.license_plate}</span> : null}</h2>
     {!busId ? <p className="text-ink-secondary">Select a bus to see its passengers.</p>
-      : bookings.error ? <ErrorState title="Manifest unavailable" description={bookings.error.message} onRetry={() => void bookings.refetch()} />
+      : bookings.error ? <ErrorState title="Manifest unavailable" description={!oversight && bookings.error instanceof FreebusError && bookings.error.status === 403 ? "The API has not enabled booking access for Route Coordinators yet. Ask the backend team to grant the boarding permissions; this app cannot override them." : bookings.error.message} onRetry={() => void bookings.refetch()} />
       : <RecordsTable
           caption="Passengers on this bus"
           rows={manifest}
@@ -243,9 +243,9 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
             { id: "reference", header: "Reference", secondary: true, sortBy: (booking) => booking.booking_ref, cell: (booking) => <span className="type-numeric break-all text-ink-secondary">{booking.booking_ref}</span> },
             { id: "status", header: "Status", meta: true, sortBy: (booking) => booking.status, cell: (booking) => <StatusChip tone={booking.status === "Boarded" ? "success" : booking.status === "Confirmed" ? "active" : "neutral"}>{booking.status}</StatusChip> },
             { id: "actions", header: "Actions", align: "end", actions: true, cell: (booking) => <div className="flex flex-wrap justify-end gap-1.5">
-              <Button size="sm" variant="ghost" icon={QrCode} onClick={() => void showQr(booking)}>QR code</Button>
+              {oversight ? <Button size="sm" variant="ghost" icon={QrCode} onClick={() => void showQr(booking)}>QR code</Button> : null}
               {booking.status === "Confirmed" ? <>
-                <Button size="sm" variant="ghost" icon={Nfc} disabled={running || busy || starting} onClick={() => void prepareTag(booking)}>NFC tag</Button>
+                {oversight ? <Button size="sm" variant="ghost" icon={Nfc} disabled={running || busy || starting} onClick={() => void prepareTag(booking)}>NFC tag</Button> : null}
                 <Button size="sm" variant="secondary" disabled={running || busy || starting} onClick={() => void boardNow(booking)}>Board</Button>
               </> : null}
             </div> },

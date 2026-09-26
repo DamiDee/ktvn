@@ -12,7 +12,8 @@ import { BarChart } from "@/components/analytics/bar-chart";
 import { PageLoader } from "@/components/ui/route-loader";
 import { FreebusError } from "@/services/freebus-api";
 import { activeBooking } from "@/lib/freebus-contract";
-import type { ApiBooking, ApiBus, ApiPoint, ApiRoute } from "@/types/freebus-api";
+import { watParts } from "@/lib/trips";
+import type { ApiBooking, ApiBus, ApiPoint, ApiRoute, ApiTrip } from "@/types/freebus-api";
 import { useLiveQuery } from "./live-queries";
 
 const STATUS_TONE = {
@@ -45,20 +46,22 @@ export function MemberTrips() {
   const client = useQueryClient();
   const bookings = useLiveQuery<ApiBooking[]>("bookings/me");
   const routes = useLiveQuery<ApiRoute[]>("routes");
+  const trips = useLiveQuery<ApiTrip[]>("trips");
   const buses = useLiveQuery<ApiBus[]>("buses");
   const points = useLiveQuery<ApiPoint[]>("points");
 
-  const error = bookings.error ?? routes.error ?? buses.error ?? points.error;
-  const ready = bookings.data && routes.data && buses.data && points.data;
+  const error = trips.error ?? bookings.error ?? routes.error ?? buses.error ?? points.error;
+  const ready = bookings.data && trips.data && routes.data && buses.data && points.data;
 
   const model = useMemo(() => {
-    if (!bookings.data || !routes.data || !points.data) return null;
+    if (!bookings.data || !routes.data || !points.data || !trips.data) return null;
     const routesById = new Map(routes.data.map((route) => [route.id, route]));
+    const tripsById = new Map(trips.data.map((trip) => [trip.id, trip]));
     const pointsById = new Map(points.data.map((point) => [point.id, point]));
 
     const history = [...bookings.data].sort((a, b) => b.created_at.localeCompare(a.created_at));
     const travelled = history.filter((booking) => booking.status === "Boarded");
-    const upcoming = history.filter((booking) => booking.status === "Confirmed");
+    const upcoming = history.filter((booking) => booking.status === "Confirmed" && tripsById.get(booking.trip_id ?? "")?.status === "NotStarted");
     const released = history.filter(
       (booking) => booking.status === "Cancelled" || booking.status === "Revoked",
     );
@@ -68,7 +71,7 @@ export function MemberTrips() {
     for (const booking of history.filter(activeBooking)) {
       const route = routesById.get(booking.route_id);
       if (!route) continue;
-      const stop = route.ride_type === "Dropoff" ? route.end_point : route.start_point;
+      const stop = tripsById.get(booking.trip_id ?? "")?.ride_type === "Dropoff" ? route.end_point : route.start_point;
       stopCounts.set(stop, (stopCounts.get(stop) ?? 0) + 1);
     }
     const favourite = [...stopCounts.entries()].sort((a, b) => b[1] - a[1])[0];
@@ -80,7 +83,7 @@ export function MemberTrips() {
         (booking) => activeBooking(booking) && booking.created_at.slice(0, 7) === key,
       );
       const home = inMonth.filter(
-        (booking) => routesById.get(booking.route_id)?.ride_type === "Dropoff",
+        (booking) => tripsById.get(booking.trip_id ?? "")?.ride_type === "Dropoff",
       ).length;
       return { label, value: inMonth.length - home, secondary: home };
     });
@@ -88,15 +91,16 @@ export function MemberTrips() {
 
     const toService = history.filter(
       (booking) =>
-        activeBooking(booking) && routesById.get(booking.route_id)?.ride_type !== "Dropoff",
+        activeBooking(booking) && tripsById.get(booking.trip_id ?? "")?.ride_type !== "Dropoff",
     ).length;
     const goingHome = history.filter(
       (booking) =>
-        activeBooking(booking) && routesById.get(booking.route_id)?.ride_type === "Dropoff",
+        activeBooking(booking) && tripsById.get(booking.trip_id ?? "")?.ride_type === "Dropoff",
     ).length;
 
     return {
       routesById,
+      tripsById,
       pointsById,
       history,
       travelled,
@@ -109,7 +113,7 @@ export function MemberTrips() {
       toService,
       goingHome,
     };
-  }, [bookings.data, routes.data, points.data]);
+  }, [bookings.data, routes.data, points.data, trips.data]);
 
   if (error)
     return (
@@ -181,7 +185,7 @@ export function MemberTrips() {
           value={travelled.length}
           numericValue={travelled.length}
           icon={CheckCircle2}
-          accent="forest"
+          accent="gold"
           hint="Boarding confirmed by a steward"
         />
         <StatsCard
@@ -213,7 +217,7 @@ export function MemberTrips() {
           </p>
           <BarChart
             data={series}
-            accent="forest"
+            accent="gold"
             height={150}
             formatValue={(value) => `${value} ${value === 1 ? "seat" : "seats"}`}
             seriesLabels={["To service", "Going home"]}
@@ -226,6 +230,7 @@ export function MemberTrips() {
       <div className="space-y-2.5">
         {history.map((booking) => {
           const route = routesById.get(booking.route_id);
+          const trip = model.tripsById.get(booking.trip_id ?? "");
           const bus = busesById.get(booking.bus_id);
           const kept = activeBooking(booking);
           return (
@@ -252,7 +257,7 @@ export function MemberTrips() {
 
               <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
                 {[
-                  { label: "Date", value: route?.departure_date ?? booking.created_at.slice(0, 10) },
+                  { label: "Date", value: trip ? watParts(trip.departure_time).date : "Schedule unavailable" },
                   { label: "Seat", value: String(booking.seat_number) },
                   { label: "Bus", value: bus?.license_plate ?? "—" },
                   { label: "Reference", value: booking.booking_ref },

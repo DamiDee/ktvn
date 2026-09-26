@@ -14,7 +14,7 @@ import { queryString } from "@/lib/freebus-contract";
 import type { ApiUser } from "@/types/freebus-api";
 
 interface ActivityLog { id: string; user_id: string; activity_type: string; details: Record<string, unknown>; target_id?: string | null; target_type?: string | null; created_at: string }
-const activities = ["PointCreated", "PointUpdated", "PointDeleted", "BusCreated", "BusUpdated", "BusDeleted", "BusRoutesReset", "BusReset", "BusStateChanged", "BusRouteChanged", "BusStatusChanged", "BusAllocationChanged", "BusCapacityChanged", "RouteCreated", "RouteUpdated", "RouteDeleted", "RouteCompleted", "BookingCreated", "BookingCancelled", "BookingBoarded", "BookingPaymentUpdated", "UserLogin", "UserLogout", "UserCreated", "UserUpdated", "UserActivation", "UserDeactivation", "UserDeleted", "AccountCreated"];
+const activities = ["PointCreated", "PointUpdated", "PointDeleted", "BusCreated", "BusUpdated", "BusDeleted", "BusRoutesReset", "BusReset", "BusStateChanged", "BusRouteChanged", "BusStatusChanged", "BusAllocationChanged", "BusCapacityChanged", "RouteCreated", "RouteUpdated", "RouteDeleted", "RouteCompleted", "TripCreated", "TripUpdated", "TripDeleted", "TripStarted", "TripCompleted", "TripCancelled", "BookingCreated", "BookingCancelled", "BookingBoarded", "BookingPaymentUpdated", "UserLogin", "UserLogout", "UserCreated", "UserUpdated", "UserActivation", "UserDeactivation", "UserDeleted", "AccountCreated"];
 function readable(value: string) { return value.replace(/([a-z])([A-Z])/g, "$1 $2"); }
 function safeDetails(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(safeDetails);
@@ -44,6 +44,7 @@ export function ActivityLogs() {
       searchPlaceholder="Search this page of activity"
       initialSort={{ id: "when", direction: "desc" }}
       showCount={false}
+      paginate={false}
       empty={<Card radius="xl"><EmptyState icon={History} size="sm" title="No activity matches these filters" description="Widen the filters above, or move to another page." /></Card>}
       action={<Button variant="secondary" onClick={() => void logs.refetch()} loading={logs.isFetching}>Refresh</Button>}
       columns={[

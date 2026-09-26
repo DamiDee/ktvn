@@ -41,7 +41,7 @@ function appUser(user: ApiUser): User {
     id: user.id, fullName: `${user.first_name} ${user.last_name}`, email: user.email,
     phone: user.phone, joinedAt: user.created_at, ninVerified: user.is_identity_verified,
     membershipStatus: MembershipStatus.UNVERIFIED,
-    role: user.role === "Admin" || user.role === "Root" ? "ADMIN" : user.role === "User" ? "PASSENGER" : "DRIVER",
+    role: user.role === "Admin" || user.role === "Root" || user.role === "RouteCoordinator" ? "ADMIN" : user.role === "User" ? "PASSENGER" : "DRIVER",
   };
 }
 

@@ -42,7 +42,7 @@ export function SegmentedControl<T extends string>({
   onChange,
   label,
   size = "md",
-  tone = "forest",
+  tone = "gold",
   className,
 }: SegmentedControlProps<T>) {
   const layoutId = useId();

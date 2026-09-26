@@ -20,10 +20,12 @@ import {
   availableCapacity,
   busCanBoard,
   queryString,
-  routeCanBook,
 } from "@/lib/freebus-contract";
-import type { ApiBooking, ApiBus, ApiPoint, ApiRoute } from "@/types/freebus-api";
+import { scheduledJourneys, tripCanBook, SUNDAY_TRAVEL_ONLY, type ScheduledJourney } from "@/lib/trips";
+import type { ApiBooking, ApiBus, ApiPoint, ApiRoute, ApiTrip } from "@/types/freebus-api";
 import { useLiveQuery } from "./live-queries";
+
+const routeCanBook = (journey: ScheduledJourney) => tripCanBook(journey.trip, { ...journey, id: journey.route_id });
 
 type Direction = "Pickup" | "Dropoff";
 
@@ -62,13 +64,16 @@ export function LiveMemberBuses() {
   const { toast } = useToast();
   const [direction, setDirection] = useState<Direction>("Pickup");
   const [point, setPoint] = useState("");
-  const [pending, setPending] = useState<ApiRoute | null>(null);
+  const [pending, setPending] = useState<ScheduledJourney | null>(null);
   const [cancel, setCancel] = useState<ApiBooking | null>(null);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState("");
 
   // Everything is loaded once. Choosing a journey never waits on the network.
-  const routes = useLiveQuery<ApiRoute[]>("routes");
+  const routeRecords = useLiveQuery<ApiRoute[]>("routes");
+  const trips = useLiveQuery<ApiTrip[]>("trips");
+  const journeys = useMemo(() => routeRecords.data && trips.data ? scheduledJourneys(routeRecords.data, trips.data) : undefined, [routeRecords.data, trips.data]);
+  const routes = { data: journeys, error: routeRecords.error ?? trips.error };
   const buses = useLiveQuery<ApiBus[]>("buses");
   const points = useLiveQuery<ApiPoint[]>("points");
   const bookings = useLiveQuery<ApiBooking[]>("bookings/me");
@@ -81,9 +86,9 @@ export function LiveMemberBuses() {
   const model = useMemo(() => {
     if (!routes.data || !buses.data || !points.data || !bookings.data) return null;
     const allBuses = buses.data;
-    const seatsOn = (route: ApiRoute) =>
+    const seatsOn = (route: ScheduledJourney) =>
       allBuses
-        .filter((bus) => bus.current_route_id === route.id)
+        .filter((bus) => bus.current_trip_id === route.id)
         .reduce((total, bus) => total + availableCapacity(bus), 0);
 
     const zeroFare = routes.data.filter((route) => route.fare === 0);
@@ -92,19 +97,19 @@ export function LiveMemberBuses() {
     const hidden = zeroFare.length - bookable.length;
 
     const routesById = new Map(routes.data.map((route) => [route.id, route]));
-    const when = (route: ApiRoute) => `${route.departure_date}T${route.departure_time}`;
+    const when = (route: ScheduledJourney) => `${route.departure_date}T${route.departure_time}`;
 
     // A seat on a finished journey belongs in history, not on a screen headed
     // "your next journey" — those are sorted out and left to the trips page.
     const tickets = bookings.data
       .filter(activeBooking)
       .filter((booking) => {
-        const route = routesById.get(booking.route_id);
+        const route = routesById.get(booking.trip_id ?? "");
         return !route || !route.is_completed;
       })
       .sort((a, b) => {
-        const first = routesById.get(a.route_id);
-        const second = routesById.get(b.route_id);
+        const first = routesById.get(a.trip_id ?? "");
+        const second = routesById.get(b.trip_id ?? "");
         if (!first || !second) return first ? -1 : second ? 1 : 0;
         return when(first).localeCompare(when(second));
       });
@@ -139,7 +144,7 @@ export function LiveMemberBuses() {
   );
 
   // Only offer stops that actually have a bus today — an empty filter is a dead end.
-  const stopKey = (route: ApiRoute) =>
+  const stopKey = (route: ScheduledJourney) =>
     direction === "Dropoff" ? route.end_point : route.start_point;
   const stops = [...new Set(forDirection.map(stopKey))]
     .map((id) => pointsById.get(id))
@@ -148,7 +153,7 @@ export function LiveMemberBuses() {
 
   const visible = point ? forDirection.filter((route) => stopKey(route) === point) : forDirection;
 
-  const byDay = visible.reduce<Record<string, ApiRoute[]>>((groups, route) => {
+  const byDay = visible.reduce<Record<string, ScheduledJourney[]>>((groups, route) => {
     (groups[route.departure_date] ??= []).push(route);
     return groups;
   }, {});
@@ -159,21 +164,23 @@ export function LiveMemberBuses() {
     setActionError("");
     try {
       // These checks spare the member a round trip; the API is what actually enforces them.
-      if (!routeCanBook(pending)) throw new Error("This journey is no longer open for booking.");
+      const fresh = await freebusRequest<ApiTrip>(`trips/${pending.id}`);
+      const currentRoute = await freebusRequest<ApiRoute>(`routes/${fresh.route_id}`);
+      if (!tripCanBook(fresh, currentRoute)) throw new Error("This journey is no longer open for booking.");
       const mine = await freebusRequest<ApiBooking[]>("bookings/me");
-      if (mine.filter(activeBooking).some((b) => b.route_id === pending.id))
+      if (mine.filter(activeBooking).some((b) => b.trip_id === pending.id))
         throw new Error("You already have a seat on this journey.");
       // Refresh just before submission. Never retry a booking automatically after a timeout.
       const current = await freebusRequest<ApiBus[]>(
-        `buses${queryString({ current_route_id: pending.id })}`,
+        `buses${queryString({ current_trip_id: pending.id })}`,
       );
       const next = current
-        .filter((b) => b.current_route_id === pending.id && availableCapacity(b) > 0)
+        .filter((b) => b.current_trip_id === pending.id && availableCapacity(b) > 0)
         .sort((a, b) => a.license_plate.localeCompare(b.license_plate))[0];
       if (!next) throw new Error("The last seat has just gone. Please choose another journey.");
       const booking = await freebusRequest<ApiBooking>("bookings", {
         method: "POST",
-        body: JSON.stringify({ bus_id: next.id, route_id: pending.id }),
+        body: JSON.stringify({ bus_id: next.id, route_id: pending.route_id, trip_id: pending.id }),
       });
       setPending(null);
       await refresh();
@@ -190,7 +197,7 @@ export function LiveMemberBuses() {
   }
 
   const next = tickets[0];
-  const nextRoute = next ? routesById.get(next.route_id) : undefined;
+  const nextRoute = next ? routesById.get(next.trip_id ?? "") : undefined;
   const nextBus = next ? busesById.get(next.bus_id) : undefined;
 
   return (
@@ -271,7 +278,7 @@ export function LiveMemberBuses() {
           </p>
           <div className="flex flex-col gap-2">
             {tickets.slice(1).map((ticket) => {
-              const route = routesById.get(ticket.route_id);
+              const route = routesById.get(ticket.trip_id ?? "");
               return (
                 <ButtonLink
                   key={ticket.id}
@@ -294,7 +301,7 @@ export function LiveMemberBuses() {
           {next ? "Book another seat" : "Where are you going?"}
         </h1>
         <p className="type-meta mt-1.5 text-ink-secondary">
-          Every seat is free. Pick a time and the bus is assigned for you.
+          {SUNDAY_TRAVEL_ONLY ? "Book any day for Sunday travel. Every seat is free." : "Every seat is free. Pick a time and the bus is assigned for you."}
         </p>
       </div>
 
@@ -327,7 +334,7 @@ export function LiveMemberBuses() {
               className={cn(
                 "kx-tap shrink-0 rounded-full border px-3.5 py-1.5 text-[0.8125rem] font-medium transition-colors",
                 point === stop.id
-                  ? "border-forest-800 bg-forest-800 text-white dark:border-gold-400 dark:bg-gold-400 dark:text-forest-950"
+                  ? "border-gold-500 bg-gold-500 text-forest-950"
                   : "border-line bg-surface text-ink-secondary hover:border-line-strong hover:text-ink",
               )}
             >
@@ -358,7 +365,7 @@ export function LiveMemberBuses() {
               <div className="space-y-2.5">
                 {dayRoutes.map((route) => {
                   const seats = seatsOn(route);
-                  const reserved = tickets.some((t) => t.route_id === route.id);
+                  const reserved = tickets.some((t) => t.trip_id === route.id);
                   const from = pointsById.get(route.start_point);
                   const to = pointsById.get(route.end_point);
                   return (

@@ -22,7 +22,7 @@ const ROLES: { value: ApiRole; label: string; description: string }[] = [
   { value: "User", label: "Member", description: "Books a free seat and carries a boarding pass." },
   { value: "Driver", label: "Driver", description: "Drives a bus. Cannot reserve seats." },
   { value: "RouteCoordinator", label: "Route coordinator", description: "Coordinates journeys on the ground." },
-  { value: "Admin", label: "Admin", description: "Full oversight: fleet, journeys, points and people." },
+  { value: "Admin", label: "Admin", description: "Full oversight: fleet, journeys, points and system users." },
   { value: "Root", label: "Root", description: "Admin, plus the ability to manage other admins." },
 ];
 
@@ -67,7 +67,7 @@ export function AdminUsers() {
   if (users.error)
     return (
       <>
-        <PageHeader eyebrow="Free Buses · Oversight" title="People" />
+        <PageHeader eyebrow="Free Buses · Oversight" title="System Users" />
         <ErrorState
           title="Could not load accounts"
           description={users.error.message}
@@ -160,7 +160,7 @@ export function AdminUsers() {
     <>
       <PageHeader
         eyebrow="Free Buses · Oversight"
-        title="People"
+        title="System Users"
         description="Every account on the platform, and what it is allowed to do."
       />
 
