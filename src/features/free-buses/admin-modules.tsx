@@ -24,6 +24,7 @@ import { useLiveQuery } from "./live-queries";
 import { OperationsForm } from "./live-admin-buses";
 import { RouteDistance } from "./route-distance";
 import { StopPicker } from "./stop-picker";
+import { TransportOverview } from "./transport-overview";
 
 type Module = "overview" | "buses" | "routes" | "points";
 type Edit = { kind: "bus"; value: ApiBus } | { kind: "route"; value: ApiRoute } | { kind: "point"; value: ApiPoint };
@@ -66,10 +67,7 @@ function AdminModule({ module, assignTrip }: { module: Module; assignTrip: strin
     <PageHeader eyebrow="Free Buses · Oversight" title={labels[module]} description={module === "overview" ? "A clear view of today's transport operations." : `Manage ${module} in one dedicated workspace.`} />
     {notice ? <p role="status" className="mb-4 rounded-xl border border-line p-4 text-ink">{notice}</p> : null}
     {error && !create && !edit && !action ? <p role="alert" className="mb-4 text-danger-600">{error}</p> : null}
-    {module === "overview" ? <>
-      <div className="grid gap-4 sm:grid-cols-3">{[["Buses", buses.data.length], ["Upcoming trips", trips.data.filter((t) => t.status === "NotStarted").length], ["Meeting points", points.data.length]].map(([label, count]) => <Card key={label}><p className="text-3xl font-semibold text-ink">{count}</p><p className="mt-2 text-ink-secondary">{label}</p></Card>)}</div>
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">{[{ path: "trips", title: "Plan a service", description: "Schedule journeys and assign the fleet." }, { path: "boarding", title: "Start boarding", description: "Scan passes or check your passenger manifest." }, { path: "buses", title: "Manage the fleet", description: "Capacity, availability, assignments and resets." }, { path: "activity", title: "Review activity", description: "See who changed what and when." }].map((item) => <Card key={item.path}><h2 className="type-card-title text-ink">{item.title}</h2><p className="my-3 text-ink-secondary">{item.description}</p><ButtonLink href={`/admin/free-buses/${item.path}`} variant="secondary">{item.title}</ButtonLink></Card>)}</div>
-    </> : null}
+    {module === "overview" ? <TransportOverview buses={buses.data} routes={routes.data} trips={trips.data} points={points.data} /> : null}
     {module === "buses" ? <>
       <RecordsTable
         caption="Registered buses"

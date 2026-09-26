@@ -45,6 +45,7 @@ export const signUpSchema = z
       .string()
       .min(1, "Enter your phone number")
       .regex(/^\+?[\d\s-]{7,}$/, "Enter a valid phone number"),
+    city: z.string().trim().min(2, "Choose your city or area").max(100, "Use a shorter city or area name").refine((value) => !/[<>\u0000-\u001f]/.test(value), "Enter a valid city or area"),
     password: z
       .string()
       .min(8, "Use at least 8 characters")

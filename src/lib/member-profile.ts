@@ -9,6 +9,7 @@ export function memberProfileDetails(user: ApiUser) {
     { label: "Username", value: display(user.username) },
     { label: "Phone", value: display(user.phone) },
     { label: "Address", value: display(user.address) },
+    { label: "City / area", value: display(user.city) },
     { label: "Country", value: display(user.country) },
   ];
 }

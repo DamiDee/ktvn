@@ -34,6 +34,7 @@ export interface SignUpPayload {
   username?: string;
   address?: string;
   country?: string;
+  city: string;
 }
 
 function appUser(user: ApiUser): User {
@@ -92,7 +93,7 @@ export const userService = {
       return appUser(await liveAuth.register({
         first_name, last_name: last.join(" "), email: payload.email, phone: payload.phone,
         username: payload.username ?? "", address: payload.address ?? "", country: payload.country ?? "",
-        password: payload.password,
+        password: payload.password, city: payload.city.trim(),
       }));
     }
     return request(

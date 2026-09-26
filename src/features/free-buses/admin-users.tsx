@@ -17,6 +17,7 @@ import { isOversight } from "@/lib/freebus-contract";
 import type { ApiRole, ApiUser } from "@/types/freebus-api";
 import { useLiveQuery } from "./live-queries";
 import { useLiveUser } from "./live-shell";
+import { CityPicker } from "@/components/ui/city-picker";
 
 const ROLES: { value: ApiRole; label: string; short?: string; description: string }[] = [
   { value: "User", label: "Member", description: "Books a free seat and carries a boarding pass." },
@@ -372,6 +373,7 @@ interface CreatePayload {
   phone: string;
   address: string;
   country: string;
+  city: string;
   password: string;
   role: ApiRole;
   is_active: boolean;
@@ -389,6 +391,7 @@ function CreateUserForm({
   onSubmit: (payload: CreatePayload) => Promise<boolean>;
 }) {
   const [role, setRole] = useState<ApiRole>("User");
+  const [city, setCity] = useState("");
   const [validation, setValidation] = useState("");
   const chosen = ROLES.find((r) => r.value === role);
 
@@ -400,6 +403,10 @@ function CreateUserForm({
         setValidation("");
         const data = new FormData(event.currentTarget);
         const value = (name: string) => String(data.get(name) ?? "").trim();
+        if (city.trim().length < 2 || city.length > 100 || /[<>\u0000-\u001f]/.test(city)) {
+          setValidation("Choose a city or area from the dropdown, or confirm an unlisted area.");
+          return;
+        }
         if (value("password") !== value("confirm")) {
           setValidation("The two passwords do not match.");
           return;
@@ -412,6 +419,7 @@ function CreateUserForm({
           phone: value("phone"),
           address: value("address"),
           country: value("country"),
+          city: city.trim(),
           password: value("password"),
           role,
           is_active: true,
@@ -429,6 +437,7 @@ function CreateUserForm({
       </div>
       <Input label="Address" name="address" required autoComplete="off" />
       <Input label="Country" name="country" required defaultValue="Nigeria" autoComplete="off" />
+      <CityPicker value={city} onChange={setCity} disabled={busy} />
 
       <Select
         label="Role"

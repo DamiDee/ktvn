@@ -6,6 +6,7 @@ const registration = {
   fullName: "Test Member",
   email: "member@example.com",
   phone: "+234 802 000 0000",
+  city: "Lugbe",
   password: "TestPassword123",
   confirmPassword: "TestPassword123",
   acceptedTerms: true,
@@ -25,6 +26,9 @@ test("registration still validates contact details and terms", () => {
     { email: "invalid" },
     { phone: "" },
     { acceptedTerms: false },
+    { city: "" },
+    { city: " " },
+    { city: "<invalid>" },
   ]) {
     assert.equal(signUpSchema.safeParse({ ...registration, ...change }).success, false);
   }

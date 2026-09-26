@@ -6,7 +6,8 @@ test("profile displays API member fields, not demo data or sensitive identity fi
   const details = memberProfileDetails({ first_name: "Test", last_name: "Member", email: "member@example.com", username: "member", phone: "+2340000000000", address: "Test address", country: "Nigeria", identity_number: "sensitive-placeholder", identity_type: null });
   assert.equal(details.find((field) => field.label === "First name").value, "Test");
   assert.equal(details.find((field) => field.label === "Email").value, "member@example.com");
-  assert.equal(details.length, 7);
+  assert.equal(details.length, 8);
+  assert.equal(memberProfileDetails({ city: "Lugbe" }).find((field) => field.label === "City / area").value, "Lugbe");
   assert.equal(JSON.stringify(details).includes("sensitive-placeholder"), false);
 });
 test("missing profile values have readable fallbacks", () => {

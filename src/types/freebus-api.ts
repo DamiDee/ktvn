@@ -4,6 +4,7 @@ export type ApiBusState = "Transit" | "Arrived" | "Stationary" | "Boarding";
 export interface ApiUser {
   id: string; first_name: string; last_name: string; email: string; username: string;
   phone: string; address: string; country: string; role: ApiRole; is_active: boolean;
+  city?: string | null;
   is_identity_verified: boolean; created_at: string;
   identity_type?: string | null;
   identity_number?: string | null;
@@ -43,7 +44,7 @@ export interface ApiSeats {
 }
 export interface ApiRegistration {
   first_name: string; last_name: string; email: string; username: string;
-  phone: string; address: string; country: string; password: string;
+  phone: string; address: string; country: string; city: string; password: string;
 }
 export interface ApiRideRequest {
   id: string;
@@ -60,4 +61,3 @@ export interface CreateRideRequestDto {
   /** Defaults to 1 if omitted. */
   count?: number;
 }
-

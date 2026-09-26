@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>K-Rides · Free Buses — How to use it</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 16mm; }
+  @page :first { margin: 0; }
+
+  :root {
+    --forest-900: #0c211e;
+    --forest-800: #102c28;
+    --forest-700: #173632;
+    --forest-500: #2c5b50;
+    --forest-300: #7ea79c;
+    --forest-50:  #eef4f2;
+    --gold-400: #e0ad28;
+    --gold-700: #a37a1c;
+    --gold-50:  #fdf8ea;
+    --ink: #1e2525;
+    --ink-2: #414744;
+    --ink-3: #5b625e;
+    --ink-4: #7b827e;
+    --line: #e3e5e2;
+    --line-2: #cdd1ce;
+    --mist: #f4f5f3;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    margin: 0;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 9.6pt;
+    line-height: 1.55;
+    color: var(--ink-2);
+  }
+
+  /* ── Cover ──────────────────────────────────────────────────────────── */
+  .cover {
+    height: 297mm;
+    padding: 34mm 22mm 20mm;
+    background: var(--forest-900);
+    color: #fff;
+    page-break-after: always;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::after {
+    content: "";
+    position: absolute;
+    right: -60mm; bottom: -70mm;
+    width: 150mm; height: 150mm;
+    border-radius: 50%;
+    background: rgba(224, 173, 40, 0.10);
+  }
+  .mark { display: flex; align-items: center; gap: 9px; }
+  .mark .glyph {
+    width: 26px; height: 26px; border-radius: 8px;
+    background: var(--gold-400);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .mark .glyph svg { width: 15px; height: 15px; }
+  .mark .name { font-size: 11pt; font-weight: 650; letter-spacing: -0.01em; }
+  .mark .sub { font-size: 7.5pt; color: rgba(255,255,255,0.55); margin-top: 1px; }
+
+  .cover h1 {
+    margin: 46mm 0 0;
+    font-size: 34pt;
+    line-height: 1.08;
+    letter-spacing: -0.028em;
+    font-weight: 660;
+    max-width: 130mm;
+  }
+  .cover .lede {
+    margin-top: 9mm;
+    font-size: 11pt;
+    line-height: 1.55;
+    color: rgba(255,255,255,0.72);
+    max-width: 112mm;
+  }
+  .cover .rule { width: 46mm; height: 2px; background: var(--gold-400); margin: 11mm 0 0; }
+  .cover .roles {
+    position: absolute; left: 22mm; right: 22mm; bottom: 24mm;
+    display: flex; gap: 0;
+    border-top: 1px solid rgba(255,255,255,0.16);
+    padding-top: 7mm;
+  }
+  .cover .roles div { flex: 1; }
+  .cover .roles .k {
+    font-size: 6.8pt; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--gold-400); font-weight: 600;
+  }
+  .cover .roles .v { font-size: 9.6pt; color: rgba(255,255,255,0.85); margin-top: 3px; }
+  .cover .foot {
+    position: absolute; left: 22mm; bottom: 13mm;
+    font-size: 7.5pt; color: rgba(255,255,255,0.4);
+  }
+
+  /* ── Typography ─────────────────────────────────────────────────────── */
+  h2 {
+    font-size: 16pt; letter-spacing: -0.02em; font-weight: 640;
+    color: var(--forest-800); margin: 0 0 1mm;
+  }
+  h2 + .eyebrow { margin-top: 0; }
+  .eyebrow {
+    font-size: 6.8pt; text-transform: uppercase; letter-spacing: 0.11em;
+    font-weight: 650; color: var(--gold-700); margin: 0 0 2.5mm;
+  }
+  h3 {
+    font-size: 10.5pt; font-weight: 640; color: var(--forest-700);
+    margin: 6mm 0 1.5mm; letter-spacing: -0.01em;
+  }
+  p { margin: 0 0 2.6mm; }
+  strong { color: var(--ink); font-weight: 600; }
+  .muted { color: var(--ink-4); }
+
+  section { page-break-inside: auto; }
+  .part { page-break-before: always; }
+  .section-head {
+    border-bottom: 1.5px solid var(--forest-800);
+    padding-bottom: 3mm; margin-bottom: 5mm;
+  }
+  .intro { font-size: 10.4pt; color: var(--ink-3); max-width: 150mm; }
+
+  /* ── Numbered walkthrough ───────────────────────────────────────────── */
+  ol.steps { list-style: none; counter-reset: s; margin: 3mm 0 0; padding: 0; }
+  ol.steps > li {
+    counter-increment: s;
+    position: relative;
+    padding: 0 0 4mm 11mm;
+    page-break-inside: avoid;
+  }
+  ol.steps > li::before {
+    content: counter(s);
+    position: absolute; left: 0; top: 0.2mm;
+    width: 6.6mm; height: 6.6mm; border-radius: 50%;
+    background: var(--forest-50); color: var(--forest-700);
+    font-size: 8pt; font-weight: 680;
+    display: flex; align-items: center; justify-content: center;
+  }
+  ol.steps > li .t { font-weight: 620; color: var(--ink); display: block; margin-bottom: 0.6mm; }
+  ol.steps > li p { margin: 0; }
+
+  /* ── Where to find it ───────────────────────────────────────────────── */
+  .nav-card {
+    background: var(--mist); border: 1px solid var(--line);
+    border-radius: 10px; padding: 4mm 4.5mm; margin: 4mm 0 0;
+    page-break-inside: avoid;
+  }
+  .nav-card .h {
+    font-size: 6.8pt; text-transform: uppercase; letter-spacing: 0.1em;
+    font-weight: 650; color: var(--ink-4); margin-bottom: 2.5mm;
+  }
+  .nav-card ul { margin: 0; padding: 0; list-style: none; }
+  .nav-card li {
+    display: flex; gap: 3mm; padding: 1.3mm 0;
+    border-top: 1px solid var(--line);
+    font-size: 9pt;
+  }
+  .nav-card li:first-child { border-top: 0; }
+  .nav-card li .n { width: 42mm; font-weight: 600; color: var(--forest-700); flex: none; }
+  .nav-card li .d { color: var(--ink-3); }
+
+  /* ── Callout ────────────────────────────────────────────────────────── */
+  .note {
+    border-left: 2.5px solid var(--gold-400);
+    background: var(--gold-50);
+    padding: 3mm 4mm; border-radius: 0 8px 8px 0;
+    margin: 4mm 0; font-size: 9pt; color: var(--ink-2);
+    page-break-inside: avoid;
+  }
+  .note .h { font-weight: 650; color: var(--forest-800); }
+
+  /* ── Roles table ────────────────────────────────────────────────────── */
+  table { width: 100%; border-collapse: collapse; margin: 3mm 0 0; font-size: 9pt; }
+  th {
+    text-align: left; font-size: 6.8pt; text-transform: uppercase;
+    letter-spacing: 0.09em; color: var(--ink-4); font-weight: 650;
+    padding: 0 3mm 2mm 0; border-bottom: 1px solid var(--line-2);
+  }
+  td { padding: 2.4mm 3mm 2.4mm 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td:first-child { font-weight: 620; color: var(--forest-700); white-space: nowrap; }
+  tr { page-break-inside: avoid; }
+
+  ul.plain { margin: 1mm 0 2.6mm; padding-left: 4.6mm; }
+  ul.plain li { margin-bottom: 1.1mm; }
+
+  .closing {
+    margin-top: 7mm; border-top: 1px solid var(--line);
+    padding-top: 4mm; font-size: 8.6pt; color: var(--ink-4);
+  }
+</style>
+</head>
+<body>
+
+<!-- ══ COVER ═══════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="mark">
+    <div class="glyph">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#071513" stroke-width="2.2" stroke-linecap="round">
+        <path d="M4 17h16M6 17v2M18 17v2M5 6h14v11H5zM5 11h14"/>
+      </svg>
+    </div>
+    <div>
+      <div class="name">K-Rides</div>
+      <div class="sub">Koinonia Verified Transportation Network</div>
+    </div>
+  </div>
+
+  <h1>Free Buses,<br />end&nbsp;to&nbsp;end.</h1>
+  <p class="lede">
+    A short guide to the three ways people use K-Rides: members who need a seat,
+    oversight who put the buses on the road, and coordinators who get everyone aboard.
+  </p>
+  <div class="rule"></div>
+
+  <div class="roles">
+    <div><div class="k">Part one</div><div class="v">Members</div></div>
+    <div><div class="k">Part two</div><div class="v">Admin &amp; Root</div></div>
+    <div><div class="k">Part three</div><div class="v">Route Coordinators</div></div>
+  </div>
+  <div class="foot">Every seat is free. All times are West Africa Time (UTC+1).</div>
+</div>
+
+<!-- ══ BEFORE YOU START ════════════════════════════════════════════════ -->
+<section>
+  <div class="section-head">
+    <p class="eyebrow">Before you start</p>
+    <h2>Accounts, signing in, and who can do what</h2>
+  </div>
+
+  <p>
+    K-Rides works the same on a phone and a laptop — there is nothing to install. New members
+    create their own account from <strong>Sign up</strong>; every other role is created for you
+    by the oversight team, so if you are an admin, a coordinator or a driver, wait to be added
+    rather than signing up.
+  </p>
+  <p>
+    Sign in at <strong>/login</strong> with your email or username and your password. K-Rides then
+    takes you straight to the part of the app your role owns, so you never have to hunt for your
+    own home screen. The <strong>Sign out</strong> button lives at the bottom of the sidebar on a
+    computer, and inside the account sheet on a phone.
+  </p>
+
+  <table>
+    <thead>
+      <tr><th>Role</th><th>What it can do</th><th>Lands on</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Member</td><td>Books a free seat, carries a boarding pass, asks for new routes</td><td>Find a bus</td></tr>
+      <tr><td>Route Coordinator</td><td>Checks a bus's bookings and boards passengers</td><td>Bookings &amp; boarding</td></tr>
+      <tr><td>Admin</td><td>Full oversight: fleet, routes, trips, points, people, activity</td><td>Overview</td></tr>
+      <tr><td>Root</td><td>Everything an admin can do, plus managing other admins</td><td>Overview</td></tr>
+      <tr><td>Driver</td><td>Drives a bus. Cannot reserve a seat.</td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <span class="h">Seats are free, always.</span> Free Buses only ever shows journeys with a fare
+    of zero. If a route carries a fare it will not appear to members, by design.
+  </div>
+</section>
+
+<!-- ══ PART ONE — MEMBERS ══════════════════════════════════════════════ -->
+<section class="part">
+  <div class="section-head">
+    <p class="eyebrow">Part one</p>
+    <h2>For members</h2>
+  </div>
+
+  <p class="intro">
+    Two things matter to you: getting a seat, and being able to show it at the door. Everything
+    else in your view exists to support those two.
+  </p>
+
+  <h3>Booking a seat</h3>
+  <ol class="steps">
+    <li>
+      <span class="t">Choose your direction</span>
+      <p>Open <strong>Find a bus</strong> and pick <strong>To service</strong> or
+      <strong>Going home</strong>. The list changes to match.</p>
+    </li>
+    <li>
+      <span class="t">Pick your stop</span>
+      <p>Only stops that actually have a bus are offered, so whatever you can tap has a seat
+      behind it. Journeys are then grouped by day, soonest first.</p>
+    </li>
+    <li>
+      <span class="t">Confirm the seat</span>
+      <p>Tap a journey and confirm. K-Rides re-checks the departure and the remaining capacity
+      with the server at that moment, picks a bus for you, and assigns your seat number.</p>
+    </li>
+    <li>
+      <span class="t">Keep your pass</span>
+      <p>You are taken straight to your boarding pass — a QR code with your seat, bus and
+      departure. Find it again any time under <strong>Boarding passes</strong>.</p>
+    </li>
+  </ol>
+
+  <div class="note">
+    <span class="h">At the door.</span> Show the QR code on your pass, or hand over the NFC tag a
+    coordinator gave you. Either one boards you in a second. If your phone is flat, a coordinator
+    can find you by name on the bus manifest instead.
+  </div>
+
+  <h3>If there is no bus on the route you need</h3>
+  <p>
+    Open <strong>Ask for a route</strong>, choose the route and the day you need it — any day of
+    the week — and send it. Your interest joins everyone else's on that route, and oversight sees
+    the demand as a number and decides how many buses to put on. Routes are sorted by how many
+    people have already asked, so you can see where the pressure is. If a bus is already running
+    on that route and day, the page tells you so and sends you to book instead.
+  </p>
+
+  <h3>Your own history</h3>
+  <p>
+    <strong>My journeys</strong> collects everywhere you have travelled with the community — past
+    trips, seats and routes. <strong>Profile</strong> holds your details and your sign-out. And if
+    your plans change, release the seat from your pass: it frees it for someone else at once, and
+    K-Rides warns you first, because your pass stops working the moment you do.
+  </p>
+
+  <div class="nav-card">
+    <div class="h">Your five sections</div>
+    <ul>
+      <li><span class="n">Find a bus</span><span class="d">Browse and book today's free journeys</span></li>
+      <li><span class="n">Boarding passes</span><span class="d">Your QR passes, ready at the door</span></li>
+      <li><span class="n">Ask for a route</span><span class="d">Tell oversight where you need a bus</span></li>
+      <li><span class="n">My journeys</span><span class="d">Everywhere you have travelled</span></li>
+      <li><span class="n">Profile</span><span class="d">Your details and sign out</span></li>
+    </ul>
+  </div>
+
+</section>
+
+<!-- ══ PART TWO — ADMIN & ROOT ═════════════════════════════════════════ -->
+<section class="part">
+  <div class="section-head">
+    <p class="eyebrow">Part two</p>
+    <h2>For Admin and Root</h2>
+  </div>
+
+  <p class="intro">
+    You build the service in layers, and the order matters: <strong>points</strong> are real places,
+    <strong>routes</strong> join two points and are reused forever, <strong>trips</strong> are a
+    single departure on a route, and a <strong>bus</strong> is what carries it. Get the first two
+    right once and the weekly work becomes scheduling alone.
+  </p>
+
+  <h3>Setting up, once</h3>
+  <ol class="steps">
+    <li>
+      <span class="t">Add your boarding points</span>
+      <p>Under <strong>Points</strong>, drop a pin on the map and describe the spot the way a
+      member standing there would need it — the landmark to look for and which side of the road to
+      wait on. Picking a place on the map fills in a first draft for you to edit.</p>
+    </li>
+    <li>
+      <span class="t">Create each route once</span>
+      <p>Under <strong>Routes</strong>, name it, choose the boarding point and the destination, and
+      add any stops along the way in the order the bus will call at them. The distance in kilometres
+      is measured along that exact path, so reordering stops changes it. Write the boarding
+      instructions members will read before they travel — a starting draft appears as soon as you
+      choose a boarding point.</p>
+    </li>
+    <li>
+      <span class="t">Register the fleet</span>
+      <p>Under <strong>Buses</strong>, add each vehicle with its plate and seat count. A bus stays
+      in the fleet permanently; you assign it to a different trip whenever you need it.</p>
+    </li>
+  </ol>
+
+  <h3>The weekly rhythm</h3>
+  <ol class="steps">
+    <li>
+      <span class="t">Read the demand</span>
+      <p><strong>Ride Requests</strong> shows how many members have asked for each route on each
+      day. That number is what tells you how many buses a route needs.</p>
+    </li>
+    <li>
+      <span class="t">Schedule the departures</span>
+      <p>Under <strong>Trips</strong>, add a departure on an existing route for a date and time —
+      any day of the week, as many as you like, without ever recreating the route.</p>
+    </li>
+    <li>
+      <span class="t">Put buses on them</span>
+      <p>Assign a bus to a trip from <strong>Buses</strong>. From a ride request,
+      <strong>Assign buses</strong> takes you straight there with the right trip already selected;
+      if no trip exists yet, it offers to schedule one first. Seats open for booking the moment a
+      bus is assigned.</p>
+    </li>
+    <li>
+      <span class="t">Watch the day run</span>
+      <p><strong>Overview</strong> counts your buses, upcoming trips and meeting points and links
+      to the four things you do most. Start, cancel or delete an individual trip from
+      <strong>Trips</strong> — a change there affects only that departure, never the reusable route.</p>
+    </li>
+  </ol>
+
+  <h3>People</h3>
+  <p>
+    <strong>System Users</strong> is where every account lives. Create staff accounts directly —
+    Member, Driver, Route Coordinator, Admin or Root — change someone's role, deactivate an account
+    that should stop working, reactivate it later, or delete it. Your own row is locked so you
+    cannot lock yourself out. <strong>Only a Root account may grant or withdraw Admin and Root
+    access</strong>; an Admin sees the other roles only.
+  </p>
+
+  <h3>The audit trail</h3>
+  <p>
+    <strong>Activity</strong> is the server's own record of who changed what and when, searchable
+    and filterable. It is the first place to look when something on the service is not as you left it.
+  </p>
+
+  <div class="note">
+    <span class="h">Nothing destructive happens quietly.</span> Deleting, cancelling, clearing,
+    deactivating and role changes all stop for a confirmation that names the thing by name and
+    spells out the consequence — including when it cannot be undone, and when the server may refuse
+    (a trip with bookings on it, for instance). Read it, then confirm.
+  </div>
+
+  <div class="nav-card">
+    <div class="h">Your nine sections</div>
+    <ul>
+      <li><span class="n">Overview</span><span class="d">Today's operations at a glance</span></li>
+      <li><span class="n">Buses</span><span class="d">The fleet, and assigning it to trips</span></li>
+      <li><span class="n">Routes</span><span class="d">Reusable paths, stops and distances</span></li>
+      <li><span class="n">Trips</span><span class="d">Individual departures on a route</span></li>
+      <li><span class="n">Ride Requests</span><span class="d">Member demand, by route and day</span></li>
+      <li><span class="n">Points</span><span class="d">Boarding places and their directions</span></li>
+      <li><span class="n">Boarding</span><span class="d">Scan passes or work the manifest</span></li>
+      <li><span class="n">System Users</span><span class="d">Accounts, roles and access</span></li>
+      <li><span class="n">Activity</span><span class="d">Who changed what, and when</span></li>
+    </ul>
+  </div>
+</section>
+
+<!-- ══ PART THREE — ROUTE COORDINATOR ══════════════════════════════════ -->
+<section class="part">
+  <div class="section-head">
+    <p class="eyebrow">Part three</p>
+    <h2>For Route Coordinators</h2>
+  </div>
+
+  <p class="intro">
+    Your job happens at the door of a bus, so your view is deliberately narrow: two sections, and
+    both of them are about getting the right people aboard. You sign in and land on boarding
+    already.
+  </p>
+
+  <h3>Boarding a bus</h3>
+  <ol class="steps">
+    <li>
+      <span class="t">Find your bus</span>
+      <p><strong>Buses</strong> lists the fleet with its plate, seats and state.
+      <strong>Open bookings</strong> on the bus you are working takes you to its manifest.</p>
+    </li>
+    <li>
+      <span class="t">Choose the bus, then start the scanner</span>
+      <p>On <strong>Bookings &amp; boarding</strong>, select the boarding bus and start the scanner
+      once. Camera or NFC permission is asked for once, at the start.</p>
+    </li>
+    <li>
+      <span class="t">Scan each pass</span>
+      <p>A verified pass for this bus boards the passenger automatically — no extra tap per person.
+      The result of every scan appears immediately above the manifest, and a refused pass says why.
+      QR works everywhere; NFC tags work on supported Android Chrome devices.</p>
+    </li>
+    <li>
+      <span class="t">Or work the manifest by hand</span>
+      <p>Switch to <strong>Search manifest</strong> and the scanner stops. Search by name, booking
+      reference or seat, and board a passenger with the <strong>Board</strong> button on their row.
+      This is your path when a phone is flat or a camera will not cooperate.</p>
+    </li>
+  </ol>
+
+  <p>
+    The manifest shows every booking on the bus with its seat, passenger, reference and status, and
+    it sorts and searches — so a full bus is still quick to work through. As a last resort you can
+    expand <strong>Board by typing a reference</strong> below the manifest; check the passenger
+    against the list first, because a signed QR or NFC pass is the real proof.
+  </p>
+
+  <div class="note">
+    <span class="h">If the manifest will not load.</span> A coordinator's access to bookings is
+    granted on the server, not in this app. If you see a permissions message, the backend team
+    needs to enable boarding access for Route Coordinators — no setting in K-Rides can override it.
+  </div>
+
+  <div class="nav-card">
+    <div class="h">Your two sections</div>
+    <ul>
+      <li><span class="n">Buses</span><span class="d">Pick the bus you are boarding</span></li>
+      <li><span class="n">Bookings &amp; boarding</span><span class="d">Scan passes, or board from the manifest</span></li>
+    </ul>
+  </div>
+
+  <p class="closing">
+    K-Rides · Free Buses. Every seat is free, every time is West Africa Time, and everything works
+    on the phone in your hand.
+  </p>
+</section>
+
+</body>
+</html>

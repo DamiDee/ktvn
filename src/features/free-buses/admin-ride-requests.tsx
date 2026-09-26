@@ -152,7 +152,7 @@ export function AdminRideRequests() {
             hint: "Seats requested across all routes",
           },
           {
-            label: "Upcoming dates",
+            label: "Upcoming Trips",
             value: upcoming,
             icon: CalendarClock,
             hint: "Dates still in the future",

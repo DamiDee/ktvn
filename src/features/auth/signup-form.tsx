@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, ArrowRight, Mail, Phone, User } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -15,6 +15,7 @@ import { LIVE_FREE_BUSES } from "@/lib/freebus-config";
 import { FreebusError } from "@/services/freebus-api";
 import type { Resolver } from "react-hook-form";
 import { useToast } from "@/components/ui/toast";
+import { CityPicker } from "@/components/ui/city-picker";
 
 const STRENGTH_COLOURS = [
   "bg-line-strong",
@@ -44,6 +45,7 @@ export function SignUpForm() {
       username: "",
       address: "",
       country: "Nigeria",
+      city: "",
       password: "",
       confirmPassword: "",
     },
@@ -63,6 +65,7 @@ export function SignUpForm() {
         username: values.username,
         address: values.address,
         country: values.country,
+        city: values.city,
       });
       if (LIVE_FREE_BUSES) toast({ title: "Account created", description: "Sign in with your new email or username.", tone: "success" });
       router.push(LIVE_FREE_BUSES ? "/login" : "/verify-member");
@@ -136,6 +139,8 @@ export function SignUpForm() {
           <Input label="Address" autoComplete="street-address" required error={errors.address?.message} {...register("address")} />
           <Input label="Country" autoComplete="country-name" required error={errors.country?.message} {...register("country")} />
         </> : null}
+
+        <Controller name="city" control={control} render={({ field }) => <CityPicker value={field.value} onChange={field.onChange} onBlur={field.onBlur} inputRef={field.ref} error={errors.city?.message} disabled={isSubmitting} />} />
 
         <div>
           <PasswordInput

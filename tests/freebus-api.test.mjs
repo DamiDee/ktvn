@@ -42,7 +42,7 @@ test("coordinators land at boarding but have no oversight or member booking acce
 });
 test("live login accepts usernames; registration needs API fields, not NIN", () => {
   assert.equal(liveLoginSchema.safeParse({ identifier: "member_username", password: "Test12345" }).success, true);
-  const form = { fullName: "Test Member", email: "test@example.com", phone: "+2340000000000", password: "Test12345", confirmPassword: "Test12345", acceptedTerms: true, username: "testmember", address: "Test address", country: "Nigeria" };
+  const form = { fullName: "Test Member", email: "test@example.com", phone: "+2340000000000", password: "Test12345", confirmPassword: "Test12345", acceptedTerms: true, username: "testmember", address: "Test address", country: "Nigeria", city: "Lugbe" };
   assert.equal(liveSignUpSchema.safeParse(form).success, true);
   assert.equal(liveSignUpSchema.safeParse({ ...form, address: "" }).success, false);
 });
