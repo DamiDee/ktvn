@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Users, ShieldAlert } from "lucide-react";
+import { Users, ShieldAlert, UserX, UserCheck, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/app-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,10 +18,10 @@ import type { ApiRole, ApiUser } from "@/types/freebus-api";
 import { useLiveQuery } from "./live-queries";
 import { useLiveUser } from "./live-shell";
 
-const ROLES: { value: ApiRole; label: string; description: string }[] = [
+const ROLES: { value: ApiRole; label: string; short?: string; description: string }[] = [
   { value: "User", label: "Member", description: "Books a free seat and carries a boarding pass." },
   { value: "Driver", label: "Driver", description: "Drives a bus. Cannot reserve seats." },
-  { value: "RouteCoordinator", label: "Route coordinator", description: "Coordinates journeys on the ground." },
+  { value: "RouteCoordinator", label: "Route coordinator", short: "Coordinator", description: "Coordinates journeys on the ground." },
   { value: "Admin", label: "Admin", description: "Full oversight: fleet, journeys, points and system users." },
   { value: "Root", label: "Root", description: "Admin, plus the ability to manage other admins." },
 ];
@@ -206,9 +206,9 @@ export function AdminUsers() {
             primary: true,
             sortBy: (user) => `${user.first_name} ${user.last_name}`,
             cell: (user) => (
-              <span className="font-medium text-ink">
+              <span className="whitespace-nowrap font-medium text-ink">
                 {user.first_name} {user.last_name}
-                {isSelf(user) ? <span className="type-meta ml-2 text-ink-muted">(you)</span> : null}
+                {isSelf(user) ? <span className="type-meta ml-1.5 text-ink-muted">(you)</span> : null}
               </span>
             ),
           },
@@ -275,7 +275,7 @@ export function AdminUsers() {
                       setError("");
                       setPending({ kind: "role", user, role: event.target.value as ApiRole });
                     }}
-                    className="h-9 w-[8.5rem] rounded-[var(--kx-radius-sm)] border border-line bg-surface px-2 text-sm text-ink disabled:opacity-50"
+                    className="h-8 w-[7.25rem] rounded-[var(--kx-radius-sm)] border border-line bg-surface px-1.5 text-[0.75rem] text-ink disabled:opacity-50"
                   >
                     {ROLES.map((role) => (
                       <option
@@ -283,33 +283,36 @@ export function AdminUsers() {
                         value={role.value}
                         disabled={isOversight(role.value) && !canChangeOversight}
                       >
-                        {role.label}
+                        {role.short ?? role.label}
                       </option>
                     ))}
                   </select>
                   <Button
                     size="sm"
                     variant="ghost"
+                    icon={user.is_active ? UserX : UserCheck}
                     disabled={locked}
+                    aria-label={`${user.is_active ? "Deactivate" : "Reactivate"} ${user.first_name} ${user.last_name}`}
+                    title={user.is_active ? "Deactivate" : "Reactivate"}
+                    className="!px-2"
                     onClick={() => {
                       setError("");
                       setPending({ kind: user.is_active ? "deactivate" : "activate", user });
                     }}
-                  >
-                    {user.is_active ? "Deactivate" : "Reactivate"}
-                  </Button>
+                  />
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="!text-danger-600"
+                    icon={Trash2}
+                    className="!px-2 !text-danger-600"
                     disabled={locked}
+                    aria-label={`Delete ${user.first_name} ${user.last_name}`}
+                    title="Delete"
                     onClick={() => {
                       setError("");
                       setPending({ kind: "delete", user });
                     }}
-                  >
-                    Delete
-                  </Button>
+                  />
                 </div>
               );
             },

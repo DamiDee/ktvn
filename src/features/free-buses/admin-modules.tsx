@@ -23,25 +23,26 @@ import type { ApiBus, ApiPoint, ApiRoute, ApiTrip } from "@/types/freebus-api";
 import { useLiveQuery } from "./live-queries";
 import { OperationsForm } from "./live-admin-buses";
 import { RouteDistance } from "./route-distance";
+import { StopPicker } from "./stop-picker";
 
 type Module = "overview" | "buses" | "routes" | "points";
 type Edit = { kind: "bus"; value: ApiBus } | { kind: "route"; value: ApiRoute } | { kind: "point"; value: ApiPoint };
 type Action = { title: string; description: string; path: string; method: string; body?: unknown; danger?: boolean; done?: string };
 const labels = { overview: "Overview", buses: "Buses", routes: "Routes", points: "Points" };
 
-export function AdminTransportModule({ module = "overview" }: { module?: Module }) {
+export function AdminTransportModule({ module = "overview", assignTrip = "" }: { module?: Module; assignTrip?: string }) {
   const user = useLiveUser();
   if (user.role === "RouteCoordinator") return <CoordinatorBuses />;
-  return <AdminModule module={module} />;
+  return <AdminModule module={module} assignTrip={assignTrip} />;
 }
 
-function AdminModule({ module }: { module: Module }) {
+function AdminModule({ module, assignTrip }: { module: Module; assignTrip: string }) {
   const trips = useLiveQuery<ApiTrip[]>("trips");
   const routes = useLiveQuery<ApiRoute[]>("routes");
   const buses = useLiveQuery<ApiBus[]>("buses");
   const points = useLiveQuery<ApiPoint[]>("points");
   const client = useQueryClient();
-  const [create, setCreate] = useState<"route" | "bus" | "point" | "assign" | null>(null);
+  const [create, setCreate] = useState<"route" | "bus" | "point" | "assign" | null>(assignTrip ? "assign" : null);
   const [edit, setEdit] = useState<Edit | null>(null);
   const [action, setAction] = useState<Action | null>(null);
   const [busy, setBusy] = useState(false);
@@ -140,7 +141,7 @@ function AdminModule({ module }: { module: Module }) {
       />
     </> : null}
     <Modal open={Boolean(create)} onClose={() => { if (!busy) setCreate(null); }} title={create === "route" ? "Create route" : create === "assign" ? "Assign a bus" : `Add ${create ?? "record"}`} size="lg">
-      {create ? <OperationsForm key={create} panel={create} points={points.data} routes={routes.data} trips={trips.data} buses={buses.data} busy={busy} error={error} onSubmit={async (fn) => { await run(fn, "Saved successfully."); }} /> : null}
+      {create ? <OperationsForm key={create} panel={create} initialTrip={assignTrip} points={points.data} routes={routes.data} trips={trips.data} buses={buses.data} busy={busy} error={error} onSubmit={async (fn) => { await run(fn, "Saved successfully."); }} /> : null}
     </Modal>
     <Modal open={Boolean(edit)} onClose={() => { if (!busy) setEdit(null); }} title={`Manage ${edit?.kind ?? "record"}`} size="lg">
       {edit ? <RecordEditor key={`${edit.kind}-${edit.value.id}`} edit={edit} points={points.data} routes={routes.data} trips={trips.data} busy={busy} error={error} onSave={(path, method, body) => run(() => freebusRequest(path, { method, ...(body === undefined ? {} : { body: JSON.stringify(body) }) }))} /> : null}
@@ -194,11 +195,15 @@ function RecordEditor({ edit, points, routes, trips, busy, error, onSave }: { ed
       {operation === "trip" ? <Select label="Assigned trip" name="trip_id" defaultValue={edit.value.current_trip_id ?? ""} options={[{ value: "", label: "Clear trip assignment" }, ...trips.filter((t) => t.status === "NotStarted" || t.id === edit.value.current_trip_id).map((t) => ({ value: t.id, label: `${routes.find((r) => r.id === t.route_id)?.name ?? t.route_id} · ${watParts(t.departure_time).date}` }))]} /> : null}
       {["clear-allocation", "allocation", "trip", "state"].includes(operation) ? <label className="flex items-start gap-3 text-sm text-ink-secondary"><input type="checkbox" required className="mt-1" />I confirm this reflects the actual bus operation. Count and trip changes do not cancel existing bookings.</label> : null}
     </> : edit.kind === "point" ? <>
-      <Input label="Location name" name="name" required defaultValue={edit.value.name} /><Input label="Meeting landmark" name="landmark" required defaultValue={edit.value.landmark} /><Input label="Directions" name="description" required defaultValue={edit.value.description} /><MapPicker value={location} onChange={setLocation} />
+      <Input label="Location name" name="name" required defaultValue={edit.value.name} />
+      <Input label="Meeting landmark" name="landmark" required defaultValue={edit.value.landmark} hint="What a member should look for when they arrive." />
+      <Input label="Directions" name="description" required defaultValue={edit.value.description} hint="How to find the exact spot, and which side to wait on." />
+      <MapPicker value={location} onChange={setLocation} />
     </> : <>
-      <Input label="Route name" name="name" required defaultValue={edit.value.name} /><Input label="Boarding instructions" name="description" required defaultValue={edit.value.description} />
+      <Input label="Route name" name="name" required defaultValue={edit.value.name} />
+      <Input label="Boarding instructions" name="description" required defaultValue={edit.value.description} hint="Members read this before they travel." />
       <Select label="Boarding location" value={start} onChange={(e) => { setStart(e.target.value); setStops((v) => v.filter((id) => id !== e.target.value)); }} options={pointOptions} /><Select label="Destination" value={end} onChange={(e) => { setEnd(e.target.value); setStops((v) => v.filter((id) => id !== e.target.value)); }} options={pointOptions} />
-      <fieldset className="rounded-xl border border-line p-3"><legend>Intermediate stops (selection order)</legend>{points.filter((p) => p.id !== start && p.id !== end).map((p) => <label key={p.id} className="flex min-h-11 items-center gap-2 text-ink"><input type="checkbox" checked={stops.includes(p.id)} onChange={(e) => setStops((v) => e.target.checked ? [...v, p.id] : v.filter((id) => id !== p.id))} />{p.name}{stops.includes(p.id) ? ` · stop ${stops.indexOf(p.id) + 1}` : ""}</label>)}</fieldset>
+      <StopPicker points={points} start={start} end={end} stops={stops} onChange={setStops} />
       <RouteDistance points={points} ids={[start, ...stops, end]} />
     </>}
     {error || validation ? <p role="alert" className="text-danger-600">{error || validation}</p> : null}<Button block type="submit" loading={busy}>Save changes</Button>

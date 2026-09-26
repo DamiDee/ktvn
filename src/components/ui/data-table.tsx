@@ -195,7 +195,7 @@ export function DataTable<T>({
         className="hidden min-w-0 overflow-auto lg:block"
         style={maxHeight ? { maxHeight } : undefined}
       >
-        <table className="w-full border-collapse">
+        <table className="kx-table w-full border-collapse">
           <caption className="sr-only">{caption}</caption>
           <thead className={cn(stickyHeader && "sticky top-0 z-10 bg-surface")}>
             <tr className="border-b border-line">
@@ -211,7 +211,7 @@ export function DataTable<T>({
                       !sortable ? undefined : active ? (sort?.direction === "asc" ? "ascending" : "descending") : "none"
                     }
                     className={cn(
-                      "px-5 py-4 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-ink-secondary",
+                      "px-3 py-2.5 text-[0.65rem] font-semibold uppercase tracking-[0.09em] text-ink-secondary",
                       column.align === "end" ? "text-right" : "text-left",
                       column.hideBelow === "xl" && "hidden xl:table-cell",
                       stickyHeader && "border-b border-line bg-surface-nested",
@@ -266,7 +266,7 @@ export function DataTable<T>({
                     <td
                       key={column.id}
                       className={cn(
-                        "px-5 py-5 align-middle text-sm leading-relaxed",
+                        "px-3 py-3 align-middle text-[0.8125rem] leading-snug",
                         column.align === "end" && "text-right",
                         column.hideBelow === "xl" && "hidden xl:table-cell",
                       )}
@@ -283,7 +283,7 @@ export function DataTable<T>({
                     </td>
                   ))}
                   {interactive ? (
-                    <td className="px-3 py-3.5 text-right">
+                    <td className="px-2.5 py-2.5 text-right">
                       <ChevronRight
                         className="inline size-4 text-ink-muted"
                         strokeWidth={2}

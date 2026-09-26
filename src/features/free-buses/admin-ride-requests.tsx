@@ -21,7 +21,8 @@ import { ConfirmDialog } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { PageHeader } from "@/components/layout/app-shell";
 import { freebusRequest } from "@/services/freebus-api";
-import type { ApiRideRequest, ApiRoute, ApiPoint } from "@/types/freebus-api";
+import { watParts } from "@/lib/trips";
+import type { ApiRideRequest, ApiRoute, ApiPoint, ApiTrip } from "@/types/freebus-api";
 import { useLiveQuery } from "./live-queries";
 
 /** WAT is UTC+01:00 all year — returns the current calendar date as YYYY-MM-DD. */
@@ -62,6 +63,7 @@ export function AdminRideRequests() {
   const rideRequests = useLiveQuery<ApiRideRequest[]>("ride-requests");
   const routes = useLiveQuery<ApiRoute[]>("routes");
   const points = useLiveQuery<ApiPoint[]>("points");
+  const trips = useLiveQuery<ApiTrip[]>("trips");
 
   const refresh = () => client.invalidateQueries({ queryKey: ["freebus-live"] });
 
@@ -321,16 +323,34 @@ export function AdminRideRequests() {
                     Last updated {new Date(req.updated_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                   </p>
                   <div className="flex flex-wrap items-center gap-1.5">
-                  {!past ? (
-                    <ButtonLink
-                      size="sm"
-                      variant="secondary"
-                      icon={BusFront}
-                      href={`/admin/free-buses/trips?route=${encodeURIComponent(req.route_id)}&date=${encodeURIComponent(req.departure_date)}`}
-                    >
-                      Assign buses
-                    </ButtonLink>
-                  ) : null}
+                  {!past ? (() => {
+                    // A bus is assigned to a trip, so a trip has to exist first.
+                    const trip = (trips.data ?? []).find(
+                      (t) =>
+                        t.route_id === req.route_id &&
+                        t.status === "NotStarted" &&
+                        watParts(t.departure_time).date === req.departure_date,
+                    );
+                    return trip ? (
+                      <ButtonLink
+                        size="sm"
+                        variant="secondary"
+                        icon={BusFront}
+                        href={`/admin/free-buses/buses?trip=${encodeURIComponent(trip.id)}`}
+                      >
+                        Assign buses
+                      </ButtonLink>
+                    ) : (
+                      <ButtonLink
+                        size="sm"
+                        variant="secondary"
+                        icon={CalendarClock}
+                        href={`/admin/free-buses/trips?route=${encodeURIComponent(req.route_id)}&date=${encodeURIComponent(req.departure_date)}`}
+                      >
+                        Schedule a trip
+                      </ButtonLink>
+                    );
+                  })() : null}
                   <Button
                     size="sm"
                     variant="ghost"

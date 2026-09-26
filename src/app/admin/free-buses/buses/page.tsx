@@ -1,2 +1,12 @@
 import { AdminTransportModule } from "@/features/free-buses/admin-modules";
-export default function Page() { return <AdminTransportModule module="buses" />; }
+
+export const metadata = { title: "Buses · Free Buses" };
+
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ trip?: string }>;
+}) {
+  const { trip } = await searchParams;
+  return <AdminTransportModule module="buses" assignTrip={trip} />;
+}

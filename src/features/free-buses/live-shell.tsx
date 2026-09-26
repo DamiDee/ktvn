@@ -491,8 +491,12 @@ export function LiveFreeBusShell({
     queryKey: ["freebus-live", "session"],
     queryFn: liveAuth.session,
     retry: false,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
+    // Who you are does not change between screens. Re-reading it on every focus
+    // meant a profile request each time the phone came out of a pocket; the
+    // cookie is still the authority and a 401 on any call ends the session.
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   if (session.isPending) return <PageLoader message="Checking your session" />;
