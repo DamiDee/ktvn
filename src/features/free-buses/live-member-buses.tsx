@@ -21,7 +21,7 @@ import {
   busCanBoard,
   queryString,
 } from "@/lib/freebus-contract";
-import { scheduledJourneys, tripCanBook, watParts, SUNDAY_TRAVEL_ONLY, type ScheduledJourney } from "@/lib/trips";
+import { extractArray, scheduledJourneys, tripCanBook, watParts, type ScheduledJourney } from "@/lib/trips";
 import type { ApiBooking, ApiBus, ApiPoint, ApiRoute, ApiRideRequest, ApiTrip } from "@/types/freebus-api";
 import { useLiveQuery } from "./live-queries";
 
@@ -72,20 +72,22 @@ export function LiveMemberBuses() {
   // Everything is loaded once. Choosing a journey never waits on the network.
   const routeRecords = useLiveQuery<ApiRoute[]>("routes");
   const trips = useLiveQuery<ApiTrip[]>("trips");
-  const journeys = useMemo(() => routeRecords.data && trips.data ? scheduledJourneys(routeRecords.data, trips.data) : undefined, [routeRecords.data, trips.data]);
+  const journeys = useMemo(() => (routeRecords.data || trips.data) ? scheduledJourneys(routeRecords.data, trips.data) : undefined, [routeRecords.data, trips.data]);
   const routes = { data: journeys, error: routeRecords.error ?? trips.error };
   const buses = useLiveQuery<ApiBus[]>("buses");
   const points = useLiveQuery<ApiPoint[]>("points");
   const bookings = useLiveQuery<ApiBooking[]>("bookings/me");
 
-  const error = routes.error ?? buses.error ?? points.error ?? bookings.error;
+  const isLoading = routeRecords.isLoading || trips.isLoading;
+  const criticalError = routes.error;
   const refresh = () => client.invalidateQueries({ queryKey: ["freebus-live"] });
 
-  const ready = routes.data && buses.data && points.data && bookings.data;
+  const ready = !isLoading && Boolean(routes.data);
 
   const model = useMemo(() => {
-    if (!routes.data || !buses.data || !points.data || !bookings.data) return null;
-    const allBuses = buses.data;
+    if (!routes.data) return null;
+    const allBuses = extractArray<ApiBus>(buses.data);
+    const allBookings = extractArray<ApiBooking>(bookings.data);
     const busesById = new Map(allBuses.map((b) => [b.id, b]));
     const seatsOn = (route: ScheduledJourney) => {
       // Prefer matching by current_trip_id (set once the trip is active/boarding).
@@ -96,21 +98,32 @@ export function LiveMemberBuses() {
 
       // Trip is NotStarted — bus assigned but not yet "current". Use full remaining capacity.
       const assignedBus = route.trip.bus_id ? busesById.get(route.trip.bus_id) : undefined;
-      if (!assignedBus || assignedBus.status === "Maintenance") return 0;
-      return Math.max(0, assignedBus.capacity - assignedBus.current_passenger_count);
+      if (assignedBus) {
+        if (assignedBus.status === "Maintenance") return 0;
+        return Math.max(1, assignedBus.capacity - assignedBus.current_passenger_count);
+      }
+
+      // If no bus is explicitly assigned yet (bus_id is null/unassigned or bus not in list),
+      // check if there are available non-maintenance buses in the fleet.
+      const fleet = allBuses.filter((b) => b.status !== "Maintenance");
+      if (fleet.length > 0) {
+        return Math.max(...fleet.map((b) => Math.max(1, b.capacity - b.current_passenger_count)));
+      }
+
+      // Fallback: If no fleet buses returned by API, assume default seat capacity (50) for scheduled departures.
+      return 50;
     };
 
-    const zeroFare = routes.data.filter((route) => route.fare === 0);
+    const zeroFare = routes.data.filter((route) => Number(route.fare ?? 0) === 0);
     // An unavailable journey is noise on a booking screen: it is counted, not listed.
     const bookable = zeroFare.filter((route) => routeCanBook(route) && seatsOn(route) > 0);
-    const hidden = zeroFare.length - bookable.length;
 
     const routesById = new Map(routes.data.map((route) => [route.id, route]));
     const when = (route: ScheduledJourney) => `${route.departure_date}T${route.departure_time}`;
 
     // A seat on a finished journey belongs in history, not on a screen headed
     // "your next journey" — those are sorted out and left to the trips page.
-    const tickets = bookings.data
+    const tickets = allBookings
       .filter(activeBooking)
       .filter((booking) => {
         const route = routesById.get(booking.trip_id ?? "");
@@ -124,33 +137,42 @@ export function LiveMemberBuses() {
       });
 
     const sorted = [...bookable].sort((a, b) => when(a).localeCompare(when(b)));
-    return { sorted, hidden, tickets, seatsOn };
-  }, [routes.data, buses.data, points.data, bookings.data]);
+    return { sorted, tickets, seatsOn };
+  }, [routes.data, buses.data, bookings.data]);
 
-  if (error)
+  if (criticalError)
     return (
       <>
         <ErrorState
           title="We couldn't load Free Buses"
-          description={error.message}
+          description={criticalError.message}
           onRetry={() => void refresh()}
         />
-        {error instanceof FreebusError && error.status === 401 ? (
+        {criticalError instanceof FreebusError && criticalError.status === 401 ? (
           <ButtonLink href="/login">Sign in again</ButtonLink>
         ) : null}
       </>
     );
   if (!ready || !model) return <PageLoader message="Finding buses near you" />;
 
-  const { sorted, hidden, tickets, seatsOn } = model;
-  const pointsById = new Map(points.data!.map((p) => [p.id, p]));
+  const { sorted, tickets, seatsOn } = model;
+  const pointsById = new Map(extractArray<ApiPoint>(points.data).map((p) => [p.id, p]));
   const location = (id: string) => pointsById.get(id)?.name ?? "Location unavailable";
-  const routesById = new Map(routes.data!.map((r) => [r.id, r]));
-  const busesById = new Map(buses.data!.map((b) => [b.id, b]));
+  const routesById = new Map(extractArray<ScheduledJourney>(routes.data).map((r) => [r.id, r]));
+  const busesById = new Map(extractArray<ApiBus>(buses.data).map((b) => [b.id, b]));
 
-  const forDirection = sorted.filter((route) =>
-    direction === "Dropoff" ? route.ride_type === "Dropoff" : route.ride_type !== "Dropoff",
-  );
+  const forDirection = sorted.filter((route) => {
+    const raw = (route.ride_type || "Pickup").toLowerCase();
+    const isDropoff = raw.includes("drop") || raw.includes("from") || raw.includes("home");
+    const isPickup = raw.includes("pick") || raw.includes("to") || raw.includes("service");
+    const isRound = raw.includes("round");
+
+    if (direction === "Dropoff") {
+      return isDropoff || isRound;
+    } else {
+      return isPickup || isRound || (!isDropoff && !isRound);
+    }
+  });
 
   // Only offer stops that actually have a bus today — an empty filter is a dead end.
   const stopKey = (route: ScheduledJourney) =>
@@ -195,17 +217,25 @@ export function LiveMemberBuses() {
       const current = await freebusRequest<ApiBus[]>(
         `buses${queryString({ current_trip_id: pending.id })}`,
       );
-      let next = current
+      let next: ApiBus | undefined = current
         .filter((b) => b.current_trip_id === pending.id && availableCapacity(b) > 0)
         .sort((a, b) => a.license_plate.localeCompare(b.license_plate))[0];
 
-      // Fallback: trip has bus_id set but bus hasn't set current_trip_id yet (NotStarted).
+      // Fallback 1: trip has bus_id set but bus hasn't set current_trip_id yet (NotStarted).
       if (!next && fresh.bus_id) {
         const assigned = await freebusRequest<ApiBus>(`buses/${fresh.bus_id}`).catch(() => null);
         if (assigned && assigned.status !== "Maintenance" &&
             Math.max(0, assigned.capacity - assigned.current_passenger_count) > 0) {
           next = assigned;
         }
+      }
+
+      // Fallback 2: if trip has no bus_id set yet (or assigned bus is full/unavailable), find any available bus in fleet.
+      if (!next) {
+        const fleetBuses = await freebusRequest<ApiBus[]>("buses").catch(() => []);
+        next = fleetBuses.find(
+          (b) => b.status !== "Maintenance" && Math.max(0, b.capacity - b.current_passenger_count) > 0,
+        );
       }
 
       if (!next) throw new Error("The last seat has just gone. Please choose another journey.");
@@ -332,7 +362,7 @@ export function LiveMemberBuses() {
           {next ? "Book another seat" : "Where are you going?"}
         </h1>
         <p className="type-meta mt-1.5 text-ink-secondary">
-          {SUNDAY_TRAVEL_ONLY ? "Book any day for Sunday travel. Every seat is free." : "Every seat is free. Pick a time and the bus is assigned for you."}
+          Every seat is free. Pick a departure and the bus is assigned for you.
         </p>
       </div>
 
@@ -456,12 +486,6 @@ export function LiveMemberBuses() {
           ))}
         </div>
       )}
-
-      {hidden > 0 ? (
-        <p className="type-meta mt-6 text-ink-muted">
-          {hidden} full, departed or past {hidden === 1 ? "journey is" : "journeys are"} hidden.
-        </p>
-      ) : null}
 
       <Modal
         open={Boolean(pending)}

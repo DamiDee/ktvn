@@ -1,10 +1,9 @@
 import type { ApiRoute, ApiTrip } from "../types/freebus-api";
 
-/** UI policy; the API must enforce the same rule. Bookings can be made on any day. */
-export const SUNDAY_TRAVEL_ONLY = process.env.NEXT_PUBLIC_FREEBUS_SUNDAY_ONLY !== "false";
 export function apiTimestamp(value: string) {
-  // OpenAPI date-time is RFC3339; tolerate the backend's older timezone-free UTC values.
-  return /(?:Z|[+-]\d\d:\d\d)$/i.test(value) ? value : `${value}Z`;
+  if (!value) return "";
+  const iso = value.trim().replace(" ", "T");
+  return /(?:Z|[+-]\d\d:\d\d)$/i.test(iso) ? iso : `${iso}Z`;
 }
 
 /**
@@ -28,16 +27,47 @@ export function watParts(value: string) {
   const local = new Date(time + 3600000);
   return { date: local.toISOString().slice(0, 10), time: local.toISOString().slice(11, 19), sunday: local.getUTCDay() === 0 };
 }
-export function tripCanBook(trip: ApiTrip, route: ApiRoute, now = Date.now(), sundayOnly = SUNDAY_TRAVEL_ONLY) {
-  return route.id === trip.route_id && route.fare === 0 && trip.status === "NotStarted" && Date.parse(apiTimestamp(trip.departure_time)) > now && (!sundayOnly || watParts(trip.departure_time).sunday);
+/**
+ * A trip is bookable when it belongs to this route, is free, has not started, and
+ * has not already left. Travel is offered on any day of the week.
+ */
+export function tripCanBook(trip: ApiTrip, route: ApiRoute, now = Date.now()) {
+  if (trip.route_id !== route.id) return false;
+  if (Number(route.fare ?? 0) !== 0) return false;
+  if ((trip.status || "").toLowerCase().replace(/_/g, "") !== "notstarted") return false;
+  const departure = Date.parse(apiTimestamp(trip.departure_time));
+  return Number.isFinite(departure) && departure > now;
 }
 export type ScheduledJourney = ApiRoute & { route_id: string; departure_date: string; departure_time: string; ride_type: ApiTrip["ride_type"]; is_completed: boolean; trip: ApiTrip };
-export function scheduledJourneys(routes: ApiRoute[], trips: ApiTrip[]): ScheduledJourney[] {
+
+export function extractArray<T>(input: unknown): T[] {
+  if (Array.isArray(input)) return input as T[];
+  if (input && typeof input === "object" && "data" in input && Array.isArray((input as { data: unknown }).data)) {
+    return (input as { data: T[] }).data;
+  }
+  return [];
+}
+
+export function scheduledJourneys(routesInput: unknown, tripsInput: unknown): ScheduledJourney[] {
+  const routes = extractArray<ApiRoute>(routesInput);
+  const trips = extractArray<ApiTrip>(tripsInput);
   const byId = new Map(routes.map((r) => [r.id, r]));
   return trips.flatMap((trip) => {
+    // A trip whose route has been deleted has no boarding point to show, so it is
+    // not offered. The route list is the source of truth for what can be travelled.
     const route = byId.get(trip.route_id);
     if (!route) return [];
     const when = watParts(trip.departure_time);
-    return [{ ...route, id: trip.id, route_id: route.id, departure_date: when.date, departure_time: when.time, ride_type: trip.ride_type, is_completed: ["Completed", "Cancelled"].includes(trip.status), trip }];
+    const statusNorm = (trip.status || "").toLowerCase();
+    return [{
+      ...route,
+      id: trip.id,
+      route_id: route.id,
+      departure_date: when.date || "Upcoming",
+      departure_time: when.time || "00:00:00",
+      ride_type: trip.ride_type || "Pickup",
+      is_completed: ["completed", "cancelled"].includes(statusNorm),
+      trip,
+    }];
   });
 }

@@ -15,6 +15,7 @@ import {
   History,
   UsersRound,
   LineChart,
+  HandHeart,
   LogOut,
   Menu,
   X,
@@ -71,6 +72,7 @@ const COORDINATOR_NAV: NavItem[] = [
 const MEMBER_NAV: NavItem[] = [
   { href: "/passenger/free-buses", label: "Find a bus", short: "Buses", icon: BusFront },
   { href: "/passenger/free-buses/passes", label: "Boarding passes", short: "Passes", icon: Ticket },
+  { href: "/passenger/free-buses/requests", label: "Ask for a route", short: "Ask", icon: HandHeart },
   { href: "/passenger/free-buses/trips", label: "My journeys", short: "Journeys", icon: LineChart },
   { href: "/passenger/profile", label: "Profile", short: "Profile", icon: UserRound },
 ];

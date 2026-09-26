@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
   CalendarClock,
+  BusFront,
   Route as RouteIcon,
   Trash2,
   TrendingUp,
@@ -12,7 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/badge";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { PageLoader } from "@/components/ui/route-loader";
@@ -136,7 +137,7 @@ export function AdminRideRequests() {
       <PageHeader
         eyebrow="Free Buses · Demand"
         title="Ride Requests"
-        description="Members' route interest, aggregated by date. Use this to plan which trips to schedule."
+        description="Who wants which route, and on which day. Assign buses where the demand is."
       />
 
       {/* ── Summary strip ── */}
@@ -220,8 +221,8 @@ export function AdminRideRequests() {
           <EmptyState
             icon={RouteIcon}
             size="sm"
-            title="No ride requests yet"
-            description="When members book a seat, a ride request is recorded here so you can see demand per route and date."
+            title="Nobody has asked for a route yet"
+            description="When a member taps “I need this bus” on a route, their interest lands here so you can see which routes to put a bus on."
           />
         </Card>
       ) : (
@@ -319,6 +320,17 @@ export function AdminRideRequests() {
                   <p className="type-micro text-ink-muted">
                     Last updated {new Date(req.updated_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                   </p>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                  {!past ? (
+                    <ButtonLink
+                      size="sm"
+                      variant="secondary"
+                      icon={BusFront}
+                      href={`/admin/free-buses/trips?route=${encodeURIComponent(req.route_id)}&date=${encodeURIComponent(req.departure_date)}`}
+                    >
+                      Assign buses
+                    </ButtonLink>
+                  ) : null}
                   <Button
                     size="sm"
                     variant="ghost"
@@ -329,6 +341,7 @@ export function AdminRideRequests() {
                   >
                     Remove
                   </Button>
+                  </div>
                 </div>
               </Card>
             );
