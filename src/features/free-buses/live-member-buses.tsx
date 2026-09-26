@@ -21,8 +21,8 @@ import {
   busCanBoard,
   queryString,
 } from "@/lib/freebus-contract";
-import { scheduledJourneys, tripCanBook, SUNDAY_TRAVEL_ONLY, type ScheduledJourney } from "@/lib/trips";
-import type { ApiBooking, ApiBus, ApiPoint, ApiRoute, ApiTrip } from "@/types/freebus-api";
+import { scheduledJourneys, tripCanBook, watParts, SUNDAY_TRAVEL_ONLY, type ScheduledJourney } from "@/lib/trips";
+import type { ApiBooking, ApiBus, ApiPoint, ApiRoute, ApiRideRequest, ApiTrip } from "@/types/freebus-api";
 import { useLiveQuery } from "./live-queries";
 
 const routeCanBook = (journey: ScheduledJourney) => tripCanBook(journey.trip, { ...journey, id: journey.route_id });
@@ -179,13 +179,35 @@ export function LiveMemberBuses() {
       const mine = await freebusRequest<ApiBooking[]>("bookings/me");
       if (mine.filter(activeBooking).some((b) => b.trip_id === pending.id))
         throw new Error("You already have a seat on this journey.");
+
+      // Also register a ride request for demand tracking.
+      const { date: departure_date } = watParts(pending.trip.departure_time);
+      await freebusRequest<ApiRideRequest>("ride-requests", {
+        method: "POST",
+        body: JSON.stringify({ route_id: pending.route_id, departure_date }),
+      }).catch(() => {
+        // Non-critical: don't block booking if ride-request fails.
+      });
+
       // Refresh just before submission. Never retry a booking automatically after a timeout.
+      // Prefer buses whose current_trip_id matches (active/boarding). Fall back to the bus
+      // already assigned to the trip (set during scheduling, before current_trip_id is updated).
       const current = await freebusRequest<ApiBus[]>(
         `buses${queryString({ current_trip_id: pending.id })}`,
       );
-      const next = current
+      let next = current
         .filter((b) => b.current_trip_id === pending.id && availableCapacity(b) > 0)
         .sort((a, b) => a.license_plate.localeCompare(b.license_plate))[0];
+
+      // Fallback: trip has bus_id set but bus hasn't set current_trip_id yet (NotStarted).
+      if (!next && fresh.bus_id) {
+        const assigned = await freebusRequest<ApiBus>(`buses/${fresh.bus_id}`).catch(() => null);
+        if (assigned && assigned.status !== "Maintenance" &&
+            Math.max(0, assigned.capacity - assigned.current_passenger_count) > 0) {
+          next = assigned;
+        }
+      }
+
       if (!next) throw new Error("The last seat has just gone. Please choose another journey.");
       const booking = await freebusRequest<ApiBooking>("bookings", {
         method: "POST",

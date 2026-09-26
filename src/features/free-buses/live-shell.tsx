@@ -19,6 +19,7 @@ import {
   Menu,
   X,
   ChevronRight,
+  ClipboardList,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -54,11 +55,13 @@ const ADMIN_NAV: NavItem[] = [
   { href: "/admin/free-buses/buses", label: "Buses", icon: BusFront },
   { href: "/admin/free-buses/routes", label: "Routes", icon: Route },
   { href: "/admin/free-buses/trips", label: "Trips", icon: Ticket },
+  { href: "/admin/free-buses/ride-requests", label: "Ride Requests", icon: ClipboardList },
   { href: "/admin/free-buses/points", label: "Points", icon: MapPin },
   { href: "/admin/free-buses/boarding", label: "Boarding", icon: ScanLine },
   { href: "/admin/free-buses/users", label: "System Users", icon: UsersRound },
   { href: "/admin/free-buses/activity", label: "Activity", icon: History },
 ];
+
 
 const COORDINATOR_NAV: NavItem[] = [
   { href: "/admin/free-buses/buses", label: "Buses", icon: BusFront },

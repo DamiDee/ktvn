@@ -45,3 +45,19 @@ export interface ApiRegistration {
   first_name: string; last_name: string; email: string; username: string;
   phone: string; address: string; country: string; password: string;
 }
+export interface ApiRideRequest {
+  id: string;
+  route_id: string;
+  /** Number of people who have requested this route on this date. */
+  count: number;
+  departure_date: string;
+  created_at: string;
+  updated_at: string;
+}
+export interface CreateRideRequestDto {
+  route_id: string;
+  departure_date: string;
+  /** Defaults to 1 if omitted. */
+  count?: number;
+}
+
