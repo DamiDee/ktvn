@@ -17,7 +17,7 @@ export function RouteDistance({ points, ids }: { points: ApiPoint[]; ids: string
     },
   });
   return <div className="space-y-2">
-    <Input key={`${JSON.stringify(ids)}-${distance.data?.distance_km}`} label="Route distance (km)" name="distance" type="number" min={0.01} step="any" required defaultValue={distance.data?.distance_km ?? ""} readOnly={!distance.error} hint={!ready ? "Choose the boarding point and destination." : distance.isFetching ? "Calculating road distance…" : distance.error ? distance.error.message : "Calculated along roads, including selected stops. This is an estimate."} />
+    <Input key={`${JSON.stringify(ids)}-${distance.data?.distance_km}`} label="Route distance (m)" name="distance" type="number" min={0.01} step="any" required defaultValue={distance.data?.distance_km ?? ""} readOnly={!distance.error} hint={!ready ? "Choose the boarding point and destination." : distance.isFetching ? "Calculating road distance…" : distance.error ? distance.error.message : "Calculated along roads, including selected stops. This is an estimate."} />
     {distance.error ? <Button type="button" size="sm" variant="ghost" onClick={() => void distance.refetch()}>Retry distance</Button> : null}
   </div>;
 }

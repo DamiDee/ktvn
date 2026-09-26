@@ -86,10 +86,19 @@ export function LiveMemberBuses() {
   const model = useMemo(() => {
     if (!routes.data || !buses.data || !points.data || !bookings.data) return null;
     const allBuses = buses.data;
-    const seatsOn = (route: ScheduledJourney) =>
-      allBuses
-        .filter((bus) => bus.current_trip_id === route.id)
-        .reduce((total, bus) => total + availableCapacity(bus), 0);
+    const busesById = new Map(allBuses.map((b) => [b.id, b]));
+    const seatsOn = (route: ScheduledJourney) => {
+      // Prefer matching by current_trip_id (set once the trip is active/boarding).
+      // Fall back to the trip's own bus_id for upcoming trips where the bus hasn't
+      // updated current_trip_id yet (it is still null until the journey starts).
+      const byTripId = allBuses.filter((bus) => bus.current_trip_id === route.id);
+      if (byTripId.length > 0) return byTripId.reduce((total, bus) => total + availableCapacity(bus), 0);
+
+      // Trip is NotStarted — bus assigned but not yet "current". Use full remaining capacity.
+      const assignedBus = route.trip.bus_id ? busesById.get(route.trip.bus_id) : undefined;
+      if (!assignedBus || assignedBus.status === "Maintenance") return 0;
+      return Math.max(0, assignedBus.capacity - assignedBus.current_passenger_count);
+    };
 
     const zeroFare = routes.data.filter((route) => route.fare === 0);
     // An unavailable journey is noise on a booking screen: it is counted, not listed.
