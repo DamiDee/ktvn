@@ -10,13 +10,14 @@ import { useLiveUser } from "./live-shell";
 import { isOversight } from "@/lib/freebus-contract";
 import { RecordsTable } from "@/components/ui/records-table";
 import { EmptyState, ErrorState } from "@/components/ui/states";
-import { Modal } from "@/components/ui/modal";
+import { Modal, ConfirmDialog } from "@/components/ui/modal";
 import { ScanLine, ListChecks, QrCode, Nfc } from "lucide-react";
 import { freebusRequest, FreebusError } from "@/services/freebus-api";
 import { boardingProblem, qrImageSource, type BookingQr, type BookingVerification } from "@/lib/boarding";
 import { queryString } from "@/lib/freebus-contract";
 import type { ApiBooking, ApiBus, ApiTrip, ApiUser } from "@/types/freebus-api";
 import { useLiveQuery } from "./live-queries";
+import { WalkInBoarding } from "./walk-in-boarding";
 
 interface NdefReader {
   scan(options: { signal: AbortSignal }): Promise<void>;
@@ -31,10 +32,8 @@ function nfcReader(): NdefReader {
 }
 
 async function boardingRequest<T>(path: string, options: RequestInit = {}) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 12000);
-  try { return await freebusRequest<T>(path, { ...options, signal: controller.signal }); }
-  finally { clearTimeout(timer); }
+  // No artificial boarding deadline. Never retry a mutation after an uncertain response.
+  return freebusRequest<T>(path, options);
 }
 
 export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
@@ -56,6 +55,8 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
   const [qrSrc, setQrSrc] = useState("");
   const [qrMessage, setQrMessage] = useState("");
   const [qrBusy, setQrBusy] = useState(false);
+  const [revoke, setRevoke] = useState<ApiBooking | null>(null);
+  const [revokeError, setRevokeError] = useState("");
   const video = useRef<HTMLVideoElement>(null);
   const controls = useRef<{ stop(): void } | null>(null);
   const media = useRef<MediaStream | null>(null);
@@ -218,13 +219,15 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
       {station === "scan" ? <>
         {mode === "qr" ? <video ref={video} muted playsInline className="mb-4 aspect-video max-h-80 w-full rounded-xl bg-black object-cover" aria-label="QR camera preview" /> : <p className="mb-4 text-sm text-ink-secondary">NDEF tags on supported Android Chrome devices. Phone-to-phone NFC passes are not supported by web browsers. Use QR on other devices.</p>}
         <div className="flex gap-3"><Button disabled={!busId || running || busy} loading={starting} onClick={() => void start()}>Start scanner</Button><Button variant="secondary" disabled={!running && !starting} onClick={stop}>Stop scanner</Button></div>
-        <p className="mt-3 text-sm text-ink-muted">{running ? "Scanner active. Verified passes for this bus will board automatically." : "Camera / NFC permission is required once. No extra confirmation per successful scan."}</p>
+        <p className="mt-3 text-sm text-ink-muted">{running ? "Scanner active with no time limit. Verified passes for this bus board automatically. Stop when you’re finished." : "Camera / NFC permission is required once. No extra confirmation per successful scan. Completed and cancelled trips stay closed."}</p>
       </> : (
         <p className="mt-4 text-sm text-ink-muted">The scanner is off while you search. Board a passenger from the manifest below, show their QR pass, or write it to an NFC tag.</p>
       )}
 
       <div role="status" aria-live="polite" className="mt-4">{busy ? <p className="text-ink">Checking ticket with the server…</p> : result ? <p className={`rounded-xl border p-4 font-semibold ${result.ok ? "border-forest-500 bg-forest-50 text-forest-900 dark:bg-forest-500/12 dark:text-forest-100" : "border-danger-500 text-danger-600"}`}>{result.text}</p> : null}</div>
     </Card>
+
+    {boardingBus ? <div className="mb-5"><WalkInBoarding key={boardingBus.id} bus={boardingBus} disabled={running || busy || starting} /><p className="mt-2 text-xs text-ink-secondary">Already has a booking but no phone? Use Search manifest → Board. No scan is required.</p></div> : null}
 
     <h2 className="mb-3 text-xl font-semibold text-ink">Passenger manifest{boardingBus ? <span className="type-meta ml-2 font-normal text-ink-muted">{boardingBus.license_plate}</span> : null}</h2>
     {!busId ? <p className="text-ink-secondary">Select a bus to see its passengers.</p>
@@ -247,10 +250,24 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
               {booking.status === "Confirmed" ? <>
                 {oversight ? <Button size="sm" variant="ghost" icon={Nfc} disabled={running || busy || starting} onClick={() => void prepareTag(booking)}>NFC tag</Button> : null}
                 <Button size="sm" variant="secondary" disabled={running || busy || starting} onClick={() => void boardNow(booking)}>Board</Button>
+                <Button size="sm" variant="ghost" className="!text-danger-600" disabled={running || busy || starting} onClick={() => { setRevokeError(""); setRevoke(booking); }}>Revoke seat</Button>
               </> : null}
             </div> },
           ]}
         />}
+
+    <ConfirmDialog open={Boolean(revoke)} onClose={() => { if (!busy) setRevoke(null); }} title="Revoke this seat?" description={revokeError || `Release seat ${revoke?.seat_number} · ${revoke?.booking_ref}. The API records this as a cancellation; the pass stops working. Already-boarded seats cannot be released by this endpoint.`} confirmLabel="Revoke and release seat" tone="danger" loading={busy} onConfirm={async () => {
+      if (!revoke || locked.current) return;
+      locked.current = true; setBusy(true); setRevokeError("");
+      try {
+        const current = await freebusRequest<ApiBooking>(`bookings/${revoke.id}`);
+        if (current.bus_id !== busId || current.status !== "Confirmed") throw new Error("This seat has changed or the passenger has boarded. Refresh the manifest.");
+        const saved = await freebusRequest<ApiBooking>(`bookings/${current.id}`, { method: "DELETE" });
+        if (!["Cancelled", "Revoked"].includes(saved.status)) throw new Error("Release was not confirmed. Check the manifest before trying again.");
+        setResult({ ok: true, text: `Seat ${current.seat_number} released. Pass ${current.booking_ref} is no longer active.` }); setRevoke(null);
+      } catch (e) { setRevokeError(e instanceof FreebusError && e.status === 403 ? "The backend has not granted your role permission to release seats. Ask an admin to assist." : e instanceof Error ? e.message : "Could not release this seat. Check the manifest before retrying."); }
+      finally { await client.invalidateQueries({ queryKey: ["freebus-live"] }); locked.current = false; setBusy(false); }
+    }} />
 
     {busId ? <details className="mt-5"><summary className="cursor-pointer text-sm text-ink-secondary">Board by typing a reference</summary>
       <form className="mt-3 flex flex-wrap items-end gap-3" onSubmit={async (event) => { event.preventDefault(); const data = new FormData(event.currentTarget); const reference = String(data.get("reference") ?? "").trim(); const booking = manifest.find((b) => b.booking_ref === reference); if (!booking) { setResult({ ok: false, text: "Reference not found in this bus manifest." }); return; } await boardNow(booking); }}>

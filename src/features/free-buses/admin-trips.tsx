@@ -17,7 +17,7 @@ export function AdminTrips({ initialRoute = "", initialDate = "" }: { initialRou
   const trips = useLiveQuery<ApiTrip[]>("trips");
   const routes = useLiveQuery<ApiRoute[]>("routes");
   const buses = useLiveQuery<ApiBus[]>("buses");
-  const [editor, setEditor] = useState<ApiTrip | "new" | null>(null);
+  const [editor, setEditor] = useState<ApiTrip | "new" | null>(initialRoute ? "new" : null);
   const [action, setAction] = useState<{ trip: ApiTrip; kind: "start" | "complete" | "cancel" | "delete" } | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -53,7 +53,7 @@ export function AdminTrips({ initialRoute = "", initialDate = "" }: { initialRou
   </>;
 }
 
-function TripForm({ trip, routes, buses, initialRoute, initialDate, busy, error, save }: { trip?: ApiTrip; routes: ApiRoute[]; buses: ApiBus[]; initialRoute: string; initialDate: string; busy: boolean; error: string; save: (body: Record<string, unknown>) => Promise<void> }) {
+export function TripForm({ trip, routes, buses, initialRoute, initialDate, busy, error, save }: { trip?: ApiTrip; routes: ApiRoute[]; buses: ApiBus[]; initialRoute: string; initialDate: string; busy: boolean; error: string; save: (body: Record<string, unknown>) => Promise<void> }) {
   const [validation, setValidation] = useState("");
   const departure = trip ? watParts(trip.departure_time) : null;
   const arrival = trip ? watParts(trip.arrival_time) : null;

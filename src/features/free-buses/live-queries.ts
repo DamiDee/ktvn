@@ -10,9 +10,10 @@ import { useLiveUser } from "./live-shell";
  * for the list of bus stops every ten seconds. Each resource instead gets a
  * cadence that matches how often it actually changes.
  */
-export type Cadence = "reference" | "operational" | "live";
+export type Cadence = "reference" | "operational" | "live" | "audit";
 
 const TIERS: Record<Cadence, { staleTime: number; interval: number | false; onFocus: boolean }> = {
+  audit: { staleTime: 0, interval: 5_000, onFocus: true },
   /** Stops, routes and accounts change when an admin edits them, and not otherwise. */
   reference: { staleTime: 10 * 60_000, interval: false, onFocus: false },
   /** Schedules and demand move a few times a day. */
@@ -22,9 +23,11 @@ const TIERS: Record<Cadence, { staleTime: number; interval: number | false; onFo
 };
 
 const REFERENCE = /^(points|routes|users)(\/|\?|$)/;
-const OPERATIONAL = /^(trips|ride-requests|logs)(\/|\?|$)/;
+const OPERATIONAL = /^(trips|ride-requests)(\/|\?|$)/;
 
 export function cadenceFor(path: string): Cadence {
+  if (/^logs(\?|$)/.test(path)) return "audit";
+  if (/^logs\//.test(path)) return "reference";
   if (REFERENCE.test(path)) return "reference";
   if (OPERATIONAL.test(path)) return "operational";
   return "live";

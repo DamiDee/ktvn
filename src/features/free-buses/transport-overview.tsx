@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowRight, ArrowUpRight, BusFront, CalendarDays, History, MapPin, Route, ScanLine, Sparkles } from "lucide-react";
+import { ArrowRight, ArrowUpRight, BusFront, CalendarDays, History, MapPin, Route, ScanLine } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { apiTimestamp, watParts } from "@/lib/trips";
 import type { ApiBus, ApiPoint, ApiRoute, ApiTrip } from "@/types/freebus-api";
@@ -25,7 +25,7 @@ export function TransportOverview({ buses, routes, trips, points }: { buses: Api
       <div className="pointer-events-none absolute -right-14 -top-28 size-80 rounded-full border-[40px] border-gold-300/5" aria-hidden />
       <div className="pointer-events-none absolute -bottom-36 right-24 size-72 rounded-full border border-gold-200/15" aria-hidden />
       <div className="relative flex flex-col justify-between gap-6 md:flex-row md:items-end">
-        <div className="max-w-lg"><p className="flex items-center gap-2 text-xs font-medium tracking-[.16em] text-gold-300 uppercase"><Sparkles className="size-3.5" aria-hidden />Room for everyone</p><h2 className="mt-4 text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">Every journey starts with care.</h2><p className="mt-3 max-w-sm text-sm leading-relaxed text-white/65">Plan the service. Welcome the community. Get everyone there together.</p><ButtonLink href="/admin/free-buses/trips" size="sm" className="mt-5" iconRight={ArrowRight}>Plan a departure</ButtonLink></div>
+        <div className="max-w-lg"><p className="text-xs font-medium tracking-[.16em] text-gold-300 uppercase">Room for everyone</p><h2 className="mt-4 text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">Every journey starts with care.</h2><p className="mt-3 max-w-sm text-sm leading-relaxed text-white/65">Plan the service. Welcome the community. Get everyone there together.</p><ButtonLink href="/admin/free-buses/trips" size="sm" className="mt-5" iconRight={ArrowRight}>Plan a departure</ButtonLink></div>
         <Link href="/admin/free-buses/trips" className="group relative block min-w-0 rounded-2xl border border-white/15 bg-white/5 p-5 backdrop-blur-sm transition-colors hover:bg-white/10 md:w-72"><span className="flex items-center justify-between gap-3 text-xs text-gold-200"><span>{next ? "NEXT DEPARTURE" : "THE NEXT CHAPTER"}</span><ArrowUpRight className="size-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transform-none" aria-hidden /></span><p className="mt-3 text-xl font-semibold tabular-nums">{nextDay ? `${nextDay} · ${when?.time.slice(0, 5)}` : "A new journey awaits"}</p><p className="mt-1 text-xs text-white/55">{nextDay ? "Abuja time · WAT" : "Create a trip from any saved route"}</p><div className="mt-4 border-t border-white/10 pt-3"><p className="break-words text-sm text-white/80">{nextRoute?.name ?? (next ? "Scheduled trip" : `${routes.length} reusable ${routes.length === 1 ? "route" : "routes"} ready to explore`)}</p></div></Link>
       </div>
     </section>

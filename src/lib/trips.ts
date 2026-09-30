@@ -27,6 +27,15 @@ export function watParts(value: string) {
   const local = new Date(time + 3600000);
   return { date: local.toISOString().slice(0, 10), time: local.toISOString().slice(11, 19), sunday: local.getUTCDay() === 0 };
 }
+
+export function activityTime(value: string, now: number) {
+  const timestamp = Date.parse(apiTimestamp(value));
+  if (!Number.isFinite(timestamp)) return { absolute: "Time unavailable", relative: "Time unavailable", timestamp: 0 };
+  const { date, time } = watParts(value);
+  const age = Math.max(0, Math.floor((now - timestamp) / 1000));
+  const relative = timestamp > now + 60_000 ? "Timestamp ahead of device clock" : age < 60 ? "Just now" : age < 3600 ? `${Math.floor(age / 60)} min ago` : age < 86400 ? `${Math.floor(age / 3600)} hr ago` : `${Math.floor(age / 86400)} days ago`;
+  return { absolute: `${date} · ${time} WAT`, relative, timestamp };
+}
 /**
  * A trip is bookable when it belongs to this route, is free, has not started, and
  * has not already left. Travel is offered on any day of the week.

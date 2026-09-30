@@ -18,6 +18,7 @@ import type { ApiRole, ApiUser } from "@/types/freebus-api";
 import { useLiveQuery } from "./live-queries";
 import { useLiveUser } from "./live-shell";
 import { CityPicker } from "@/components/ui/city-picker";
+import { PassengerStrikes } from "./passenger-strikes";
 
 const ROLES: { value: ApiRole; label: string; short?: string; description: string }[] = [
   { value: "User", label: "Member", description: "Books a free seat and carries a boarding pass." },
@@ -288,6 +289,7 @@ export function AdminUsers() {
                       </option>
                     ))}
                   </select>
+                  {user.role === "User" ? <PassengerStrikes user={user} /> : null}
                   <Button
                     size="sm"
                     variant="ghost"

@@ -24,6 +24,8 @@ import {
 import { extractArray, scheduledJourneys, tripCanBook, watParts, type ScheduledJourney } from "@/lib/trips";
 import type { ApiBooking, ApiBus, ApiPoint, ApiRoute, ApiRideRequest, ApiTrip } from "@/types/freebus-api";
 import { useLiveQuery } from "./live-queries";
+import { Checkbox, Select } from "@/components/ui/input";
+import { saveReturnPreference } from "@/lib/return-preference";
 
 const routeCanBook = (journey: ScheduledJourney) => tripCanBook(journey.trip, { ...journey, id: journey.route_id });
 
@@ -68,6 +70,7 @@ export function LiveMemberBuses() {
   const [cancel, setCancel] = useState<ApiBooking | null>(null);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [returnRequested, setReturnRequested] = useState(false);
 
   // Everything is loaded once. Choosing a journey never waits on the network.
   const routeRecords = useLiveQuery<ApiRoute[]>("routes");
@@ -243,6 +246,7 @@ export function LiveMemberBuses() {
         method: "POST",
         body: JSON.stringify({ bus_id: next.id, route_id: pending.route_id, trip_id: pending.id }),
       });
+      if (returnRequested && !saveReturnPreference(booking.user_id, booking.id, true)) toast({ title: "Seat booked, but the return preference could not be saved on this device." });
       setPending(null);
       await refresh();
       toast({ title: `Seat ${booking.seat_number} is yours`, tone: "success" });
@@ -375,8 +379,8 @@ export function LiveMemberBuses() {
           setPoint("");
         }}
         options={[
-          { value: "Pickup", label: "To service", icon: BusFront },
-          { value: "Dropoff", label: "Going home", icon: MapPin },
+          { value: "Pickup", label: "To church", icon: BusFront },
+          { value: "Dropoff", label: "To home", icon: MapPin },
         ]}
       />
 
@@ -471,6 +475,7 @@ export function LiveMemberBuses() {
                             disabled={reserved}
                             onClick={() => {
                               setActionError("");
+                              setReturnRequested(false);
                               setPending(route);
                             }}
                           >
@@ -517,6 +522,8 @@ export function LiveMemberBuses() {
               Your seat and bus are assigned automatically. The journey home is booked
               separately.
             </p>
+            {pending.ride_type === "Pickup" ? <div className="mt-5 rounded-xl border border-gold-500/25 bg-gold-500/5 p-4"><Checkbox label="I’d like to return on the same bus" checked={returnRequested} onChange={(event) => setReturnRequested(event.target.checked)} disabled={busy} /><p className="mt-2 text-xs leading-relaxed text-ink-secondary">Preview: saved on this device with your ticket only. Not sent to the team and not a return-seat reservation. Book your journey home separately for now.</p></div> : null}
+            <details className="mt-5 rounded-xl border border-line p-4"><summary className="cursor-pointer text-sm font-medium text-ink">Travelling with children?</summary><p className="mt-3 text-sm leading-relaxed text-ink-secondary">Child-seat booking is being prepared. The current service can only reserve your own seat; this booking does not include a child. Contact the boarding team for assistance.</p><div className="mt-3"><Select label="Additional child seats · not available yet" disabled value="0" options={[{ value: "0", label: "Not yet supported" }]} /></div></details>
           </>
         ) : null}
         {actionError ? (

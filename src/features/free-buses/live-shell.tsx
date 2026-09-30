@@ -31,6 +31,7 @@ import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { liveAuth, FreebusError } from "@/services/freebus-api";
 import { isOversight, canBoard, liveHome } from "@/lib/freebus-contract";
 import type { ApiUser } from "@/types/freebus-api";
+import { MemberGuide } from "./member-guide";
 
 // ─── Session context ──────────────────────────────────────────────────────────
 
@@ -607,6 +608,7 @@ export function LiveFreeBusShell({
                 {logoutError}
               </p>
             ) : null}
+            {memberNav && allowed && connectedPage ? <MemberGuide key={user.id} userId={user.id} pathname={pathname} /> : null}
             {body}
           </main>
         </div>

@@ -1,0 +1,10 @@
+.checkbox:checked {
+  background-color: var(--kx-gold-500);
+  border-color: var(--kx-gold-500);
+  /* Encoded SVG stays in CSS, not a class name split by whitespace. */
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M3.5%208.5%206.5%2011.5%2012.5%205%22%20stroke%3D%22%23071513%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E");
+}
+@media (forced-colors: active) {
+  .checkbox { appearance: auto; }
+  .checkbox:checked { background-image: none; }
+}

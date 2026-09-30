@@ -25,6 +25,7 @@ import { OperationsForm } from "./live-admin-buses";
 import { RouteDistance } from "./route-distance";
 import { StopPicker } from "./stop-picker";
 import { TransportOverview } from "./transport-overview";
+import { TripForm } from "./admin-trips";
 
 type Module = "overview" | "buses" | "routes" | "points";
 type Edit = { kind: "bus"; value: ApiBus } | { kind: "route"; value: ApiRoute } | { kind: "point"; value: ApiPoint };
@@ -45,6 +46,7 @@ function AdminModule({ module, assignTrip }: { module: Module; assignTrip: strin
   const client = useQueryClient();
   const [create, setCreate] = useState<"route" | "bus" | "point" | "assign" | null>(assignTrip ? "assign" : null);
   const [edit, setEdit] = useState<Edit | null>(null);
+  const [scheduleRoute, setScheduleRoute] = useState<ApiRoute | null>(null);
   const [action, setAction] = useState<Action | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -66,7 +68,7 @@ function AdminModule({ module, assignTrip }: { module: Module; assignTrip: strin
   return <>
     <PageHeader eyebrow="Free Buses · Oversight" title={labels[module]} description={module === "overview" ? "A clear view of today's transport operations." : `Manage ${module} in one dedicated workspace.`} />
     {notice ? <p role="status" className="mb-4 rounded-xl border border-line p-4 text-ink">{notice}</p> : null}
-    {error && !create && !edit && !action ? <p role="alert" className="mb-4 text-danger-600">{error}</p> : null}
+    {error && !create && !edit && !action && !scheduleRoute ? <p role="alert" className="mb-4 text-danger-600">{error}</p> : null}
     {module === "overview" ? <TransportOverview buses={buses.data} routes={routes.data} trips={trips.data} points={points.data} /> : null}
     {module === "buses" ? <>
       <RecordsTable
@@ -109,7 +111,7 @@ function AdminModule({ module, assignTrip }: { module: Module; assignTrip: strin
           { id: "distance", header: "Distance", meta: true, hideBelow: "xl", sortBy: (route) => route.distance, cell: (route) => <span className="type-numeric text-ink-secondary">{route.distance} km</span> },
           { id: "actions", header: "Actions", align: "end", actions: true, cell: (route) => <div className="flex flex-wrap justify-end gap-1.5">
             <Button size="sm" variant="secondary" onClick={() => modify({ kind: "route", value: route })}>Edit</Button>
-            <ButtonLink size="sm" variant="ghost" href={`/admin/free-buses/trips?route=${route.id}`}>Schedule trip</ButtonLink>
+            <Button size="sm" variant="ghost" onClick={() => { setError(""); setScheduleRoute(route); }}>Schedule trip</Button>
             <Button size="sm" variant="ghost" className="!text-danger-600" onClick={() => confirm({ danger: true, title: `Delete ${route.name} permanently?`, description: `This permanently deletes the reusable route. Its trips and bookings may prevent deletion; the server decides. Cancel individual departures in Trips instead.`, path: `routes/${route.id}`, method: "DELETE", done: `${route.name} was deleted.` })}>Delete</Button>
           </div> },
         ]}
@@ -138,6 +140,9 @@ function AdminModule({ module, assignTrip }: { module: Module; assignTrip: strin
         ]}
       />
     </> : null}
+    <Modal open={Boolean(scheduleRoute)} onClose={() => { if (!busy) setScheduleRoute(null); }} title="Schedule a trip" description={scheduleRoute?.name} size="lg">
+      {scheduleRoute ? <TripForm key={scheduleRoute.id} routes={routes.data} buses={buses.data} initialRoute={scheduleRoute.id} initialDate="" busy={busy} error={error} save={async (body) => { if (await run(() => freebusRequest("trips", { method: "POST", body: JSON.stringify(body) }), "Trip scheduled. You can keep managing routes here.")) setScheduleRoute(null); }} /> : null}
+    </Modal>
     <Modal open={Boolean(create)} onClose={() => { if (!busy) setCreate(null); }} title={create === "route" ? "Create route" : create === "assign" ? "Assign a bus" : `Add ${create ?? "record"}`} size="lg">
       {create ? <OperationsForm key={create} panel={create} initialTrip={assignTrip} points={points.data} routes={routes.data} trips={trips.data} buses={buses.data} busy={busy} error={error} onSubmit={async (fn) => { await run(fn, "Saved successfully."); }} /> : null}
     </Modal>

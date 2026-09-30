@@ -13,11 +13,20 @@ import { qrImageSource, type BookingQr } from "@/lib/boarding";
 import { watParts } from "@/lib/trips";
 import { BusFront, CheckCircle2, MapPin, Ticket } from "lucide-react";
 import { BoardedCelebration } from "./boarded-celebration";
+import { RouteStops } from "./route-stops";
+import { ReturnPreference } from "./return-preference";
+import { journeyTypeLabel } from "@/lib/journey-experience";
 import type { ApiBooking, ApiBus, ApiPoint, ApiRoute, ApiTrip } from "@/types/freebus-api";
 
 export function BoardingPasses() {
   const bookings = useLiveQuery<ApiBooking[]>("bookings/me");
-  return <><PageHeader eyebrow="Free Buses" title="Boarding passes" description="Your seat, bus and travel details, ready at the door." />{bookings.error ? <ErrorState title="Could not load passes" description={bookings.error.message} onRetry={() => void bookings.refetch()} /> : bookings.isPending ? <p>Loading passes…</p> : <div className="grid gap-4 sm:grid-cols-2">{bookings.data.map((booking) => <Card key={booking.id}><p className="text-sm text-ink-secondary">{booking.status}</p><h2 className="mt-2 text-2xl font-semibold text-ink">Seat {booking.seat_number}</h2><p className="my-3 break-all text-ink-secondary">{booking.booking_ref}</p><ButtonLink href={`/passenger/free-buses/passes/${booking.id}`}>View boarding pass</ButtonLink></Card>)}{!bookings.data.length ? <Card><p className="mb-4 text-ink-secondary">You haven’t booked a seat yet.</p><ButtonLink href="/passenger/free-buses">Find a bus</ButtonLink></Card> : null}</div>}</>;
+  const trips = useLiveQuery<ApiTrip[]>("trips");
+  return <><PageHeader eyebrow="Free Buses" title="Boarding passes" description="Your seat, bus and travel details, ready at the door." />
+    {bookings.error ? <ErrorState title="Could not load passes" description={bookings.error.message} onRetry={() => void bookings.refetch()} /> : bookings.isPending ? <p>Loading passes…</p> : <div className="grid gap-4 sm:grid-cols-2">
+      {bookings.data.map((booking) => <Card key={booking.id}><p className="text-sm font-medium text-gold-800 dark:text-gold-300">{journeyTypeLabel(trips.data?.find((trip) => trip.id === booking.trip_id)?.ride_type)}</p><p className="mt-1 text-xs text-ink-secondary">{booking.status}</p><h2 className="mt-2 text-2xl font-semibold text-ink">Seat {booking.seat_number}</h2><p className="my-3 break-all text-ink-secondary">{booking.booking_ref}</p><ButtonLink href={`/passenger/free-buses/passes/${booking.id}`}>View boarding pass</ButtonLink></Card>)}
+      {!bookings.data.length ? <Card><p className="mb-4 text-ink-secondary">You haven’t booked a seat yet.</p><ButtonLink href="/passenger/free-buses">Find a bus</ButtonLink></Card> : null}
+    </div>}
+  </>;
 }
 
 export function BoardingPass({ id }: { id: string }) {
@@ -43,10 +52,13 @@ export function BoardingPass({ id }: { id: string }) {
     <Card className="mx-auto max-w-2xl overflow-hidden !rounded-[28px] !p-0 shadow-lg">
       <div className="relative overflow-hidden bg-forest-900 p-6 text-white sm:p-8"><div className="pointer-events-none absolute -right-16 -top-20 size-64 rounded-full border-[32px] border-gold-300/5" aria-hidden /><div className="relative"><div className="flex items-center justify-between gap-4"><p className="flex items-center gap-2 text-xs font-semibold tracking-[.14em] text-gold-300 uppercase"><BusFront className="size-4" aria-hidden />K-Rides · Free Buses</p><Ticket className="size-5 text-gold-200/60" aria-hidden /></div><h1 className="mt-5 text-3xl font-semibold tracking-tight">Your boarding pass.</h1><p className="mt-2 break-words text-sm text-white/70">{route.data?.name ?? "Loading journey…"}</p><span className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-gold-100">{ticket.status === "Boarded" ? <CheckCircle2 className="size-3.5" aria-hidden /> : <Ticket className="size-3.5" aria-hidden />}{ticket.status === "Boarded" ? "Boarding confirmed" : ticket.status}</span></div></div>
       <div className="flex flex-col p-5 sm:p-8"><div className="flex items-center justify-between gap-4"><div className="min-w-0"><p className="text-[.65rem] font-medium tracking-[.12em] text-ink-muted uppercase">Travelling with us</p><h2 className="mt-1.5 break-words text-xl font-semibold tracking-tight text-ink">{user.first_name} {user.last_name}</h2><p className="mt-2 flex items-center gap-1.5 text-xs text-ink-secondary"><BusFront className="size-3.5 shrink-0" aria-hidden />{bus.data?.license_plate ?? "Bus details loading…"}</p></div><div className="shrink-0 rounded-2xl border border-gold-500/25 bg-gold-500/10 px-5 py-3 text-center"><p className="text-[.6rem] font-semibold tracking-[.12em] text-gold-800 uppercase dark:text-gold-300">Seat</p><p className="mt-1 text-4xl font-semibold tracking-tight text-ink tabular-nums">{ticket.seat_number}</p></div></div>
+        <p className="mt-4 text-sm font-semibold text-gold-800 dark:text-gold-300">{journeyTypeLabel(trip.data?.ride_type)}</p>
+        {route.data ? <RouteStops route={route.data} /> : null}
+        {trip.data?.ride_type === "Pickup" && !["Cancelled", "Revoked"].includes(ticket.status) ? <ReturnPreference key={`${user.id}-${ticket.id}`} userId={user.id} bookingId={ticket.id} /> : null}
         <dl className="order-2 mt-6 grid grid-cols-2 gap-4">{[
           ["Bus registration", bus.data?.license_plate ?? ticket.bus_id], ["Booking status", ticket.status],
           ["Boarding point", start.data?.name ?? route.data?.start_point ?? "Loading…"], ["Destination", end.data?.name ?? route.data?.end_point ?? "Loading…"],
-          ["Departure (WAT)", trip.data ? `${watParts(trip.data.departure_time).date} · ${watParts(trip.data.departure_time).time}` : "Schedule unavailable"], ["Journey", trip.data?.ride_type ?? "Loading…"], ["Trip status", trip.data?.status ?? "Unavailable"],
+          ["Departure (WAT)", trip.data ? `${watParts(trip.data.departure_time).date} · ${watParts(trip.data.departure_time).time}` : "Schedule unavailable"], ["Route type", journeyTypeLabel(trip.data?.ride_type)], ["Trip status", trip.data?.status ?? "Unavailable"],
           ["Meeting landmark", start.data?.landmark ?? "Not available"], ["Payment", ticket.payment_status],
           ["Boarding instructions", route.data?.description ?? "Not available"], ["Distance", route.data ? `${route.data.distance} km` : "Not available"],
           ["Booking reference", ticket.booking_ref], ["Booked at (API time)", ticket.created_at.replace("T", " ")],

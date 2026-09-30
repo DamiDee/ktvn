@@ -238,7 +238,6 @@ export function AdminRideRequests() {
               ? req.pointsById.get(req.route.end_point)?.name ?? "Destination"
               : null;
             // Rough fill percentage: 1 request per ~18-seat bus.
-            const pct = Math.min(100, Math.round((req.count / 18) * 100));
 
             return (
               <Card
@@ -282,39 +281,6 @@ export function AdminRideRequests() {
                       {req.count === 1 ? "seat" : "seats"} wanted
                     </p>
                   </div>
-                </div>
-
-                {/* Demand bar */}
-                <div className="mt-4">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <p className="type-micro text-ink-muted">Demand vs. one bus (18 seats)</p>
-                    <p className="type-micro font-medium text-ink">{pct}%</p>
-                  </div>
-                  <div
-                    className="h-1.5 overflow-hidden rounded-full bg-surface-nested"
-                    role="progressbar"
-                    aria-label={`${req.count} seats requested`}
-                    aria-valuenow={req.count}
-                    aria-valuemin={0}
-                    aria-valuemax={18}
-                  >
-                    <div
-                      className={cn(
-                        "h-full rounded-full transition-all duration-500",
-                        pct >= 100
-                          ? "bg-forest-500 dark:bg-gold-400"
-                          : pct >= 50
-                            ? "bg-gold-500"
-                            : "bg-line-strong",
-                      )}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  {pct >= 100 ? (
-                    <p className="type-micro mt-1.5 font-medium text-forest-700 dark:text-gold-300">
-                      Enough demand for a full bus — schedule a trip?
-                    </p>
-                  ) : null}
                 </div>
 
                 {/* Actions */}

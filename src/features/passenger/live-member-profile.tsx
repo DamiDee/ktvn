@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/app-shell";
 import { useLiveUser } from "@/features/free-buses/live-shell";
 import { memberProfileDetails, memberSince } from "@/lib/member-profile";
+import { ChangePassword } from "@/features/auth/account-security";
 
 /** Uses the authenticated API profile supplied by the shell, never the demo passenger. */
 export function LiveMemberProfile() {
@@ -49,6 +50,7 @@ export function LiveMemberProfile() {
       <p className="type-meta mt-5 text-ink-muted">Profile editing is not connected yet. These details are read-only.</p>
     </Card>
 
+    <Card radius="xl" className="mb-5 flex flex-wrap items-center justify-between gap-4"><div><h2 className="type-card-title text-ink">Account security</h2><p className="mt-1 text-sm text-ink-secondary">Password tools · prepared, not yet available.</p></div><ChangePassword /></Card>
     <Card radius="xl" className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div><h2 className="type-card-title text-ink">Ready for your next service?</h2><p className="type-meta mt-1 text-ink-secondary">Find a pickup point, reserve a free seat, or view your boarding passes.</p></div>
       <ButtonLink href="/passenger/free-buses" icon={BusFront} className="shrink-0">Open Free Buses</ButtonLink>
