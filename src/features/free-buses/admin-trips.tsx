@@ -55,24 +55,35 @@ export function AdminTrips({ initialRoute = "", initialDate = "" }: { initialRou
 
 export function TripForm({ trip, routes, buses, initialRoute, initialDate, busy, error, save }: { trip?: ApiTrip; routes: ApiRoute[]; buses: ApiBus[]; initialRoute: string; initialDate: string; busy: boolean; error: string; save: (body: Record<string, unknown>) => Promise<void> }) {
   const [validation, setValidation] = useState("");
+  const [direction, setDirection] = useState(trip?.ride_type ?? "Pickup");
   const departure = trip ? watParts(trip.departure_time) : null;
   const arrival = trip ? watParts(trip.arrival_time) : null;
+  const returning = trip?.return_time ? watParts(trip.return_time) : null;
   return <form className="space-y-4" onSubmit={async (event) => {
     event.preventDefault(); setValidation(""); const data = new FormData(event.currentTarget); const v = (name: string) => String(data.get(name) ?? "");
     const departureTime = watInputToApiTime(v("departure")), arrivalTime = watInputToApiTime(v("arrival"));
     if (!departureTime || !arrivalTime) { setValidation("Choose a valid departure and arrival date and time."); return; }
     const leaves = Date.parse(apiTimestamp(departureTime)), arrives = Date.parse(apiTimestamp(arrivalTime));
     if (!Number.isFinite(leaves) || !Number.isFinite(arrives) || leaves <= Date.now() || arrives <= leaves) { setValidation("Choose a future departure and an arrival after departure."); return; }
-    const body: Record<string, unknown> = { departure_time: departureTime, arrival_time: arrivalTime, ride_type: v("direction") };
+    const body: Record<string, unknown> = { departure_time: departureTime, arrival_time: arrivalTime, ride_type: direction };
+    if (direction === "RoundTrip" || trip?.return_time) {
+      const returnTime = trip ? trip.return_time : watInputToApiTime(v("return_time"));
+      if (!returnTime || !Number.isFinite(Date.parse(apiTimestamp(returnTime))) || Date.parse(apiTimestamp(returnTime)) <= arrives) {
+        setValidation(trip ? "The return must be after arrival. This API cannot add or edit a return time on an existing trip; schedule a new round trip instead." : "Choose a return departure after the outbound arrival."); return;
+      }
+      // CreateTripDto accepts return_time; UpdateTripDto currently does not.
+      if (!trip) body.return_time = returnTime;
+    }
     if (!trip) body.route_id = v("route");
     if (v("bus")) body.bus_id = v("bus");
     else if (trip?.bus_id) { setValidation("To unassign an existing bus, use Buses → Manage → Change / clear trip."); return; }
     await save(body);
   }}>
     <Select label="Reusable route" name="route" required disabled={Boolean(trip)} defaultValue={trip?.route_id ?? initialRoute} options={[{ value: "", label: "Choose a route" }, ...routes.map((r) => ({ value: r.id, label: r.name }))]} />
-    <Select label="Journey" name="direction" defaultValue={trip?.ride_type ?? "Pickup"} options={[{ value: "Pickup", label: "To service" }, { value: "Dropoff", label: "Going home" }, { value: "RoundTrip", label: "Round trip" }]} />
+    <Select label="Journey" name="direction" value={direction} disabled={Boolean(trip?.return_time)} onChange={(event) => setDirection(event.target.value as ApiTrip["ride_type"])} options={[{ value: "Pickup", label: "To service" }, { value: "Dropoff", label: "Going home" }, { value: "RoundTrip", label: "Round trip" }]} />
     <Input label="Departure (WAT)" name="departure" type="datetime-local" required defaultValue={departure ? `${departure.date}T${departure.time.slice(0, 5)}` : initialDate ? `${initialDate}T07:00` : undefined} />
     <Input label="Expected arrival (WAT)" name="arrival" type="datetime-local" required defaultValue={arrival ? `${arrival.date}T${arrival.time.slice(0, 5)}` : initialDate ? `${initialDate}T08:00` : undefined} />
+    {direction === "RoundTrip" || returning ? <Input label="Return departure (WAT)" name="return_time" type="datetime-local" required={!trip} disabled={Boolean(trip)} defaultValue={returning ? `${returning.date}T${returning.time.slice(0, 5)}` : undefined} hint={trip ? "The API supports setting the return time when creating a trip, but not changing it yet." : "When the bus leaves church for the journey home."} /> : null}
     <Select label="Assign bus (optional)" name="bus" defaultValue={trip?.bus_id ?? ""} options={[{ value: "", label: "Assign later" }, ...buses.filter((b) => b.id === trip?.bus_id || (!b.current_trip_id && b.status !== "Maintenance")).map((b) => ({ value: b.id, label: b.license_plate }))]} />
     <p className="text-sm text-ink-muted">The route stays available for future schedules. This departure is a separate trip with its own bookings.</p>
     {error || validation ? <p role="alert" className="text-danger-600">{error || validation}</p> : null}<Button type="submit" block loading={busy}>Save trip</Button>

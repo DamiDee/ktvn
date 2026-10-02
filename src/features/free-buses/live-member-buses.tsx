@@ -21,11 +21,11 @@ import {
   busCanBoard,
   queryString,
 } from "@/lib/freebus-contract";
-import { extractArray, scheduledJourneys, tripCanBook, watParts, type ScheduledJourney } from "@/lib/trips";
-import type { ApiBooking, ApiBus, ApiPoint, ApiRoute, ApiRideRequest, ApiTrip } from "@/types/freebus-api";
+import { extractArray, scheduledJourneys, tripCanBook, tripHasReturn, watParts, type ScheduledJourney } from "@/lib/trips";
+import type { ApiBooking, ApiBus, ApiPoint, ApiRoute, ApiTrip } from "@/types/freebus-api";
 import { useLiveQuery } from "./live-queries";
 import { Checkbox, Select } from "@/components/ui/input";
-import { saveReturnPreference } from "@/lib/return-preference";
+import { assignedBookingBuses, bookingDeparture, bookingLegLabel, bookingPayload, bookingPointsValid, routePointIds } from "@/lib/journey-experience";
 
 const routeCanBook = (journey: ScheduledJourney) => tripCanBook(journey.trip, { ...journey, id: journey.route_id });
 
@@ -71,6 +71,9 @@ export function LiveMemberBuses() {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState("");
   const [returnRequested, setReturnRequested] = useState(false);
+  const [pickup, setPickup] = useState("");
+  const [dropoff, setDropoff] = useState("");
+  const [kids, setKids] = useState(0);
 
   // Everything is loaded once. Choosing a journey never waits on the network.
   const routeRecords = useLiveQuery<ApiRoute[]>("routes");
@@ -82,44 +85,22 @@ export function LiveMemberBuses() {
   const bookings = useLiveQuery<ApiBooking[]>("bookings/me");
 
   const isLoading = routeRecords.isLoading || trips.isLoading;
-  const criticalError = routes.error;
+  const criticalError = routes.error ?? buses.error ?? points.error ?? bookings.error;
   const refresh = () => client.invalidateQueries({ queryKey: ["freebus-live"] });
 
-  const ready = !isLoading && Boolean(routes.data);
+  const ready = !isLoading && Boolean(routes.data) && !buses.isPending && !points.isPending && !bookings.isPending;
 
   const model = useMemo(() => {
     if (!routes.data) return null;
     const allBuses = extractArray<ApiBus>(buses.data);
     const allBookings = extractArray<ApiBooking>(bookings.data);
-    const busesById = new Map(allBuses.map((b) => [b.id, b]));
     const seatsOn = (route: ScheduledJourney) => {
-      // Prefer matching by current_trip_id (set once the trip is active/boarding).
-      // Fall back to the trip's own bus_id for upcoming trips where the bus hasn't
-      // updated current_trip_id yet (it is still null until the journey starts).
-      const byTripId = allBuses.filter((bus) => bus.current_trip_id === route.id);
-      if (byTripId.length > 0) return byTripId.reduce((total, bus) => total + availableCapacity(bus), 0);
-
-      // Trip is NotStarted — bus assigned but not yet "current". Use full remaining capacity.
-      const assignedBus = route.trip.bus_id ? busesById.get(route.trip.bus_id) : undefined;
-      if (assignedBus) {
-        if (assignedBus.status === "Maintenance") return 0;
-        return Math.max(1, assignedBus.capacity - assignedBus.current_passenger_count);
-      }
-
-      // If no bus is explicitly assigned yet (bus_id is null/unassigned or bus not in list),
-      // check if there are available non-maintenance buses in the fleet.
-      const fleet = allBuses.filter((b) => b.status !== "Maintenance");
-      if (fleet.length > 0) {
-        return Math.max(...fleet.map((b) => Math.max(1, b.capacity - b.current_passenger_count)));
-      }
-
-      // Fallback: If no fleet buses returned by API, assume default seat capacity (50) for scheduled departures.
-      return 50;
+      return assignedBookingBuses(route.trip, allBuses).reduce((total, bus) => total + availableCapacity(bus), 0);
     };
 
     const zeroFare = routes.data.filter((route) => Number(route.fare ?? 0) === 0);
-    // An unavailable journey is noise on a booking screen: it is counted, not listed.
-    const bookable = zeroFare.filter((route) => routeCanBook(route) && seatsOn(route) > 0);
+    // Keep scheduled departures visible, but disable any without assigned seats.
+    const bookable = zeroFare.filter(routeCanBook);
 
     const routesById = new Map(routes.data.map((route) => [route.id, route]));
     const when = (route: ScheduledJourney) => `${route.departure_date}T${route.departure_time}`;
@@ -136,7 +117,7 @@ export function LiveMemberBuses() {
         const first = routesById.get(a.trip_id ?? "");
         const second = routesById.get(b.trip_id ?? "");
         if (!first || !second) return first ? -1 : second ? 1 : 0;
-        return when(first).localeCompare(when(second));
+        return (bookingDeparture(a, first.trip, first) ?? "").localeCompare(bookingDeparture(b, second.trip, second) ?? "");
       });
 
     const sorted = [...bookable].sort((a, b) => when(a).localeCompare(when(b)));
@@ -171,21 +152,22 @@ export function LiveMemberBuses() {
     const isRound = raw.includes("round");
 
     if (direction === "Dropoff") {
-      return isDropoff || isRound;
+      // A round trip is booked from its outbound departure, not as a second
+      // outbound booking under To home. Its return is issued by the API.
+      return isDropoff;
     } else {
       return isPickup || isRound || (!isDropoff && !isRound);
     }
   });
 
-  // Only offer stops that actually have a bus today — an empty filter is a dead end.
-  const stopKey = (route: ScheduledJourney) =>
-    direction === "Dropoff" ? route.end_point : route.start_point;
-  const stops = [...new Set(forDirection.map(stopKey))]
+  // Filters include intermediate stops on published departures.
+  const filterPoints = (route: ScheduledJourney) => direction === "Dropoff" ? routePointIds(route).slice(1) : routePointIds(route).slice(0, -1);
+  const stops = [...new Set(forDirection.flatMap(filterPoints))]
     .map((id) => pointsById.get(id))
     .filter((p): p is ApiPoint => Boolean(p))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const visible = point ? forDirection.filter((route) => stopKey(route) === point) : forDirection;
+  const visible = point ? forDirection.filter((route) => filterPoints(route).includes(point)) : forDirection;
 
   const byDay = visible.reduce<Record<string, ScheduledJourney[]>>((groups, route) => {
     (groups[route.departure_date] ??= []).push(route);
@@ -201,18 +183,11 @@ export function LiveMemberBuses() {
       const fresh = await freebusRequest<ApiTrip>(`trips/${pending.id}`);
       const currentRoute = await freebusRequest<ApiRoute>(`routes/${fresh.route_id}`);
       if (!tripCanBook(fresh, currentRoute)) throw new Error("This journey is no longer open for booking.");
+      if (fresh.route_id !== pending.route_id || fresh.departure_time !== pending.trip.departure_time) throw new Error("This departure has changed. Close this window and choose the updated journey.");
+      if (returnRequested && (!tripHasReturn(fresh) || fresh.return_time !== pending.trip.return_time)) throw new Error("The return schedule has changed. Please review this journey again.");
       const mine = await freebusRequest<ApiBooking[]>("bookings/me");
       if (mine.filter(activeBooking).some((b) => b.trip_id === pending.id))
         throw new Error("You already have a seat on this journey.");
-
-      // Also register a ride request for demand tracking.
-      const { date: departure_date } = watParts(pending.trip.departure_time);
-      await freebusRequest<ApiRideRequest>("ride-requests", {
-        method: "POST",
-        body: JSON.stringify({ route_id: pending.route_id, departure_date }),
-      }).catch(() => {
-        // Non-critical: don't block booking if ride-request fails.
-      });
 
       // Refresh just before submission. Never retry a booking automatically after a timeout.
       // Prefer buses whose current_trip_id matches (active/boarding). Fall back to the bus
@@ -220,37 +195,24 @@ export function LiveMemberBuses() {
       const current = await freebusRequest<ApiBus[]>(
         `buses${queryString({ current_trip_id: pending.id })}`,
       );
-      let next: ApiBus | undefined = current
-        .filter((b) => b.current_trip_id === pending.id && availableCapacity(b) > 0)
+      const candidates = extractArray<ApiBus>(current);
+      if (fresh.bus_id && !candidates.some((bus) => bus.id === fresh.bus_id)) candidates.push(await freebusRequest<ApiBus>(`buses/${fresh.bus_id}`));
+      const next = assignedBookingBuses(fresh, candidates)
+        .filter((bus) => availableCapacity(bus) >= 1 + kids)
         .sort((a, b) => a.license_plate.localeCompare(b.license_plate))[0];
-
-      // Fallback 1: trip has bus_id set but bus hasn't set current_trip_id yet (NotStarted).
-      if (!next && fresh.bus_id) {
-        const assigned = await freebusRequest<ApiBus>(`buses/${fresh.bus_id}`).catch(() => null);
-        if (assigned && assigned.status !== "Maintenance" &&
-            Math.max(0, assigned.capacity - assigned.current_passenger_count) > 0) {
-          next = assigned;
-        }
-      }
-
-      // Fallback 2: if trip has no bus_id set yet (or assigned bus is full/unavailable), find any available bus in fleet.
-      if (!next) {
-        const fleetBuses = await freebusRequest<ApiBus[]>("buses").catch(() => []);
-        next = fleetBuses.find(
-          (b) => b.status !== "Maintenance" && Math.max(0, b.capacity - b.current_passenger_count) > 0,
-        );
-      }
-
-      if (!next) throw new Error("The last seat has just gone. Please choose another journey.");
+      if (!next) throw new Error("No assigned bus has enough seats for your party. Please choose another journey.");
+      const payload = bookingPayload(fresh, currentRoute, next, pickup, dropoff, kids, returnRequested);
       const booking = await freebusRequest<ApiBooking>("bookings", {
         method: "POST",
-        body: JSON.stringify({ bus_id: next.id, route_id: pending.route_id, trip_id: pending.id }),
+        body: JSON.stringify(payload),
       });
-      if (returnRequested && !saveReturnPreference(booking.user_id, booking.id, true)) toast({ title: "Seat booked, but the return preference could not be saved on this device." });
+      if (!booking?.id || !booking.booking_ref) throw new Error("The service accepted the request but returned an unexpected booking response. Open Passes to check what was issued.");
       setPending(null);
       await refresh();
-      toast({ title: `Seat ${booking.seat_number} is yours`, tone: "success" });
-      router.push(`/passenger/free-buses/passes/${booking.id}`);
+      toast({ title: returnRequested ? "Booking submitted — check both boarding passes" : `Seat ${booking.seat_number} is yours`, tone: "success" });
+      // Never manufacture a return QR or submit a second booking: the backend
+      // owns paired issuance. The pass list reads each actual server booking.
+      router.push(returnRequested ? "/passenger/free-buses/passes?returnRequested=1" : `/passenger/free-buses/passes/${booking.id}`);
     } catch (error) {
       setActionError(
         `${error instanceof Error ? error.message : "We couldn't confirm this seat."} Check your boarding passes before trying again.`,
@@ -264,6 +226,7 @@ export function LiveMemberBuses() {
   const next = tickets[0];
   const nextRoute = next ? routesById.get(next.trip_id ?? "") : undefined;
   const nextBus = next ? busesById.get(next.bus_id) : undefined;
+  const nextDeparture = next && nextRoute ? bookingDeparture(next, nextRoute.trip, nextRoute) : null;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -278,14 +241,15 @@ export function LiveMemberBuses() {
           <div className="flex items-start justify-between gap-4 p-5 pb-4 sm:p-6 sm:pb-5">
             <div className="min-w-0">
               <p className="type-micro text-gold-300">Your next journey</p>
+              {nextRoute ? <p className="mt-1 text-xs text-gold-200">{bookingLegLabel(next, nextRoute.trip, nextRoute)}</p> : null}
               <p className="type-card-title mt-1.5 line-clamp-2">
                 {nextRoute?.name ?? "Booked journey"}
               </p>
               {nextRoute ? (
                 <p className="type-meta mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-white/70">
-                  <span className="truncate">{location(nextRoute.start_point)}</span>
+                  <span className="truncate">{location(next.pickup_point || nextRoute.start_point)}</span>
                   <ArrowRight className="size-3.5 shrink-0" aria-hidden />
-                  <span className="truncate">{location(nextRoute.end_point)}</span>
+                  <span className="truncate">{location(next.dropoff_point || nextRoute.end_point)}</span>
                 </p>
               ) : null}
             </div>
@@ -300,7 +264,7 @@ export function LiveMemberBuses() {
               { label: "Bus", value: nextBus?.license_plate ?? "—" },
               {
                 label: "Departs",
-                value: nextRoute ? timeLabel(nextRoute.departure_time) : "—",
+                value: nextDeparture ? timeLabel(watParts(nextDeparture).time) : "—",
               },
             ].map((cell) => (
               <div key={cell.label} className="bg-forest-900 px-4 py-3.5 dark:bg-forest-950">
@@ -352,7 +316,7 @@ export function LiveMemberBuses() {
                   className="!justify-start"
                   icon={Ticket}
                 >
-                  {route?.name ?? "Booked journey"} · Seat {ticket.seat_number}
+                  {route ? bookingLegLabel(ticket, route.trip, route) : "Booked journey"} · Seat {ticket.seat_number}
                 </ButtonLink>
               );
             })}
@@ -463,7 +427,7 @@ export function LiveMemberBuses() {
                           ) : null}
                           <p className="type-meta mt-2 inline-flex items-center gap-1.5 text-ink-muted">
                             <Users className="size-3.5" aria-hidden />
-                            {seats} {seats === 1 ? "seat" : "seats"} left
+                            {seats ? `${seats} ${seats === 1 ? "seat" : "seats"} left` : "No seats available on an assigned bus"}
                           </p>
 
                           <Button
@@ -472,14 +436,17 @@ export function LiveMemberBuses() {
                             size="sm"
                             icon={Ticket}
                             variant={reserved ? "secondary" : "primary"}
-                            disabled={reserved}
+                            disabled={reserved || seats === 0}
                             onClick={() => {
                               setActionError("");
                               setReturnRequested(false);
+                              setPickup("");
+                              setDropoff("");
+                              setKids(0);
                               setPending(route);
                             }}
                           >
-                            {reserved ? "Seat already booked" : "Book a free seat"}
+                            {reserved ? "Seat already booked" : seats === 0 ? "Unavailable" : "Book a free seat"}
                           </Button>
                         </div>
                       </div>
@@ -503,8 +470,8 @@ export function LiveMemberBuses() {
             <Button variant="ghost" disabled={busy} onClick={() => setPending(null)}>
               Go back
             </Button>
-            <Button loading={busy} onClick={reserve}>
-              Book my seat
+            <Button loading={busy} disabled={!pending || !bookingPointsValid(pending, pickup, dropoff)} onClick={reserve}>
+              {returnRequested ? "Book round trip" : "Book my seat"}
             </Button>
           </>
         }
@@ -518,12 +485,12 @@ export function LiveMemberBuses() {
             <p className="type-meta mt-1.5 text-ink-secondary">
               {dayLabel(pending.departure_date)} at {timeLabel(pending.departure_time)} WAT
             </p>
-            <p className="type-meta mt-4 text-ink-muted">
-              Your seat and bus are assigned automatically. The journey home is booked
-              separately.
-            </p>
-            {pending.ride_type === "Pickup" ? <div className="mt-5 rounded-xl border border-gold-500/25 bg-gold-500/5 p-4"><Checkbox label="I’d like to return on the same bus" checked={returnRequested} onChange={(event) => setReturnRequested(event.target.checked)} disabled={busy} /><p className="mt-2 text-xs leading-relaxed text-ink-secondary">Preview: saved on this device with your ticket only. Not sent to the team and not a return-seat reservation. Book your journey home separately for now.</p></div> : null}
-            <details className="mt-5 rounded-xl border border-line p-4"><summary className="cursor-pointer text-sm font-medium text-ink">Travelling with children?</summary><p className="mt-3 text-sm leading-relaxed text-ink-secondary">Child-seat booking is being prepared. The current service can only reserve your own seat; this booking does not include a child. Contact the boarding team for assistance.</p><div className="mt-3"><Select label="Additional child seats · not available yet" disabled value="0" options={[{ value: "0", label: "Not yet supported" }]} /></div></details>
+            <div className="mt-5 space-y-4">
+              <Select label="Pickup point" required value={pickup} disabled={busy} onChange={(event) => { setPickup(event.target.value); setDropoff(""); }} options={[{ value: "", label: "Choose where you will board" }, ...routePointIds(pending).slice(0, -1).filter((id) => pointsById.has(id)).map((id) => ({ value: id, label: location(id) }))]} />
+              <Select label="Drop-off point" required value={dropoff} disabled={busy || !pickup} onChange={(event) => setDropoff(event.target.value)} options={[{ value: "", label: "Choose where you will get off" }, ...routePointIds(pending).slice(routePointIds(pending).indexOf(pickup) + 1).filter((id) => pointsById.has(id)).map((id) => ({ value: id, label: location(id) }))]} />
+              <Select label="Children travelling with you" value={String(kids)} disabled={busy} onChange={(event) => setKids(Number(event.target.value))} options={Array.from({ length: Math.max(1, Math.min(20, Math.max(0, ...assignedBookingBuses(pending.trip, extractArray<ApiBus>(buses.data)).map(availableCapacity)))) }, (_, n) => ({ value: String(n), label: n === 0 ? "Just me" : `${n} ${n === 1 ? "child" : "children"} + me` }))} hint="Include each child who needs a seat. The server confirms availability for your party." />
+            </div>
+            {tripHasReturn(pending.trip) ? <div className="mt-5 rounded-xl border border-gold-500/25 bg-gold-500/5 p-4"><Checkbox label="Include my return journey" checked={returnRequested} onChange={(event) => setReturnRequested(event.target.checked)} disabled={busy} /><p className="mt-2 text-xs leading-relaxed text-ink-secondary">Return: {dayLabel(watParts(pending.trip.return_time!).date)} at {timeLabel(watParts(pending.trip.return_time!).time)} WAT. Check Passes for a separate outbound and return ticket after booking.</p>{returnRequested && pickup && dropoff ? <p className="mt-2 text-sm text-ink">Homeward: {location(dropoff)} → {location(pickup)}</p> : null}</div> : <p className="mt-4 text-sm text-ink-muted">One-way departure. A return time has not been scheduled.</p>}
           </>
         ) : null}
         {actionError ? (

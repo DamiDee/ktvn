@@ -20,6 +20,8 @@ export interface ModalProps {
   sheetOnMobile?: boolean;
   size?: "sm" | "md" | "lg";
   className?: string;
+  /** Required onboarding cannot be dismissed by Escape, backdrop or a close button. */
+  dismissible?: boolean;
 }
 
 const SIZES = {
@@ -42,6 +44,7 @@ export function Modal({
   sheetOnMobile = true,
   size = "md",
   className,
+  dismissible = true,
 }: ModalProps) {
   const mounted = useMounted();
   const isMobile = useIsMobile();
@@ -64,7 +67,7 @@ export function Modal({
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         event.stopPropagation();
-        onCloseRef.current();
+        if (dismissible) onCloseRef.current();
         return;
       }
 
@@ -95,7 +98,7 @@ export function Modal({
       if (panelRef.current?.contains(document.activeElement)) return;
       panelRef.current
         ?.querySelector<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
         )
         ?.focus();
     }, 60);
@@ -106,7 +109,7 @@ export function Modal({
       document.body.style.overflow = overflow;
       previouslyFocused?.focus?.();
     };
-  }, [open]);
+  }, [open, dismissible]);
 
   if (!mounted) return null;
 
@@ -121,7 +124,7 @@ export function Modal({
             initial="initial"
             animate="animate"
             exit="exit"
-            onClick={onClose}
+            onClick={dismissible ? onClose : undefined}
             className="absolute inset-0 bg-[var(--kx-overlay)] backdrop-blur-[6px]"
             aria-hidden
           />
@@ -161,7 +164,7 @@ export function Modal({
                   </p>
                 ) : null}
               </div>
-              <IconButton icon={X} label="Close" size="sm" onClick={onClose} />
+              {dismissible ? <IconButton icon={X} label="Close" size="sm" onClick={onClose} /> : null}
             </div>
 
             {children ? (

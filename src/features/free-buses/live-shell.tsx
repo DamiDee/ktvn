@@ -73,7 +73,7 @@ const COORDINATOR_NAV: NavItem[] = [
 const MEMBER_NAV: NavItem[] = [
   { href: "/passenger/free-buses", label: "Find a bus", short: "Buses", icon: BusFront },
   { href: "/passenger/free-buses/passes", label: "Boarding passes", short: "Passes", icon: Ticket },
-  { href: "/passenger/free-buses/requests", label: "Ask for a route", short: "Ask", icon: HandHeart },
+  { href: "/passenger/free-buses/requests", label: "Trip requests", short: "Requests", icon: HandHeart },
   { href: "/passenger/free-buses/trips", label: "My journeys", short: "Journeys", icon: LineChart },
   { href: "/passenger/profile", label: "Profile", short: "Profile", icon: UserRound },
 ];
@@ -608,8 +608,7 @@ export function LiveFreeBusShell({
                 {logoutError}
               </p>
             ) : null}
-            {memberNav && allowed && connectedPage ? <MemberGuide key={user.id} userId={user.id} pathname={pathname} /> : null}
-            {body}
+            {memberNav && allowed && connectedPage ? <MemberGuide key={user.id} userId={user.id} pathname={pathname}>{body}</MemberGuide> : body}
           </main>
         </div>
 

@@ -47,6 +47,16 @@ export function tripCanBook(trip: ApiTrip, route: ApiRoute, now = Date.now()) {
   const departure = Date.parse(apiTimestamp(trip.departure_time));
   return Number.isFinite(departure) && departure > now;
 }
+
+export function tripHasReturn(trip: ApiTrip) {
+  const returning = Date.parse(apiTimestamp(trip.return_time ?? ""));
+  return trip.ride_type !== "Dropoff" && Number.isFinite(returning) && returning > Date.parse(apiTimestamp(trip.arrival_time));
+}
+
+/** Requests must refer to an existing, upcoming departure on this WAT calendar day. */
+export function canRequestScheduledTrip(trip: ApiTrip, route: ApiRoute, date: string, now = Date.now()) {
+  return tripCanBook(trip, route, now) && watParts(trip.departure_time).date === date;
+}
 export type ScheduledJourney = ApiRoute & { route_id: string; departure_date: string; departure_time: string; ride_type: ApiTrip["ride_type"]; is_completed: boolean; trip: ApiTrip };
 
 export function extractArray<T>(input: unknown): T[] {

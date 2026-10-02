@@ -24,6 +24,7 @@ export interface ApiTrip {
   id: string; route_id: string; bus_id: string | null; driver_id: string | null;
   departure_time: string; arrival_time: string; ride_type: ApiRideType; status: ApiTripStatus;
   actual_departure_time?: string | null; actual_arrival_time?: string | null;
+  return_time?: string | null;
 }
 export interface ApiBus {
   id: string; license_plate: string; capacity: number; current_passenger_count: number;
@@ -31,12 +32,25 @@ export interface ApiBus {
   status: "Available" | "Maintenance" | "InUse";
 }
 export interface ApiBooking {
+  pickup_point?: string | null;
+  dropoff_point?: string | null;
+  num_of_kids?: number;
   qr_code?: string | null;
   trip_id?: string | null;
   id: string; booking_ref: string; user_id: string; bus_id: string; route_id: string;
   seat_number: number; status: "Boarded" | "Confirmed" | "Cancelled" | "Revoked";
   payment_status: "Free" | "Pending" | "Paid" | "Failed" | "Refunded";
   created_at: string;
+}
+/** Points are mandatory in K-Rides even though the API permits null for older clients. */
+export interface CreateBookingDto {
+  bus_id: string;
+  route_id: string;
+  trip_id: string;
+  pickup_point: string;
+  dropoff_point: string;
+  num_of_kids: number;
+  return_trip: boolean;
 }
 export interface ApiSeats {
   bus_id: string; capacity: number; current_passenger_count: number;
