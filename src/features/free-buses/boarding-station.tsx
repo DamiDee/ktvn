@@ -16,7 +16,7 @@ import { freebusRequest, FreebusError } from "@/services/freebus-api";
 import { boardingProblem, qrImageSource, type BookingQr, type BookingVerification } from "@/lib/boarding";
 import { queryString } from "@/lib/freebus-contract";
 import { bookingLeg } from "@/lib/journey-experience";
-import type { ApiBooking, ApiBus, ApiTrip, ApiUser } from "@/types/freebus-api";
+import type { ApiBooking, ApiBus, ApiRoute, ApiTrip, ApiUser } from "@/types/freebus-api";
 import { useLiveQuery } from "./live-queries";
 import { WalkInBoarding } from "./walk-in-boarding";
 
@@ -71,6 +71,7 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
   const buses = useLiveQuery<ApiBus[]>("buses");
   const bookings = useLiveQuery<ApiBooking[]>(`bookings${queryString({ bus_id: busId })}`, Boolean(busId));
   const trips = useLiveQuery<ApiTrip[]>("trips", Boolean(busId));
+  const routes = useLiveQuery<ApiRoute[]>("routes", Boolean(busId));
   const users = useLiveQuery<ApiUser[]>("users", Boolean(busId) && oversight);
   function stopDevices() {
     generation.current += 1; controls.current?.stop(); controls.current = null;
@@ -189,6 +190,8 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
   }
   const manifest = (bookings.data ?? []).filter((b) => b.bus_id === busId);
   const boardingBus = buses.data?.find((b) => b.id === busId);
+  const routeById = new Map((routes.data ?? []).map((r) => [r.id, r]));
+  const tripById = new Map((trips.data ?? []).map((t) => [t.id, t]));
   const memberName = (booking: ApiBooking) => {
     const user = users.data?.find((u) => u.id === booking.user_id);
     return user ? `${user.first_name} ${user.last_name}` : "Member";
@@ -246,11 +249,20 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
             { id: "seat", header: "Seat", meta: true, sortBy: (booking) => booking.seat_number, cell: (booking) => <span className="type-numeric font-semibold text-ink">{booking.seat_number}</span> },
             { id: "member", header: "Passenger", primary: true, sortBy: (booking) => memberName(booking), cell: (booking) => <span className="font-medium text-ink">{memberName(booking)}</span> },
             { id: "reference", header: "Reference", secondary: true, sortBy: (booking) => booking.booking_ref, cell: (booking) => <span className="type-numeric break-all text-ink-secondary">{booking.booking_ref}</span> },
-            { id: "trip", header: "Trip", meta: true, sortBy: (booking) => { const leg = bookingLeg(booking, trips.data?.find((t) => t.id === booking.trip_id)); return leg; }, cell: (booking) => {
-              const leg = bookingLeg(booking, trips.data?.find((t) => t.id === booking.trip_id));
+            { id: "trip", header: "Trip", meta: true, sortBy: (booking) => { const trip = tripById.get(booking.trip_id ?? ""); return routeById.get(trip?.route_id ?? "")?.name ?? ""; }, cell: (booking) => {
+              const trip = tripById.get(booking.trip_id ?? "");
+              const route = routeById.get(trip?.route_id ?? "");
+              const leg = bookingLeg(booking, trip);
               const isReturn = leg === "return";
-              const label = leg === "outbound" ? "Outbound" : leg === "return" ? "Return" : "—";
-              return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ isReturn ? "bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300" : leg === "outbound" ? "bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300" : "text-ink-muted" }`}>{label}</span>;
+              const dirLabel = leg === "outbound" ? "Outbound" : leg === "return" ? "Return" : null;
+              return (
+                <span className="flex flex-col gap-0.5">
+                  {route ? <span className="text-xs font-medium text-ink">{route.name}</span> : <span className="text-xs text-ink-muted">—</span>}
+                  {dirLabel ? (
+                    <span className={`inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${ isReturn ? "bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300" : "bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300" }`}>{dirLabel}</span>
+                  ) : null}
+                </span>
+              );
             }},
             { id: "kids", header: "Kids", meta: true, sortBy: (booking) => booking.num_of_kids ?? 0, cell: (booking) => {
               const count = booking.num_of_kids ?? 0;
