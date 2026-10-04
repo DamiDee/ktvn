@@ -58,6 +58,7 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
   const [qrBusy, setQrBusy] = useState(false);
   const [revoke, setRevoke] = useState<ApiBooking | null>(null);
   const [revokeError, setRevokeError] = useState("");
+  const [tripFilter, setTripFilter] = useState<string>("all");
   const video = useRef<HTMLVideoElement>(null);
   const controls = useRef<{ stop(): void } | null>(null);
   const media = useRef<MediaStream | null>(null);
@@ -188,10 +189,18 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
     } catch (e) { if (!controller.signal.aborted) setTagMessage(e instanceof Error ? e.message : "Could not write tag. Use the QR pass."); }
     finally { setTagBusy(false); }
   }
-  const manifest = (bookings.data ?? []).filter((b) => b.bus_id === busId);
+  const allManifestBookings = (bookings.data ?? []).filter((b) => b.bus_id === busId);
+  const manifest = tripFilter === "all" ? allManifestBookings : allManifestBookings.filter(b => b.trip_id === tripFilter);
   const boardingBus = buses.data?.find((b) => b.id === busId);
   const routeById = new Map((routes.data ?? []).map((r) => [r.id, r]));
   const tripById = new Map((trips.data ?? []).map((t) => [t.id, t]));
+  const manifestTrips = Array.from(new Set(allManifestBookings.map((b) => b.trip_id).filter(Boolean)))
+    .map((tripId) => {
+      const trip = tripById.get(tripId!);
+      const route = routeById.get(trip?.route_id ?? "");
+      return { id: tripId!, label: route?.name ? `${route.name} (${trip?.ride_type === "Dropoff" ? "Return" : trip?.ride_type === "Pickup" ? "Outbound" : trip?.ride_type})` : tripId! };
+    });
+
   const memberName = (booking: ApiBooking) => {
     const user = users.data?.find((u) => u.id === booking.user_id);
     return user ? `${user.first_name} ${user.last_name}` : "Member";
@@ -244,6 +253,20 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
           searchIn={(booking) => `${memberName(booking)} ${booking.booking_ref} seat ${booking.seat_number} ${booking.status}`}
           searchPlaceholder="Search name, reference or seat"
           initialSort={{ id: "seat", direction: "asc" }}
+          filters={
+            manifestTrips.length > 1 ? (
+              <Select
+                aria-label="Filter by trip"
+                value={tripFilter}
+                onChange={(e) => setTripFilter(e.target.value)}
+                options={[
+                  { value: "all", label: "All trips" },
+                  ...manifestTrips.map((t) => ({ value: t.id, label: t.label })),
+                ]}
+                className="w-full sm:w-64"
+              />
+            ) : null
+          }
           empty={<Card radius="xl"><EmptyState icon={ListChecks} size="sm" title="No bookings on this bus" description="Once members reserve a seat they appear here." /></Card>}
           columns={[
             { id: "seat", header: "Seat", meta: true, sortBy: (booking) => booking.seat_number, cell: (booking) => <span className="type-numeric font-semibold text-ink">{booking.seat_number}</span> },
