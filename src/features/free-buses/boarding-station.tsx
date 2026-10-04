@@ -15,6 +15,7 @@ import { ScanLine, ListChecks, QrCode, Nfc } from "lucide-react";
 import { freebusRequest, FreebusError } from "@/services/freebus-api";
 import { boardingProblem, qrImageSource, type BookingQr, type BookingVerification } from "@/lib/boarding";
 import { queryString } from "@/lib/freebus-contract";
+import { bookingLeg } from "@/lib/journey-experience";
 import type { ApiBooking, ApiBus, ApiTrip, ApiUser } from "@/types/freebus-api";
 import { useLiveQuery } from "./live-queries";
 import { WalkInBoarding } from "./walk-in-boarding";
@@ -69,6 +70,7 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
   const client = useQueryClient();
   const buses = useLiveQuery<ApiBus[]>("buses");
   const bookings = useLiveQuery<ApiBooking[]>(`bookings${queryString({ bus_id: busId })}`, Boolean(busId));
+  const trips = useLiveQuery<ApiTrip[]>("trips", Boolean(busId));
   const users = useLiveQuery<ApiUser[]>("users", Boolean(busId) && oversight);
   function stopDevices() {
     generation.current += 1; controls.current?.stop(); controls.current = null;
@@ -185,7 +187,7 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
     } catch (e) { if (!controller.signal.aborted) setTagMessage(e instanceof Error ? e.message : "Could not write tag. Use the QR pass."); }
     finally { setTagBusy(false); }
   }
-  const manifest = (bookings.data ?? []).filter((b) => b.bus_id === busId && b.trip_id === buses.data?.find((bus) => bus.id === busId)?.current_trip_id);
+  const manifest = (bookings.data ?? []).filter((b) => b.bus_id === busId);
   const boardingBus = buses.data?.find((b) => b.id === busId);
   const memberName = (booking: ApiBooking) => {
     const user = users.data?.find((u) => u.id === booking.user_id);
@@ -244,6 +246,16 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
             { id: "seat", header: "Seat", meta: true, sortBy: (booking) => booking.seat_number, cell: (booking) => <span className="type-numeric font-semibold text-ink">{booking.seat_number}</span> },
             { id: "member", header: "Passenger", primary: true, sortBy: (booking) => memberName(booking), cell: (booking) => <span className="font-medium text-ink">{memberName(booking)}</span> },
             { id: "reference", header: "Reference", secondary: true, sortBy: (booking) => booking.booking_ref, cell: (booking) => <span className="type-numeric break-all text-ink-secondary">{booking.booking_ref}</span> },
+            { id: "trip", header: "Trip", meta: true, sortBy: (booking) => { const leg = bookingLeg(booking, trips.data?.find((t) => t.id === booking.trip_id)); return leg; }, cell: (booking) => {
+              const leg = bookingLeg(booking, trips.data?.find((t) => t.id === booking.trip_id));
+              const isReturn = leg === "return";
+              const label = leg === "outbound" ? "Outbound" : leg === "return" ? "Return" : "—";
+              return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${ isReturn ? "bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300" : leg === "outbound" ? "bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300" : "text-ink-muted" }`}>{label}</span>;
+            }},
+            { id: "kids", header: "Kids", meta: true, sortBy: (booking) => booking.num_of_kids ?? 0, cell: (booking) => {
+              const count = booking.num_of_kids ?? 0;
+              return count > 0 ? <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">🧒 {count}</span> : <span className="text-ink-muted">—</span>;
+            }},
             { id: "status", header: "Status", meta: true, sortBy: (booking) => booking.status, cell: (booking) => <StatusChip tone={booking.status === "Boarded" ? "success" : booking.status === "Confirmed" ? "active" : "neutral"}>{booking.status}</StatusChip> },
             { id: "actions", header: "Actions", align: "end", actions: true, cell: (booking) => <div className="flex flex-wrap justify-end gap-1.5">
               {oversight ? <Button size="sm" variant="ghost" icon={QrCode} onClick={() => void showQr(booking)}>QR code</Button> : null}
