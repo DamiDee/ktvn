@@ -123,7 +123,7 @@ export function RecordsTable<T>({
                 aria-hidden
               />
               <input
-                type="search"
+                type="text"
                 value={term}
                 onChange={(event) => {
                   setTerm(event.target.value);

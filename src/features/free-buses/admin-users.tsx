@@ -41,6 +41,7 @@ export function AdminUsers() {
   const client = useQueryClient();
   const users = useLiveQuery<ApiUser[]>("users");
   const [create, setCreate] = useState(false);
+  const [managing, setManaging] = useState<ApiUser | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -268,55 +269,9 @@ export function AdminUsers() {
               // organisation locks itself out of its own oversight.
               const locked = isSelf(user) || (isOversight(user.role) && !canChangeOversight);
               return (
-                <div className="flex flex-wrap items-center justify-end gap-1.5">
-                  <select
-                    aria-label={`Role for ${user.first_name} ${user.last_name}`}
-                    value={user.role}
-                    disabled={locked}
-                    onChange={(event) => {
-                      setError("");
-                      setPending({ kind: "role", user, role: event.target.value as ApiRole });
-                    }}
-                    className="h-8 w-[7.25rem] rounded-[var(--kx-radius-sm)] border border-line bg-surface px-1.5 text-[0.75rem] text-ink disabled:opacity-50"
-                  >
-                    {ROLES.map((role) => (
-                      <option
-                        key={role.value}
-                        value={role.value}
-                        disabled={isOversight(role.value) && !canChangeOversight}
-                      >
-                        {role.short ?? role.label}
-                      </option>
-                    ))}
-                  </select>
-                  {user.role === "User" ? <PassengerStrikes user={user} /> : null}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    icon={user.is_active ? UserX : UserCheck}
-                    disabled={locked}
-                    aria-label={`${user.is_active ? "Deactivate" : "Reactivate"} ${user.first_name} ${user.last_name}`}
-                    title={user.is_active ? "Deactivate" : "Reactivate"}
-                    className="!px-2"
-                    onClick={() => {
-                      setError("");
-                      setPending({ kind: user.is_active ? "deactivate" : "activate", user });
-                    }}
-                  />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    icon={Trash2}
-                    className="!px-2 !text-danger-600"
-                    disabled={locked}
-                    aria-label={`Delete ${user.first_name} ${user.last_name}`}
-                    title="Delete"
-                    onClick={() => {
-                      setError("");
-                      setPending({ kind: "delete", user });
-                    }}
-                  />
-                </div>
+                <Button size="sm" variant="secondary" onClick={() => { setError(""); setManaging(user); }}>
+                  Manage
+                </Button>
               );
             },
           },
@@ -349,6 +304,81 @@ export function AdminUsers() {
             )
           }
         />
+      </Modal>
+
+      <Modal
+        open={Boolean(managing)}
+        onClose={() => { if (!busy && !pending) setManaging(null); }}
+        title={managing ? `Manage ${managing.first_name} ${managing.last_name}` : "Manage account"}
+      >
+        {managing ? (() => {
+          const locked = isSelf(managing) || (isOversight(managing.role) && !canChangeOversight);
+          return (
+            <div className="space-y-6">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-ink-secondary">Account Role</label>
+                <Select
+                  aria-label={`Role for ${managing.first_name}`}
+                  value={managing.role}
+                  disabled={locked}
+                  onChange={(event) => {
+                    setError("");
+                    setPending({ kind: "role", user: managing, role: event.target.value as ApiRole });
+                    setManaging(null);
+                  }}
+                  options={ROLES.map((role) => ({
+                    value: role.value,
+                    label: role.label,
+                    disabled: isOversight(role.value) && !canChangeOversight
+                  }))}
+                />
+              </div>
+              
+              <div className="space-y-3 border-t border-line pt-6">
+                <p className="text-sm font-medium text-ink-secondary">Account Actions</p>
+                {managing.role === "User" ? (
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="text-sm text-ink">Manage Strikes</p>
+                    <PassengerStrikes user={managing} />
+                  </div>
+                ) : null}
+                <div className="flex items-center justify-between gap-4">
+                  <p className="text-sm text-ink">{managing.is_active ? "Suspend access temporarily" : "Restore account access"}</p>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon={managing.is_active ? UserX : UserCheck}
+                    disabled={locked}
+                    onClick={() => {
+                      setError("");
+                      setPending({ kind: managing.is_active ? "deactivate" : "activate", user: managing });
+                      setManaging(null);
+                    }}
+                  >
+                    {managing.is_active ? "Deactivate" : "Reactivate"}
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <p className="text-sm text-ink">Delete account permanently</p>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon={Trash2}
+                    className="!text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-500/10"
+                    disabled={locked}
+                    onClick={() => {
+                      setError("");
+                      setPending({ kind: "delete", user: managing });
+                      setManaging(null);
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            </div>
+          );
+        })() : null}
       </Modal>
 
       <ConfirmDialog
