@@ -60,6 +60,7 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
   const [revoke, setRevoke] = useState<ApiBooking | null>(null);
   const [revokeError, setRevokeError] = useState("");
   const [tripFilter, setTripFilter] = useState<string>("all");
+  const [showAll, setShowAll] = useState(false);
   const video = useRef<HTMLVideoElement>(null);
   const controls = useRef<{ stop(): void } | null>(null);
   const media = useRef<MediaStream | null>(null);
@@ -190,11 +191,19 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
     } catch (e) { if (!controller.signal.aborted) setTagMessage(e instanceof Error ? e.message : "Could not write tag. Use the QR pass."); }
     finally { setTagBusy(false); }
   }
+  const tripById = new Map((trips.data ?? []).map((t) => [t.id, t]));
   const allManifestBookings = (bookings.data ?? []).filter((b) => b.bus_id === busId);
-  const manifest = tripFilter === "all" ? allManifestBookings : allManifestBookings.filter(b => b.trip_id === tripFilter);
+  // Default view: only people still waiting to board on a trip that hasn't finished.
+  const isCurrent = (b: ApiBooking) => {
+    const trip = tripById.get(b.trip_id ?? "");
+    return b.status === "Confirmed" && (!trip || (trip.status !== "Completed" && trip.status !== "Cancelled"));
+  };
+  const currentBookings = allManifestBookings.filter(isCurrent);
+  const hiddenCount = allManifestBookings.length - currentBookings.length;
+  const visibleBookings = showAll ? allManifestBookings : currentBookings;
+  const manifest = tripFilter === "all" ? visibleBookings : visibleBookings.filter(b => b.trip_id === tripFilter);
   const boardingBus = buses.data?.find((b) => b.id === busId);
   const routeById = new Map((routes.data ?? []).map((r) => [r.id, r]));
-  const tripById = new Map((trips.data ?? []).map((t) => [t.id, t]));
   /** The route and departure a bus is assigned to, so coordinators see the journey rather than the movement state. */
   const assignedTripLabel = (bus: ApiBus) => {
     const trip = bus.current_trip_id ? tripById.get(bus.current_trip_id) : (trips.data ?? []).find((t) => t.bus_id === bus.id && t.status !== "Completed" && t.status !== "Cancelled");
@@ -203,7 +212,7 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
     const when = watParts(trip.departure_time);
     return `${name} · ${when.date} ${when.time.slice(0, 5)}`;
   };
-  const manifestTrips = Array.from(new Set(allManifestBookings.map((b) => b.trip_id).filter(Boolean)))
+  const manifestTrips = Array.from(new Set(visibleBookings.map((b) => b.trip_id).filter(Boolean)))
     .map((tripId) => {
       const trip = tripById.get(tripId!);
       const route = routeById.get(trip?.route_id ?? "");
@@ -252,7 +261,7 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
 
     {boardingBus ? <div className="mb-5"><WalkInBoarding key={boardingBus.id} bus={boardingBus} disabled={running || busy || starting} /><p className="mt-2 text-xs text-ink-secondary">Already has a booking but no phone? Use Search manifest → Board. No scan is required.</p></div> : null}
 
-    <h2 className="mb-3 text-xl font-semibold text-ink">Passenger manifest{boardingBus ? <span className="type-meta ml-2 font-normal text-ink-muted">{boardingBus.license_plate}</span> : null}</h2>
+    <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 className="text-xl font-semibold text-ink">Passenger manifest{boardingBus ? <span className="type-meta ml-2 font-normal text-ink-muted">{boardingBus.license_plate}</span> : null}</h2>{busId && (hiddenCount > 0 || showAll) ? <Button size="sm" variant="ghost" aria-pressed={showAll} onClick={() => setShowAll((v) => !v)}>{showAll ? "Hide boarded & past" : `Show boarded, cancelled & past (${hiddenCount})`}</Button> : null}</div>
     {!busId ? <p className="text-ink-secondary">Select a bus to see its passengers.</p>
       : bookings.error ? <ErrorState title="Manifest unavailable" description={!oversight && bookings.error instanceof FreebusError && bookings.error.status === 403 ? "The API has not enabled booking access for Route Coordinators yet. Ask the backend team to grant the boarding permissions; this app cannot override them." : bookings.error.message} onRetry={() => void bookings.refetch()} />
       : <RecordsTable

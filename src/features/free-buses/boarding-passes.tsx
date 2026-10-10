@@ -22,7 +22,18 @@ export function BoardingPasses() {
   const trips = useLiveQuery<ApiTrip[]>("trips");
   const routes = useLiveQuery<ApiRoute[]>("routes");
   const points = useLiveQuery<ApiPoint[]>("points");
-  const tickets = extractArray<ApiBooking>(bookings.data);
+  const allTickets = extractArray<ApiBooking>(bookings.data);
+  const isPast = (b: ApiBooking) => {
+    const trip = extractArray<ApiTrip>(trips.data).find((t) => t.id === b.trip_id);
+    return b.status === "Cancelled" || b.status === "Revoked" || trip?.status === "Completed" || trip?.status === "Cancelled";
+  };
+  const departureOf = (b: ApiBooking) => {
+    const trip = extractArray<ApiTrip>(trips.data).find((t) => t.id === b.trip_id);
+    const route = extractArray<ApiRoute>(routes.data).find((r) => r.id === b.route_id);
+    return bookingDeparture(b, trip, route) ?? b.created_at;
+  };
+  const tickets = allTickets.filter((b) => !isPast(b)).sort((a, b) => departureOf(a).localeCompare(departureOf(b)));
+  const pastTickets = allTickets.filter(isPast).sort((a, b) => departureOf(b).localeCompare(departureOf(a)));
   const pointName = (id?: string | null) => extractArray<ApiPoint>(points.data).find((point) => point.id === id)?.name ?? "Stop not recorded";
   return <><PageHeader eyebrow="Free Buses" title="Boarding passes" description="Your seat, bus and travel details, ready at the door." />
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gold-500/25 bg-gold-500/5 p-4"><p className="max-w-xl text-sm leading-relaxed text-ink-secondary">Round trip? You need two passes: one going, one returning. If either is missing, refresh or contact the team before booking again.</p><Button size="sm" variant="secondary" loading={bookings.isFetching} onClick={() => void bookings.refetch()}>Refresh passes</Button></div>
@@ -33,8 +44,9 @@ export function BoardingPasses() {
         const departure = bookingDeparture(booking, trip, route);
         return <Card key={booking.id} className="!rounded-2xl !border-t-4 !border-t-gold-500"><p className="text-sm font-medium text-gold-800 dark:text-gold-300">{bookingLegLabel(booking, trip, route)}</p><p className="mt-1 text-xs text-ink-secondary">{booking.status}</p><h2 className="mt-2 text-2xl font-semibold text-ink">Seat {booking.seat_number}</h2><p className="mt-2 text-sm text-ink">{pointName(booking.pickup_point || route?.start_point)} → {pointName(booking.dropoff_point || route?.end_point)}</p><p className="mt-2 text-xs text-ink-secondary">{departure ? `${watParts(departure).date} · ${watParts(departure).time.slice(0, 5)} WAT` : "Departure details unavailable"}</p><p className="my-3 break-all text-xs text-ink-secondary">{booking.booking_ref}</p><ButtonLink href={`/passenger/free-buses/passes/${booking.id}`}>View boarding pass</ButtonLink></Card>;
       })}
-      {!tickets.length ? <Card><p className="mb-4 text-ink-secondary">You haven’t booked a seat yet.</p><ButtonLink href="/passenger/free-buses">Find a bus</ButtonLink></Card> : null}
+      {!tickets.length ? <Card><p className="mb-4 text-ink-secondary">{pastTickets.length ? "You have no upcoming passes." : "You haven’t booked a seat yet."}</p><ButtonLink href="/passenger/free-buses">Find a bus</ButtonLink></Card> : null}
     </div>}
+    {pastTickets.length ? <details className="mt-6"><summary className="cursor-pointer text-sm font-medium text-ink-secondary">Past &amp; cancelled passes ({pastTickets.length})</summary><div className="mt-3 grid gap-3 opacity-80 sm:grid-cols-2">{pastTickets.map((b) => <Card key={b.id}><p className="text-xs text-ink-secondary">{b.status} · Seat {b.seat_number}</p><p className="mt-1 text-sm text-ink">{departureOf(b) ? `${watParts(departureOf(b)).date} · ${watParts(departureOf(b)).time.slice(0, 5)} WAT` : ""}</p><p className="my-2 break-all text-xs text-ink-muted">{b.booking_ref}</p><ButtonLink size="sm" variant="ghost" href={`/passenger/free-buses/passes/${b.id}`}>View</ButtonLink></Card>)}</div></details> : null}
   </>;
 }
 
