@@ -16,6 +16,7 @@ import { freebusRequest, FreebusError } from "@/services/freebus-api";
 import { boardingProblem, qrImageSource, type BookingQr, type BookingVerification } from "@/lib/boarding";
 import { queryString } from "@/lib/freebus-contract";
 import { bookingLeg } from "@/lib/journey-experience";
+import { watParts } from "@/lib/trips";
 import type { ApiBooking, ApiBus, ApiRoute, ApiTrip, ApiUser } from "@/types/freebus-api";
 import { useLiveQuery } from "./live-queries";
 import { WalkInBoarding } from "./walk-in-boarding";
@@ -71,8 +72,8 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
   const client = useQueryClient();
   const buses = useLiveQuery<ApiBus[]>("buses");
   const bookings = useLiveQuery<ApiBooking[]>(`bookings${queryString({ bus_id: busId })}`, Boolean(busId));
-  const trips = useLiveQuery<ApiTrip[]>("trips", Boolean(busId));
-  const routes = useLiveQuery<ApiRoute[]>("routes", Boolean(busId));
+  const trips = useLiveQuery<ApiTrip[]>("trips");
+  const routes = useLiveQuery<ApiRoute[]>("routes");
   const users = useLiveQuery<ApiUser[]>("users", Boolean(busId) && oversight);
   function stopDevices() {
     generation.current += 1; controls.current?.stop(); controls.current = null;
@@ -194,6 +195,14 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
   const boardingBus = buses.data?.find((b) => b.id === busId);
   const routeById = new Map((routes.data ?? []).map((r) => [r.id, r]));
   const tripById = new Map((trips.data ?? []).map((t) => [t.id, t]));
+  /** The route and departure a bus is assigned to, so coordinators see the journey rather than the movement state. */
+  const assignedTripLabel = (bus: ApiBus) => {
+    const trip = bus.current_trip_id ? tripById.get(bus.current_trip_id) : (trips.data ?? []).find((t) => t.bus_id === bus.id && t.status !== "Completed" && t.status !== "Cancelled");
+    if (!trip) return bus.current_trip_id ? "Trip loading…" : "No trip assigned";
+    const name = routeById.get(trip.route_id)?.name ?? "Route unavailable";
+    const when = watParts(trip.departure_time);
+    return `${name} · ${when.date} ${when.time.slice(0, 5)}`;
+  };
   const manifestTrips = Array.from(new Set(allManifestBookings.map((b) => b.trip_id).filter(Boolean)))
     .map((tripId) => {
       const trip = tripById.get(tripId!);
@@ -218,7 +227,7 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
     <PageHeader eyebrow={oversight ? "Free Buses · Oversight" : "Free Buses · Route Coordinator"} title="Boarding" description={station === "scan" ? "Choose a bus, start once, then scan each passenger's pass." : "Find a passenger on this bus and board, show or issue their pass."} />
 
     <Card className="mb-5">
-      <Select label="Boarding bus" value={busId} disabled={busy || starting || running} onChange={(e) => { stop(); setBusId(e.target.value); setResult(null); }} options={[{ value: "", label: "Choose a bus" }, ...(buses.data ?? []).map((b) => ({ value: b.id, label: `${b.license_plate} · ${b.state} · ${b.current_passenger_count}/${b.capacity}` }))]} />
+      <Select label="Boarding bus" value={busId} disabled={busy || starting || running} onChange={(e) => { stop(); setBusId(e.target.value); setResult(null); }} options={[{ value: "", label: "Choose a bus" }, ...(buses.data ?? []).map((b) => ({ value: b.id, label: `${b.license_plate} · ${assignedTripLabel(b)} · ${b.current_passenger_count}/${b.capacity}` }))]} />
       {buses.error ? <p role="alert" className="mt-2 text-danger-600">{buses.error.message}</p> : null}
 
       <div role="group" aria-label="Boarding controls" className="my-4 flex flex-wrap items-center gap-2">

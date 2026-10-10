@@ -67,6 +67,7 @@ const ADMIN_NAV: NavItem[] = [
 
 const COORDINATOR_NAV: NavItem[] = [
   { href: "/admin/free-buses/buses", label: "Buses", icon: BusFront },
+  { href: "/admin/free-buses/trips", label: "Trips", icon: Ticket },
   { href: "/admin/free-buses/boarding", label: "Bookings & boarding", icon: ScanLine },
 ];
 

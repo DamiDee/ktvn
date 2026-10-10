@@ -13,7 +13,17 @@ import { freebusRequest } from "@/services/freebus-api";
 import { apiTimestamp, watInputToApiTime, watParts } from "@/lib/trips";
 import type { ApiTrip, ApiRoute, ApiBus } from "@/types/freebus-api";
 
-export function AdminTrips({ initialRoute = "", initialDate = "" }: { initialRoute?: string; initialDate?: string }) {
+import { useLiveUser } from "./live-shell";
+import { CoordinatorTrips } from "./coordinator-trips";
+import { useTripBookings } from "./use-trip-bookings";
+
+export function AdminTrips(props: { initialRoute?: string; initialDate?: string }) {
+  const user = useLiveUser();
+  return user.role === "RouteCoordinator" ? <CoordinatorTrips /> : <AdminTripsView {...props} />;
+}
+
+function AdminTripsView({ initialRoute = "", initialDate = "" }: { initialRoute?: string; initialDate?: string }) {
+  const { summary: booked } = useTripBookings();
   const trips = useLiveQuery<ApiTrip[]>("trips");
   const routes = useLiveQuery<ApiRoute[]>("routes");
   const buses = useLiveQuery<ApiBus[]>("buses");
@@ -42,6 +52,7 @@ export function AdminTrips({ initialRoute = "", initialDate = "" }: { initialRou
       { id: "departure", header: "Departure · WAT", secondary: true, sortBy: (t) => t.departure_time, cell: (t) => `${watParts(t.departure_time).date} · ${watParts(t.departure_time).time.slice(0, 5)}` },
       { id: "direction", header: "Journey", meta: true, cell: (t) => t.ride_type === "Dropoff" ? "Going home" : t.ride_type === "Pickup" ? "To service" : "Round trip" },
       { id: "bus", header: "Bus", meta: true, cell: (t) => buses.data.filter((b) => b.current_trip_id === t.id).map((b) => b.license_plate).join(", ") || buses.data.find((b) => b.id === t.bus_id)?.license_plate || "Unassigned" },
+      { id: "booked", header: "Booked", meta: true, sortBy: (t) => booked.get(t.id)?.people ?? 0, cell: (t) => { const c = booked.get(t.id); return <span className="type-numeric font-semibold text-ink" title={c ? `${c.bookings} ${c.bookings === 1 ? "booking" : "bookings"} · ${c.boarded} boarded` : undefined}>{c?.people ?? 0} <span className="text-xs font-normal text-ink-muted">{(c?.people ?? 0) === 1 ? "person" : "people"}</span></span>; } },
       { id: "status", header: "Status", meta: true, cell: (t) => <StatusChip tone={t.status === "NotStarted" ? "pending" : t.status === "InProgress" ? "info" : "neutral"}>{t.status.replace(/([a-z])([A-Z])/g, "$1 $2")}</StatusChip> },
       { id: "actions", header: "Actions", actions: true, align: "end", cell: (t) => <div className="flex flex-wrap justify-end gap-1"><Button size="sm" variant="secondary" disabled={t.status !== "NotStarted"} onClick={() => { setError(""); setEditor(t); }}>Edit</Button>{["NotStarted", "InProgress"].includes(t.status) ? <Button size="sm" variant="ghost" onClick={() => { setError(""); setAction({ trip: t, kind: t.status === "NotStarted" ? "start" : "complete" }); }}>{t.status === "NotStarted" ? "Start" : "Complete"}</Button> : null}<details className="relative"><summary className="cursor-pointer rounded-lg px-3 py-2 text-sm text-ink-secondary">More</summary><div className="flex gap-1 py-2"><Button size="sm" variant="ghost" disabled={t.status !== "NotStarted"} onClick={() => { setError(""); setAction({ trip: t, kind: "cancel" }); }}>Cancel</Button><Button size="sm" variant="ghost" className="!text-danger-600" onClick={() => { setError(""); setAction({ trip: t, kind: "delete" }); }}>Delete</Button></div></details></div> },
     ]} />
