@@ -11,6 +11,10 @@ export const metadata: Metadata = {
   description:
     "A verified transportation network built for the Koinonia community. Find trusted volunteer or professional drivers, travel with live trip visibility, and stay connected from departure to destination.",
   applicationName: "K-Rides",
+  icons: {
+    icon: [{ url: "/images/krides-icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/images/krides-icon.png", sizes: "512x512", type: "image/png" }],
+  },
 };
 
 export const viewport: Viewport = {

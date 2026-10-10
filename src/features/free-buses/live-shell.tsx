@@ -109,17 +109,16 @@ function useOverlay(open: boolean, close: () => void) {
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <div className="flex items-center gap-2.5">
-      <div
-        className={cn(
-          "flex items-center justify-center rounded-[10px] bg-gold-400",
-          compact ? "size-7" : "size-8",
-        )}
-      >
-        <BusFront
-          className={cn("text-forest-950", compact ? "size-4" : "size-4.5")}
-          aria-hidden
-        />
-      </div>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/images/krides-icon.png"
+        alt=""
+        width={512}
+        height={512}
+        className={cn("shrink-0 rounded-[22%]", compact ? "size-7" : "size-8")}
+        aria-hidden
+        draggable={false}
+      />
       <div>
         <p className="text-sm font-semibold leading-tight text-ink">K-Rides</p>
         {!compact ? (

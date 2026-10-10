@@ -160,25 +160,11 @@ export function PageLoader({
   );
 }
 
-/** Minimal transportation mark — an abstract route between two points. */
+/** The K-Rides logo mark (logo2, background removed). Sized by the caller's className. */
 export function KoinoniaMark({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 32 32" fill="none" className={className} aria-hidden>
-      <path
-        d="M7 25c6.5 0 4.5-9 11-9s4.5-9 11-9"
-        stroke="currentColor"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-      />
-      <circle cx="7" cy="25" r="3.2" fill="currentColor" />
-      <circle
-        cx="25"
-        cy="7"
-        r="3.2"
-        stroke="currentColor"
-        strokeWidth="2.2"
-        fill="none"
-      />
-    </svg>
+    // Static brand asset: next/image adds no value for a small transparent PNG.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src="/images/krides-mark.png" alt="" width={472} height={516} className={cn("shrink-0 object-contain", className)} aria-hidden draggable={false} />
   );
 }
