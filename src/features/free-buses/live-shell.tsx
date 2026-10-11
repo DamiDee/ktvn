@@ -286,7 +286,7 @@ function AdminChrome({
 
   return (
     <>
-      <aside className="hidden lg:flex lg:w-60 lg:shrink-0 lg:flex-col lg:border-r lg:border-line lg:bg-surface">
+      <aside className="hidden lg:sticky lg:top-0 lg:flex lg:h-dvh lg:w-60 lg:shrink-0 lg:flex-col lg:self-start lg:border-r lg:border-line lg:bg-surface">
         <SidebarBody
           user={user}
           items={navigation}
@@ -379,7 +379,7 @@ function MemberChrome({
 
   return (
     <>
-      <aside className="hidden lg:flex lg:w-60 lg:shrink-0 lg:flex-col lg:border-r lg:border-line lg:bg-surface">
+      <aside className="hidden lg:sticky lg:top-0 lg:flex lg:h-dvh lg:w-60 lg:shrink-0 lg:flex-col lg:self-start lg:border-r lg:border-line lg:bg-surface">
         <SidebarBody
           user={user}
           items={MEMBER_NAV}

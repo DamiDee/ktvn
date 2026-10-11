@@ -53,6 +53,7 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
   const [tagPayload, setTagPayload] = useState("");
   // Searching the manifest and running a scanner are different jobs; only one at a time.
   const [station, setStation] = useState<"scan" | "manifest">("scan");
+  const [managing, setManaging] = useState<ApiBooking | null>(null);
   const [qrBooking, setQrBooking] = useState<ApiBooking | null>(null);
   const [qrSrc, setQrSrc] = useState("");
   const [qrMessage, setQrMessage] = useState("");
@@ -203,6 +204,14 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
   const visibleBookings = showAll ? allManifestBookings : currentBookings;
   const manifest = tripFilter === "all" ? visibleBookings : visibleBookings.filter(b => b.trip_id === tripFilter);
   const boardingBus = buses.data?.find((b) => b.id === busId);
+  /**
+   * Walk-ins are recorded only as an occupancy count (no named booking), so they can't be listed.
+   * Anyone counted on the bus beyond the people holding a booking on its current trip is a walk-in.
+   */
+  const bookedPeople = allManifestBookings
+    .filter((b) => (b.status === "Confirmed" || b.status === "Boarded") && b.trip_id === boardingBus?.current_trip_id)
+    .reduce((sum, b) => sum + 1 + (b.num_of_kids ?? 0), 0);
+  const walkInPeople = boardingBus ? Math.max(0, boardingBus.current_passenger_count - bookedPeople) : 0;
   const routeById = new Map((routes.data ?? []).map((r) => [r.id, r]));
   /** The route and departure a bus is assigned to, so coordinators see the journey rather than the movement state. */
   const assignedTripLabel = (bus: ApiBus) => {
@@ -240,11 +249,9 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
       {buses.error ? <p role="alert" className="mt-2 text-danger-600">{buses.error.message}</p> : null}
 
       <div role="group" aria-label="Boarding controls" className="my-4 flex flex-wrap items-center gap-2">
-        <Button size="sm" variant={station === "scan" ? "primary" : "secondary"} disabled={busy || starting} aria-pressed={station === "scan"} icon={ScanLine} onClick={() => { stop(); setStation("scan"); }}>Scan passes</Button>
+        <Button size="sm" variant={station === "scan" && mode === "qr" ? "primary" : "secondary"} disabled={busy || starting} aria-pressed={station === "scan" && mode === "qr"} icon={ScanLine} onClick={() => { stop(); setStation("scan"); setMode("qr"); }}>Scan boarding pass</Button>
+        <Button size="sm" variant={station === "scan" && mode === "nfc" ? "primary" : "secondary"} disabled={busy || starting} aria-pressed={station === "scan" && mode === "nfc"} icon={Nfc} onClick={() => { stop(); setStation("scan"); setMode("nfc"); }}>NFC tag</Button>
         <Button size="sm" variant={station === "manifest" ? "primary" : "secondary"} disabled={busy || starting} aria-pressed={station === "manifest"} icon={ListChecks} onClick={() => { stop(); setStation("manifest"); }}>Search manifest</Button>
-        <span className="mx-1 hidden h-5 w-px bg-line sm:block" aria-hidden />
-        <Button size="sm" variant={station === "scan" && mode === "qr" ? "primary" : "ghost"} disabled={busy || starting} aria-pressed={station === "scan" && mode === "qr"} icon={QrCode} onClick={() => { stop(); setStation("scan"); setMode("qr"); }}>QR Camera</Button>
-        <Button size="sm" variant={station === "scan" && mode === "nfc" ? "primary" : "ghost"} disabled={busy || starting} aria-pressed={station === "scan" && mode === "nfc"} icon={Nfc} onClick={() => { stop(); setStation("scan"); setMode("nfc"); }}>NFC tag</Button>
       </div>
 
       {/* The scanner exists only in scan mode: searching the manifest replaces it. */}
@@ -262,6 +269,7 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
     {boardingBus ? <div className="mb-5"><WalkInBoarding key={boardingBus.id} bus={boardingBus} disabled={running || busy || starting} /><p className="mt-2 text-xs text-ink-secondary">Already has a booking but no phone? Use Search manifest → Board. No scan is required.</p></div> : null}
 
     <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 className="text-xl font-semibold text-ink">Passenger manifest{boardingBus ? <span className="type-meta ml-2 font-normal text-ink-muted">{boardingBus.license_plate}</span> : null}</h2>{busId && (hiddenCount > 0 || showAll) ? <Button size="sm" variant="ghost" aria-pressed={showAll} onClick={() => setShowAll((v) => !v)}>{showAll ? "Hide boarded & past" : `Show boarded, cancelled & past (${hiddenCount})`}</Button> : null}</div>
+    {boardingBus ? <p className="mb-3 text-sm text-ink-secondary" data-testid="walk-in-summary">{boardingBus.current_passenger_count} occupied · {bookedPeople} with bookings · <span className="font-semibold text-ink">{walkInPeople} walk-in{walkInPeople === 1 ? "" : "s"}</span>. Walk-ins are recorded as a headcount only, so they have no name or seat in the list below.</p> : null}
     {!busId ? <p className="text-ink-secondary">Select a bus to see its passengers.</p>
       : bookings.error ? <ErrorState title="Manifest unavailable" description={!oversight && bookings.error instanceof FreebusError && bookings.error.status === 403 ? "The API has not enabled booking access for Route Coordinators yet. Ask the backend team to grant the boarding permissions; this app cannot override them." : bookings.error.message} onRetry={() => void bookings.refetch()} />
       : <RecordsTable
@@ -310,14 +318,7 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
               return count > 0 ? <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">🧒 {count}</span> : <span className="text-ink-muted">—</span>;
             }},
             { id: "status", header: "Status", meta: true, sortBy: (booking) => booking.status, cell: (booking) => <StatusChip tone={booking.status === "Boarded" ? "success" : booking.status === "Confirmed" ? "active" : "neutral"}>{booking.status}</StatusChip> },
-            { id: "actions", header: "Actions", align: "end", actions: true, cell: (booking) => <div className="flex flex-wrap justify-end gap-1.5">
-              {oversight ? <Button size="sm" variant="ghost" icon={QrCode} onClick={() => void showQr(booking)}>QR code</Button> : null}
-              {booking.status === "Confirmed" ? <>
-                {oversight ? <Button size="sm" variant="ghost" icon={Nfc} disabled={running || busy || starting} onClick={() => void prepareTag(booking)}>NFC tag</Button> : null}
-                <Button size="sm" variant="secondary" disabled={running || busy || starting} onClick={() => void boardNow(booking)}>Board</Button>
-                <Button size="sm" variant="ghost" className="!text-danger-600" disabled={running || busy || starting} onClick={() => { setRevokeError(""); setRevoke(booking); }}>Revoke seat</Button>
-              </> : null}
-            </div> },
+            { id: "actions", header: "Actions", align: "end", actions: true, cell: (booking) => <Button size="sm" variant="secondary" onClick={() => setManaging(booking)}>Manage</Button> },
           ]}
         />}
 
@@ -341,6 +342,21 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
       </form>
       <p className="mt-3 text-xs text-ink-muted">Check the passenger against the manifest first. A signed QR or NFC pass is the preferred proof.</p>
     </details> : null}
+
+    <Modal open={Boolean(managing)} onClose={() => setManaging(null)} title={managing ? `Manage ${memberName(managing)}` : "Manage passenger"} description={managing ? `Seat ${managing.seat_number} · ${managing.booking_ref} · ${managing.status}` : undefined}>
+      {managing ? (() => {
+        const pick = (fn: () => void) => () => { setManaging(null); fn(); };
+        const locked = running || busy || starting;
+        return (
+          <div className="space-y-3">
+            {managing.status === "Confirmed" ? <div className="flex items-center justify-between gap-4"><p className="text-sm text-ink">Board this passenger now</p><Button size="sm" variant="secondary" disabled={locked} onClick={pick(() => void boardNow(managing))}>Board</Button></div> : null}
+            {oversight ? <div className="flex items-center justify-between gap-4"><p className="text-sm text-ink">Show signed QR pass</p><Button size="sm" variant="ghost" icon={QrCode} onClick={pick(() => void showQr(managing))}>QR code</Button></div> : null}
+            {oversight && managing.status === "Confirmed" ? <div className="flex items-center justify-between gap-4"><p className="text-sm text-ink">Write pass to NFC tag</p><Button size="sm" variant="ghost" icon={Nfc} disabled={locked} onClick={pick(() => void prepareTag(managing))}>NFC tag</Button></div> : null}
+            {managing.status === "Confirmed" ? <div className="flex items-center justify-between gap-4 border-t border-line pt-3"><p className="text-sm text-ink">Release this seat</p><Button size="sm" variant="ghost" className="!text-danger-600" disabled={locked} onClick={pick(() => { setRevokeError(""); setRevoke(managing); })}>Revoke seat</Button></div> : null}
+          </div>
+        );
+      })() : null}
+    </Modal>
 
     <Modal open={Boolean(qrBooking)} onClose={() => { tagAbort.current?.abort(); setQrBooking(null); setQrSrc(""); }} title="Boarding pass" description={qrBooking ? `Seat ${qrBooking.seat_number} · ${memberName(qrBooking)}` : undefined}>
       <div className="flex flex-col items-center gap-4">
