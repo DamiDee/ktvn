@@ -21,6 +21,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { DriverTrack } from "@/types/enums";
+import { PAID_RIDES_ENABLED } from "@/features/paid-rides/config";
 
 export interface NavItem {
   href: string;
@@ -36,6 +37,8 @@ export const PASSENGER_NAV: NavItem[] = [
   { href: "/passenger/rides", label: "Rides", icon: Route, matchPrefix: true },
   { href: "/passenger/request", label: "Request", icon: MapPinned },
   { href: "/passenger/free-buses", label: "Free Buses", icon: BusFront },
+  // Paid Rides has its own shell at /rides; shown only while its flag is on.
+  ...(PAID_RIDES_ENABLED ? [{ href: "/rides", label: "Paid Rides", shortLabel: "Paid", icon: Car, matchPrefix: true }] : []),
   { href: "/passenger/safety", label: "Safety", icon: LifeBuoy },
   { href: "/passenger/profile", label: "Profile", icon: User },
 ];

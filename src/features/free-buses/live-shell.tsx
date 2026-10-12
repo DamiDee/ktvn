@@ -21,6 +21,7 @@ import {
   X,
   ChevronRight,
   ClipboardList,
+  CarFront,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -31,6 +32,7 @@ import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { liveAuth, FreebusError } from "@/services/freebus-api";
 import { isOversight, canBoard, liveHome } from "@/lib/freebus-contract";
 import type { ApiUser } from "@/types/freebus-api";
+import { PAID_RIDES_ENABLED } from "@/features/paid-rides/config";
 import { MemberGuide } from "./member-guide";
 
 // ─── Session context ──────────────────────────────────────────────────────────
@@ -76,6 +78,8 @@ const MEMBER_NAV: NavItem[] = [
   { href: "/passenger/free-buses/passes", label: "Boarding passes", short: "Passes", icon: Ticket },
   { href: "/passenger/free-buses/requests", label: "Trip requests", short: "Requests", icon: HandHeart },
   { href: "/passenger/free-buses/trips", label: "My journeys", short: "Journeys", icon: LineChart },
+  // Paid Rides lives at /rides with its own shell; listed only while its flag is on.
+  ...(PAID_RIDES_ENABLED ? [{ href: "/rides", label: "Paid rides", short: "Rides", icon: CarFront }] : []),
   { href: "/passenger/profile", label: "Profile", short: "Profile", icon: UserRound },
 ];
 

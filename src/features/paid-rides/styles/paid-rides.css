@@ -1,0 +1,289 @@
+/* ============================================================================
+   PAID RIDES — DESIGN LANGUAGE
+   Semantic aliases over the K-Rides tokens in src/app/globals.css. Nothing
+   here introduces a new colour: every value resolves to an existing --kx-*
+   token, so light/dark and future brand changes flow through automatically.
+   The variables apply only while a `.kx-rides` surface is on the page
+   (`:has`), so portalled dialogs inherit them and the rest of the product
+   is untouched. The `ride-*` classes are prefixed and safe to leave global.
+   ========================================================================= */
+
+:root:has(.kx-rides) {
+  /* Colour roles */
+  --ride-primary: var(--kx-gold-500);
+  --ride-primary-hover: var(--kx-gold-400);
+  --ride-primary-pressed: var(--kx-gold-600);
+  --ride-on-primary: var(--kx-forest-950);
+  --ride-brand: var(--kx-forest-800);
+  --ride-brand-soft: var(--kx-forest-50);
+
+  --ride-success: var(--kx-success-500);
+  --ride-warning: var(--kx-pending-500);
+  --ride-danger: var(--kx-danger-500);
+  --ride-info: var(--kx-lilac-600);
+  --ride-sos: var(--kx-sos-500);
+  --ride-sos-pressed: var(--kx-sos-700);
+
+  --surface-primary: var(--kx-surface);
+  --surface-secondary: var(--kx-surface-nested);
+  --surface-elevated: var(--kx-surface-elevated);
+  --surface-glass: color-mix(in srgb, var(--kx-surface) 80%, transparent);
+
+  --text-primary: var(--kx-text);
+  --text-secondary: var(--kx-text-secondary);
+  --text-tertiary: var(--kx-text-muted);
+
+  --border-subtle: var(--kx-border);
+  --border-strong: var(--kx-border-strong);
+
+  /* Map overlays */
+  --ride-route: var(--kx-forest-700);
+  --ride-route-casing: #ffffff;
+  --ride-route-approach: var(--kx-gold-600);
+  --ride-marker-pickup: var(--kx-forest-700);
+  --ride-marker-destination: var(--kx-forest-900);
+  --ride-vehicle-paint: var(--kx-forest-700);
+
+  /* Elevation: 0 map · 1 map controls · 2 cards · 3 sheets · 4 dialogs · 5 SOS */
+  --ride-elev-1: 0 1px 2px rgb(16 44 40 / 0.08), 0 4px 12px -4px rgb(16 44 40 / 0.14);
+  --ride-elev-2: var(--kx-shadow-md);
+  --ride-elev-3: var(--kx-shadow-sheet);
+  --ride-elev-4: var(--kx-shadow-xl);
+  --ride-elev-5: 0 0 0 1px rgb(217 58 52 / 0.25), 0 24px 64px -12px rgb(156 38 32 / 0.45);
+
+  /* Radius scale: sm · md · lg · xl · pill */
+  --ride-radius-sm: var(--kx-radius-sm);
+  --ride-radius-md: var(--kx-radius-md);
+  --ride-radius-lg: var(--kx-radius-lg);
+  --ride-radius-xl: var(--kx-radius-xl);
+  --ride-radius-pill: var(--kx-radius-full);
+
+  /* Motion */
+  --ride-dur-instant: 120ms;
+  --ride-dur-fast: 200ms;
+  --ride-dur-normal: 280ms;
+  --ride-dur-slow: 480ms;
+  --ride-ease: var(--kx-ease-standard);
+  --ride-ease-out: var(--kx-ease-out);
+
+  /* Safe areas, with a floor so controls never hug the glass */
+  --ride-safe-top: max(env(safe-area-inset-top, 0px), 0px);
+  --ride-safe-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
+  --ride-safe-left: env(safe-area-inset-left, 0px);
+  --ride-safe-right: env(safe-area-inset-right, 0px);
+  /* Height the floating bubble nav reserves on mobile */
+  --ride-nav-height: 64px;
+}
+
+.kx-rides {
+  color: var(--text-primary);
+  background: var(--kx-map-land);
+}
+
+:root.dark:has(.kx-rides) {
+  --ride-route: var(--kx-gold-400);
+  --ride-route-casing: var(--kx-graphite-950);
+  --ride-route-approach: var(--kx-forest-300);
+  --ride-marker-pickup: var(--kx-gold-400);
+  --ride-marker-destination: var(--kx-gold-300);
+  --ride-vehicle-paint: var(--kx-neutral-300);
+  --ride-brand-soft: rgb(214 165 39 / 0.14);
+  --ride-elev-1: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 12px -4px rgb(0 0 0 / 0.5);
+}
+
+/* ─── Type scale ────────────────────────────────────────────────────────── */
+
+.ride-display {
+  font-size: clamp(2.5rem, 2rem + 2vw, 3.25rem);
+  line-height: 1;
+  font-weight: 660;
+  letter-spacing: -0.045em;
+  font-variant-numeric: tabular-nums;
+}
+.ride-heading-xl {
+  font-size: 1.75rem;
+  line-height: 1.1;
+  font-weight: 640;
+  letter-spacing: -0.035em;
+}
+.ride-heading-lg {
+  font-size: 1.375rem;
+  line-height: 1.18;
+  font-weight: 620;
+  letter-spacing: -0.028em;
+}
+.ride-heading-md {
+  font-size: 1.0625rem;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.018em;
+}
+.ride-body-lg {
+  font-size: 1.0625rem;
+  line-height: 1.5;
+  letter-spacing: -0.011em;
+}
+.ride-body {
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  letter-spacing: -0.006em;
+}
+.ride-body-sm {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+.ride-caption {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--text-tertiary);
+}
+.ride-label {
+  font-size: 0.6875rem;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.ride-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ─── Tactile press ─────────────────────────────────────────────────────── */
+
+.ride-press {
+  transition:
+    transform var(--ride-dur-instant) var(--ride-ease),
+    background-color var(--ride-dur-fast) var(--ride-ease),
+    box-shadow var(--ride-dur-fast) var(--ride-ease),
+    opacity var(--ride-dur-fast) var(--ride-ease);
+  -webkit-tap-highlight-color: transparent;
+}
+.ride-press:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* ─── Leaflet integration ───────────────────────────────────────────────── */
+
+.kx-rides .leaflet-container {
+  background: var(--kx-map-land);
+  font-family: var(--font-sans);
+  outline: none;
+}
+/* OSM's default palette is loud; soften it towards the brand neutrals. */
+.ride-tiles-default {
+  filter: saturate(0.5) contrast(0.94) brightness(1.04);
+}
+.dark .ride-tiles-default {
+  filter: invert(1) hue-rotate(180deg) saturate(0.18) brightness(0.86) contrast(0.88);
+}
+.kx-rides .leaflet-control-attribution {
+  font-size: 10px;
+  background: var(--surface-glass) !important;
+  color: var(--text-tertiary);
+  border-radius: 6px 0 0 0;
+  backdrop-filter: blur(8px);
+}
+.kx-rides .leaflet-control-attribution a {
+  color: var(--text-secondary);
+}
+.kx-rides .leaflet-div-icon.ride-marker {
+  background: none;
+  border: none;
+}
+.ride-vehicle-glyph {
+  transition: transform 0.9s linear;
+  will-change: transform;
+}
+
+/* ─── Motion primitives (all disabled by the global reduced-motion rule) ─ */
+
+@keyframes ride-pulse {
+  0% {
+    transform: scale(0.4);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+@keyframes ride-sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes ride-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+@keyframes ride-look {
+  0%,
+  35% {
+    transform: translateX(0);
+  }
+  45%,
+  65% {
+    transform: translateX(-1.6px);
+  }
+  75%,
+  100% {
+    transform: translateX(1.4px);
+  }
+}
+@keyframes ride-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.1);
+  }
+}
+@keyframes ride-dots {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+@keyframes ride-ring-progress {
+  from {
+    stroke-dashoffset: 0;
+  }
+}
+
+.ride-pulse-ring {
+  animation: ride-pulse 2.6s var(--ride-ease-out) infinite;
+  transform-origin: center;
+}
+.ride-sweep {
+  animation: ride-sweep 3.2s linear infinite;
+  transform-origin: center;
+}
+.ride-bob {
+  animation: ride-bob 2.4s ease-in-out infinite;
+}
+.ride-look {
+  animation: ride-look 3.6s ease-in-out infinite;
+}
+.ride-blink {
+  animation: ride-blink 4.2s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.ride-typing-dot {
+  animation: ride-dots 1.2s ease-in-out infinite;
+}

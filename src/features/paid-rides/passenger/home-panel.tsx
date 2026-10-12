@@ -1,0 +1,112 @@
+"use client";
+
+import { ChevronRight, Clock3, LocateFixed, Search, ShieldCheck } from "lucide-react";
+import { greetingForHour } from "@/lib/format";
+import { useLocationStore } from "../location/location-store";
+import { RideSheet } from "../components/ride-sheet";
+import { usePassengerStore } from "../state/passenger-store";
+import { usePreferencesStore } from "../state/preferences-store";
+import type { SheetHostProps } from "./panel-types";
+
+/** IDLE: the calm starting point — one obvious question, "Where to?". */
+export function HomePanel({ onCoverChange, bottomOffset }: SheetHostProps) {
+  const draft = usePassengerStore((store) => store.draft);
+  const setDraft = usePassengerStore((store) => store.setDraft);
+  const choosePlace = usePassengerStore((store) => store.choosePlace);
+  const recent = usePreferencesStore((state) => state.recentPlaces).slice(0, 3);
+  const locationStatus = useLocationStore((state) => state.status);
+  const requestLocation = useLocationStore((state) => state.request);
+
+  const openSearch = (field: "pickup" | "destination") => setDraft({ step: "search", field });
+
+  return (
+    <RideSheet
+      label="Plan a ride"
+      onCoverChange={onCoverChange}
+      bottomOffset={bottomOffset}
+      resetKey="home"
+      peek={
+        <div>
+          <p className="ride-caption mb-1">{greetingForHour()}</p>
+          <button
+            type="button"
+            onClick={() => openSearch("destination")}
+            className="ride-press flex h-14 w-full items-center gap-3 rounded-[var(--ride-radius-lg)] bg-[var(--surface-secondary)] px-4 text-left"
+          >
+            <Search className="size-5 text-[var(--text-secondary)]" aria-hidden />
+            <span className="ride-heading-md flex-1 text-[var(--text-primary)]">Where to?</span>
+            <span className="ride-caption hidden rounded-full bg-[var(--surface-primary)] px-2.5 py-1 font-semibold min-[360px]:inline">Now</span>
+          </button>
+        </div>
+      }
+    >
+      <div className="space-y-4 pb-2">
+        <button
+          type="button"
+          onClick={() => openSearch("pickup")}
+          className="ride-press flex w-full items-center gap-3 rounded-[var(--ride-radius-md)] py-1 text-left"
+        >
+          <span aria-hidden className="ml-1 size-3 shrink-0 rounded-full border-[3px] border-[var(--ride-marker-pickup)]" />
+          <span className="min-w-0 flex-1">
+            <span className="ride-caption block">Pickup</span>
+            <span className="ride-body block truncate font-medium">
+              {draft.pickup ? draft.pickup.name : locationStatus === "requesting" ? "Finding your location…" : "Set pickup location"}
+            </span>
+          </span>
+          <ChevronRight className="size-4 text-[var(--text-tertiary)]" aria-hidden />
+        </button>
+
+        {!draft.pickup && (locationStatus === "idle" || locationStatus === "denied" || locationStatus === "unavailable" || locationStatus === "timeout") ? (
+          <div className="flex items-start gap-3 rounded-[var(--ride-radius-md)] bg-[var(--ride-brand-soft)] p-3.5">
+            <LocateFixed className="mt-0.5 size-4.5 shrink-0 text-[var(--kx-forest-700)] dark:text-[var(--kx-gold-300)]" aria-hidden />
+            <div className="min-w-0 flex-1 ride-body-sm">
+              <p className="font-semibold">{locationStatus === "denied" ? "Location is turned off for K-Rides" : "Find your pickup faster"}</p>
+              <p className="text-[var(--text-secondary)]">
+                {locationStatus === "denied"
+                  ? "Allow location in your browser's site settings, or type your pickup address."
+                  : locationStatus === "idle"
+                    ? "Share your location so your driver finds you. It's only used while you book and ride."
+                    : "We couldn't get a GPS fix. Move near a window or type your pickup."}
+              </p>
+              {locationStatus !== "denied" ? (
+                <button type="button" onClick={() => void requestLocation()} className="mt-2 font-semibold text-[var(--kx-forest-700)] underline-offset-4 hover:underline dark:text-[var(--kx-gold-300)]">
+                  {locationStatus === "idle" ? "Use my location" : "Try again"}
+                </button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {recent.length ? (
+          <div>
+            <p className="ride-label mb-1.5">Recent</p>
+            <ul className="-mx-2">
+              {recent.map((place) => (
+                <li key={place.id}>
+                  <button
+                    type="button"
+                    onClick={() => choosePlace("destination", place)}
+                    className="ride-press flex w-full items-center gap-3 rounded-[var(--ride-radius-md)] px-2 py-2.5 text-left hover:bg-[var(--surface-secondary)]"
+                  >
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--surface-secondary)]">
+                      <Clock3 className="size-4 text-[var(--text-secondary)]" aria-hidden />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="ride-body block truncate font-medium">{place.name}</span>
+                      <span className="ride-caption block truncate">{place.secondary}</span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        <p className="ride-caption flex items-center gap-1.5">
+          <ShieldCheck className="size-3.5 text-[var(--ride-success)]" aria-hidden />
+          Every driver is a verified member of the community.
+        </p>
+      </div>
+    </RideSheet>
+  );
+}
