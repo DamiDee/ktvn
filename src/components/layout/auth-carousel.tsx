@@ -8,7 +8,7 @@ import { useReducedMotionSafe } from "@/hooks/use-reduced-motion-safe";
 /**
  * Abuja slideshow for the sign-in and sign-up visual panel.
  *
- * Slides crossfade with a slow drift (a gentle Ken Burns), story-style
+ * Original artwork crossfades with a brief, gentle reveal; story-style
  * progress bars show where you are and are clickable, and autoplay pauses
  * on hover, keyboard focus, a hidden tab, or reduced motion.
  */
@@ -109,7 +109,6 @@ export function AuthCarousel({
               fill
               loading={index === 0 ? "eager" : "lazy"}
               sizes="(max-width: 1023px) 100vw, 50vw"
-              quality={90}
               className="object-cover"
               style={{ objectPosition: slide.focus }}
             />
@@ -129,14 +128,14 @@ export function AuthCarousel({
             className="relative flex h-11 flex-1 items-center rounded-lg"
           >
             <span className="relative h-1 w-full overflow-hidden rounded-full bg-white/30" aria-hidden>
-            <span
-              key={`${index}-${playing}`}
-              className="absolute inset-y-0 left-0 rounded-full bg-white"
-              style={{
-                width: slideIndex < index ? "100%" : slideIndex === index && !playing ? "100%" : "0%",
-                animation: slideIndex === index && playing ? `auth-slide-progress ${SLIDE_MS}ms linear forwards` : undefined,
-              }}
-            />
+              <span
+                key={`${index}-${playing}`}
+                className="absolute inset-y-0 left-0 rounded-full bg-white"
+                style={{
+                  width: slideIndex < index ? "100%" : slideIndex === index && !playing ? "100%" : "0%",
+                  animation: slideIndex === index && playing ? `auth-slide-progress ${SLIDE_MS}ms linear forwards` : undefined,
+                }}
+              />
             </span>
           </button>
         ))}

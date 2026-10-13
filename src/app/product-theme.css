@@ -126,6 +126,8 @@ html:has([data-product-ui="premium"]) input[type="checkbox"] { accent-color: var
 [data-product-ui="premium"] [data-ui-heading] .type-micro { color: var(--kx-text-secondary); letter-spacing: .13em; font-size: .65rem; }
 [data-product-ui="premium"] [data-ui-heading] .type-page-title { font-weight: 500; }
 [data-product-ui="premium"] [data-ui-heading] p:not(.type-micro) { max-width: 52ch; line-height: 1.6; }
+[data-product-ui="premium"] [data-ui-heading].premium-heading-plain { padding: 0; border: 0; background: none; }
+[data-product-ui="premium"] .premium-heading-plain > .premium-fluid { display: none; }
 
 /* Product actions have a soft glass edge and an asymmetric, drop-inspired silhouette. */
 html:has([data-product-ui="premium"]) :is([data-ui-variant="primary"], [data-ui-variant="gold"]) {
@@ -156,6 +158,10 @@ html:has([data-product-ui="premium"]) a:hover [data-ui-icon="trailing"], html:ha
 .premium-departure-time { background: linear-gradient(155deg, var(--kx-surface-nested), var(--kx-surface)); border-right-style: dashed; }
 .premium-ride-search { background: linear-gradient(135deg, var(--kx-surface), var(--kx-bg-mist)); box-shadow: inset 0 1px 0 rgb(255 255 255 / .35), var(--kx-shadow-md); border-radius: 24px 12px 24px 24px; }
 .premium-ride-search-icon { border-radius: 65% 35% 60% 40%; background: var(--premium-action); color: var(--premium-action-ink); }
+.premium-transport-overview > .grid > a { border-radius: 26px 12px 26px 26px; background: linear-gradient(135deg, var(--kx-surface), var(--kx-surface-nested)); box-shadow: var(--kx-shadow-md); }
+.premium-transport-overview > .grid > a > div > span, .premium-transport-overview section > .grid > a > span { border-radius: 65% 35% 60% 40%; box-shadow: inset 0 1px 0 rgb(255 255 255 / .2); }
+.premium-transport-overview > .grid > a > p:first-of-type { font-weight: 500; letter-spacing: -.06em; }
+.premium-transport-overview .premium-overview-hero h2 { font-weight: 500; font-size: clamp(28px, 3vw, 38px); letter-spacing: -.05em; }
 @keyframes auth-slide-progress { from { width: 0%; } to { width: 100%; } }
 @keyframes premium-reveal { from { opacity: .7; transform: scale(1.025); } to { opacity: 1; transform: scale(1); } }
 @media (max-width: 1023px) {

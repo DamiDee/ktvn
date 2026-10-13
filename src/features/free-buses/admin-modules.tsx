@@ -66,7 +66,7 @@ function AdminModule({ module, assignTrip }: { module: Module; assignTrip: strin
   const confirm = (value: Action) => { setError(""); setAction(value); };
   const pointName = (id: string) => points.data.find((p) => p.id === id)?.name ?? id;
   return <>
-    <PageHeader eyebrow="Free Buses · Oversight" title={labels[module]} description={module === "overview" ? "A clear view of today's transport operations." : `Manage ${module} in one dedicated workspace.`} />
+    <PageHeader className={module === "overview" ? "premium-heading-plain" : undefined} eyebrow="Free Buses · Oversight" title={labels[module]} description={module === "overview" ? "A clear view of today's transport operations." : `Manage ${module} in one dedicated workspace.`} />
     {notice ? <p role="status" className="mb-4 rounded-xl border border-line p-4 text-ink">{notice}</p> : null}
     {error && !create && !edit && !action && !scheduleRoute ? <p role="alert" className="mb-4 text-danger-600">{error}</p> : null}
     {module === "overview" ? <TransportOverview buses={buses.data} routes={routes.data} trips={trips.data} points={points.data} /> : null}
