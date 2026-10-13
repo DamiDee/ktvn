@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { motion } from "motion/react";
+import { FluidAccent } from "@/components/ui/fluid-accent";
 
 /**
  * Frame for the module's list and detail pages (activity, safety, account):
@@ -22,7 +23,8 @@ export function RidePage({ title, subtitle, backHref, children, action }: { titl
         // Clears the floating mode switch above the title.
         style={{ paddingTop: "calc(var(--ride-safe-top) + 64px)", paddingBottom: "calc(var(--ride-safe-bottom) + 120px)" }}
       >
-        <header className="mb-6 flex items-end justify-between gap-4 pt-2">
+        <header data-ui-heading="" className="mb-6 flex flex-wrap items-end justify-between gap-4 pt-2">
+          <FluidAccent />
           <div className="min-w-0">
             {backHref ? (
               <Link href={backHref} className="ride-press -ml-2 mb-2 inline-flex h-10 items-center gap-1.5 rounded-full px-2 text-[0.875rem] font-semibold text-[var(--text-secondary)]">

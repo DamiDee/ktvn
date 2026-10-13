@@ -113,6 +113,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         data-ui-variant={variant ?? "primary"}
+        data-ui-size={size ?? "md"}
         type={type}
         disabled={disabled || loading}
         aria-busy={loading || undefined}
@@ -129,7 +130,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             {Icon ? <Icon className="size-[1.05em] shrink-0" strokeWidth={1.8} aria-hidden /> : null}
             {children}
             {IconRight ? (
-              <IconRight className="size-[1.05em] shrink-0" strokeWidth={1.8} aria-hidden />
+              <IconRight data-ui-icon="trailing" className="size-[1.05em] shrink-0" strokeWidth={1.8} aria-hidden />
             ) : null}
           </>
         )}
@@ -165,13 +166,14 @@ export function ButtonLink({
     <Link
       href={href}
       data-ui-variant={variant ?? "primary"}
+      data-ui-size={size ?? "md"}
       className={cn(buttonVariants({ variant, size, block, pill }), className)}
       {...props}
     >
       {Icon ? <Icon className="size-[1.05em] shrink-0" strokeWidth={1.8} aria-hidden /> : null}
       {children}
       {IconRight ? (
-        <IconRight className="size-[1.05em] shrink-0" strokeWidth={1.8} aria-hidden />
+        <IconRight data-ui-icon="trailing" className="size-[1.05em] shrink-0" strokeWidth={1.8} aria-hidden />
       ) : null}
     </Link>
   );

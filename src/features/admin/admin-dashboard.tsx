@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/cn";
 import { Card, CardHeader } from "@/components/ui/card";
 import { StatsCard } from "@/components/ui/stats-card";
+import { FluidAccent } from "@/components/ui/fluid-accent";
 import { DataTable, type DataColumn } from "@/components/ui/data-table";
 import { StatusBadge, StatusChip } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
@@ -116,6 +117,7 @@ export function AdminDashboard() {
   return (
     <div className="mx-auto max-w-7xl">
       <section className="premium-overview-hero mb-7">
+        <FluidAccent inverse />
         <div className="relative z-10 flex flex-wrap items-end justify-between gap-6">
           <div className="max-w-lg"><p className="mb-4 text-xs font-medium tracking-[.18em] text-white/70 uppercase">Your network, considered.</p><h1 className="text-3xl font-medium leading-tight tracking-[-.05em] sm:text-4xl">A clearer view.<br />A smoother operation.</h1><p className="mt-4 max-w-sm text-sm leading-relaxed text-white/75">Journeys, drivers and the decisions that keep your city moving.</p></div>
           <ButtonLink href="/admin/live-rides" variant="inverse" icon={Radio}>Explore live rides</ButtonLink>

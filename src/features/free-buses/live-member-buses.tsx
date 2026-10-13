@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { BusFront, Ticket, MapPin, Clock, ArrowRight, Users } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Card } from "@/components/ui/card";
+import { FluidAccent } from "@/components/ui/fluid-accent";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Modal, ConfirmDialog } from "@/components/ui/modal";
 import { EmptyState, ErrorState } from "@/components/ui/states";
@@ -325,12 +326,14 @@ export function LiveMemberBuses() {
       ) : null}
 
       {/* Pick a journey */}
-      <div className="mb-4">
-        <h1 className="type-section-title text-ink">
+      <div className="premium-journey-intro mb-6">
+        <FluidAccent />
+        <p className="mb-4 text-[.65rem] font-semibold tracking-[.16em] text-ink-secondary uppercase">Free buses · Made for community</p>
+        <h1 className="max-w-sm text-ink">
           {next ? "Book another seat" : "Where are you going?"}
         </h1>
-        <p className="type-meta mt-1.5 text-ink-secondary">
-          Every seat is free. Pick a departure and the bus is assigned for you.
+        <p className="mt-3 max-w-sm text-sm leading-relaxed text-ink-secondary">
+          Your community. Your seat. Choose a scheduled departure below.
         </p>
       </div>
 
@@ -401,12 +404,12 @@ export function LiveMemberBuses() {
                     <Card
                       key={route.id}
                       radius="xl"
-                      className="!p-0"
+                      className="premium-departure-card !p-0"
                       interactive={!reserved}
                     >
                       <div className="flex items-stretch">
                         {/* Departure time is the thing being chosen, so it leads. */}
-                        <div className="flex w-[5.5rem] shrink-0 flex-col items-center justify-center border-r border-line bg-surface-nested px-2 py-4">
+                        <div className="premium-departure-time flex w-[5.5rem] shrink-0 flex-col items-center justify-center border-r border-line px-2 py-4">
                           <Clock className="size-3.5 text-ink-muted" aria-hidden />
                           <p className="type-numeric mt-1.5 text-center text-[0.9375rem] font-semibold leading-tight text-ink">
                             {timeLabel(route.departure_time)}

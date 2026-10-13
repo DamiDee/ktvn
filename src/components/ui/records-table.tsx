@@ -110,7 +110,7 @@ export function RecordsTable<T>({
     );
 
   return (
-    <div className={cn("min-w-0 overflow-hidden rounded-[24px] border border-line bg-surface shadow-sm", className)}>
+    <div data-ui-records="" className={cn("min-w-0 overflow-hidden rounded-[24px] border border-line bg-surface shadow-sm", className)}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-gradient-to-r from-gold-500/8 to-transparent px-5 py-5 sm:px-6">
         <div className="flex items-center gap-3"><span className="h-6 w-1 rounded-full bg-gold-500" aria-hidden /><h2 className="text-base font-semibold tracking-tight text-ink">{caption}</h2><span className="rounded-full border border-gold-500/20 bg-gold-500/10 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-gold-800 dark:text-gold-300">{rows.length}</span></div>
       </div>

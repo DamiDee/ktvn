@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import Image from "next/image";
 import { Brand } from "@/components/layout/brand";
+import { FluidAccent } from "@/components/ui/fluid-accent";
 import { MessageCircle, Navigation, Phone, Power, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
@@ -43,7 +44,9 @@ export function AvailabilityPanel({ online, transitioning, onCoverChange, bottom
       bottomOffset={bottomOffset}
       resetKey={online ? "online" : "offline"}
       peek={
-        <div>
+        <div className="relative isolate">
+        <FluidAccent className="opacity-60" />
+        <div className="relative">
         <div className="mb-6 hidden items-center justify-between lg:flex"><Brand /><span className="ride-caption">Driver workspace</span></div>
         <div className="flex items-center gap-4 pt-1">
           <span className="relative flex size-12 shrink-0 items-center justify-center">
@@ -56,6 +59,7 @@ export function AvailabilityPanel({ online, transitioning, onCoverChange, bottom
               {online ? "Waiting for ride requests near you" : "Go online to start receiving ride requests"}
             </p>
           </div>
+        </div>
         </div>
         </div>
       }

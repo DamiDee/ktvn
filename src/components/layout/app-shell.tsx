@@ -14,6 +14,7 @@ import { ThemeToggle } from "./theme-toggle";
 import { SideNav, BottomNav } from "./side-nav";
 import { NotificationBell, NotificationDrawer } from "./notification-drawer";
 import { ActiveRideIndicator } from "./active-ride-indicator";
+import { FluidAccent } from "@/components/ui/fluid-accent";
 
 export interface AppShellUser {
   name: string;
@@ -223,11 +224,13 @@ export function PageHeader({
 }) {
   return (
     <div
+      data-ui-heading=""
       className={cn(
         "mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between",
         className,
       )}
     >
+      <FluidAccent />
       <div className="min-w-0">
         {eyebrow ? (
           <p className="type-micro mb-2 text-ink-muted">{eyebrow}</p>

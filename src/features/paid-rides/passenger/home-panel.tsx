@@ -4,6 +4,7 @@ import { ChevronRight, Clock3, LocateFixed, Search, ShieldCheck } from "lucide-r
 import { greetingForHour } from "@/lib/format";
 import Image from "next/image";
 import { Brand } from "@/components/layout/brand";
+import { FluidAccent } from "@/components/ui/fluid-accent";
 import { useLocationStore } from "../location/location-store";
 import { RideSheet } from "../components/ride-sheet";
 import { usePassengerStore } from "../state/passenger-store";
@@ -28,19 +29,22 @@ export function HomePanel({ onCoverChange, bottomOffset }: SheetHostProps) {
       bottomOffset={bottomOffset}
       resetKey="home"
       peek={
-        <div>
+        <div className="relative isolate">
+          <FluidAccent className="opacity-60" />
+          <div className="relative">
           <div className="mb-5 hidden items-center justify-between lg:flex"><Brand /><span className="ride-caption">Abuja</span></div>
           <p className="ride-caption mb-1">{greetingForHour()} · Let’s go somewhere</p>
           <h1 className="mb-5 hidden text-[2.5rem] leading-[1.08] font-medium tracking-[-.06em] lg:block">A good day<br />starts with a ride.</h1>
           <button
             type="button"
             onClick={() => openSearch("destination")}
-            className="ride-press flex h-16 w-full items-center gap-3 rounded-[var(--ride-radius-lg)] border border-[var(--border-strong)] bg-[var(--surface-secondary)] px-4 text-left"
+            className="premium-ride-search ride-press flex h-16 w-full items-center gap-3 border border-[var(--border-strong)] px-4 text-left"
           >
-            <Search className="size-5 text-[var(--text-secondary)]" aria-hidden />
+            <span className="premium-ride-search-icon flex size-10 shrink-0 items-center justify-center"><Search className="size-5" aria-hidden /></span>
             <span className="ride-heading-md flex-1 text-[var(--text-primary)]">Where to?</span>
             <span className="ride-caption hidden rounded-full bg-[var(--surface-primary)] px-2.5 py-1 font-semibold min-[360px]:inline">Now</span>
           </button>
+          </div>
         </div>
       }
     >
@@ -107,7 +111,7 @@ export function HomePanel({ onCoverChange, bottomOffset }: SheetHostProps) {
         ) : null}
 
         <div className="relative hidden h-44 overflow-hidden rounded-[24px] lg:block">
-          <Image src="/images/krides-journey-premium.webp" alt="A winding road through the hills around Abuja." fill sizes="380px" className="object-cover object-[50%_60%]" />
+          <Image src="/images/abuja/krides-boulevard.webp" alt="K-Rides campaign artwork: a sedan on an Abuja-inspired boulevard." fill sizes="380px" className="object-cover object-[50%_55%]" />
           <div className="absolute inset-0 bg-gradient-to-t from-[#101827]/90 to-transparent" />
           <p className="absolute right-5 bottom-5 left-5 text-xl font-medium tracking-tight text-white">Your everyday.<br />A little more extraordinary.</p>
         </div>

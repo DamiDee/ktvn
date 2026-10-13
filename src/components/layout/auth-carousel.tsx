@@ -24,41 +24,42 @@ export interface AuthSlide {
 
 export const ABUJA_SLIDES: AuthSlide[] = [
   {
-    src: "/images/abuja/zuma-rock-expressway.jpg",
-    alt: "Traffic flowing along a wide Abuja expressway towards the city towers, with Zuma Rock rising behind them.",
-    place: "Zuma Rock & the expressway",
-    line: "Wide roads, a city that keeps moving.",
-    focus: "50% 38%",
+    src: "/images/abuja/krides-boulevard.webp",
+    alt: "Original K-Rides artwork: a pearl-white sedan on an Abuja-inspired boulevard, with a granite rock and skyline beyond.",
+    place: "The city, reimagined",
+    line: "Abuja-inspired journeys.",
+    focus: "50% 55%",
   },
   {
-    src: "/images/abuja/city-gate.jpg",
-    alt: "The white Abuja City Gate arch under a clear sky, reading “You are welcome”.",
-    place: "Abuja City Gate",
-    line: "Every journey starts with a welcome.",
-    focus: "50% 42%",
+    src: "/images/abuja/krides-city-gate.webp",
+    alt: "Original K-Rides artwork: a graphite sedan approaching architecture inspired by Abuja City Gate.",
+    place: "A new arrival",
+    line: "Inspired by Abuja City Gate.",
+    focus: "50% 55%",
   },
   {
-    src: "/images/abuja/city-gate-aerial.jpg",
-    alt: "An aerial view of the City Gate interchange with green fields and the city spreading to the horizon.",
-    place: "City Gate interchange",
-    line: "From the outskirts to the centre, together.",
-    focus: "70% 62%",
+    src: "/images/abuja/krides-welcome.webp",
+    alt: "Original K-Rides artwork: a smiling Nigerian driver welcomes a passenger beside a sedan in an Abuja-inspired setting.",
+    place: "People make the journey",
+    line: "A warmer welcome, every time.",
+    focus: "50% 55%",
   },
 ];
 
-const SLIDE_MS = 6500;
+const SLIDE_MS = 8500;
 
 export function AuthCarousel({
   slides = ABUJA_SLIDES,
   index,
   onIndexChange,
+  paused = false,
 }: {
   slides?: AuthSlide[];
   index: number;
   onIndexChange: (index: number) => void;
+  paused?: boolean;
 }) {
   const { prefersReduced } = useReducedMotionSafe();
-  const [paused, setPaused] = useState(false);
   const [hidden, setHidden] = useState(false);
   const playing = !paused && !hidden && !prefersReduced && slides.length > 1;
 
@@ -83,11 +84,7 @@ export function AuthCarousel({
       className="absolute inset-0"
       role="region"
       aria-roledescription="carousel"
-      aria-label="Places in Abuja"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)}
-      onBlur={() => setPaused(false)}
+      aria-label="Original K-Rides artwork inspired by Abuja"
     >
       <AnimatePresence initial={false}>
         <motion.div
@@ -102,15 +99,15 @@ export function AuthCarousel({
         >
           <motion.div
             className="absolute inset-0"
-            initial={{ scale: prefersReduced ? 1 : 1.08 }}
+            initial={{ scale: prefersReduced ? 1 : 1.025 }}
             animate={{ scale: 1 }}
-            transition={{ duration: prefersReduced ? 0 : (SLIDE_MS + 1200) / 1000, ease: "linear" }}
+            transition={{ duration: prefersReduced ? 0 : 1.2, ease: "easeOut" }}
           >
             <Image
               src={slide.src}
               alt={slide.alt}
               fill
-              priority={index === 0}
+              loading={index === 0 ? "eager" : "lazy"}
               sizes="(max-width: 1023px) 100vw, 50vw"
               quality={90}
               className="object-cover"
@@ -121,24 +118,26 @@ export function AuthCarousel({
       </AnimatePresence>
 
       {/* Story-style progress, top of the panel. */}
-      <div className="absolute inset-x-0 top-0 z-20 flex gap-1.5 px-[clamp(20px,3vw,48px)] pt-4 lg:pt-5" role="tablist" aria-label="Choose a photo">
+      <div className="absolute inset-x-0 top-0 z-20 flex gap-1.5 px-[clamp(20px,3vw,48px)]" role="group" aria-label="Choose an artwork">
         {slides.map((item, slideIndex) => (
           <button
             key={item.src}
             type="button"
-            role="tab"
-            aria-selected={slideIndex === index}
+            aria-pressed={slideIndex === index}
             aria-label={`Show ${item.place}`}
             onClick={() => go(slideIndex)}
-            className="kx-tap relative h-1 flex-1 overflow-hidden rounded-full bg-white/25"
+            className="relative flex h-11 flex-1 items-center rounded-lg"
           >
+            <span className="relative h-1 w-full overflow-hidden rounded-full bg-white/30" aria-hidden>
             <span
+              key={`${index}-${playing}`}
               className="absolute inset-y-0 left-0 rounded-full bg-white"
               style={{
                 width: slideIndex < index ? "100%" : slideIndex === index && !playing ? "100%" : "0%",
                 animation: slideIndex === index && playing ? `auth-slide-progress ${SLIDE_MS}ms linear forwards` : undefined,
               }}
             />
+            </span>
           </button>
         ))}
       </div>
