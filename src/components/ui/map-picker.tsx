@@ -13,6 +13,7 @@ import {
 import { createPortal } from "react-dom";
 import { MapPin, Search, Loader2, X } from "lucide-react";
 import { useMounted } from "@/hooks/use-media-query";
+import { LIGHT_TILE_ATTRIBUTION, LIGHT_TILE_SUBDOMAINS, LIGHT_TILE_URL } from "@/lib/map-tiles";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -199,9 +200,9 @@ export function MapPicker({ value, onChange, onPlaceSelect, className = "" }: Ma
           attributionControl: true,
         }).setView(center, value ? 15 : DEFAULT_ZOOM);
 
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution:
-            "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors",
+        L.tileLayer(LIGHT_TILE_URL, {
+          attribution: LIGHT_TILE_ATTRIBUTION,
+          subdomains: LIGHT_TILE_SUBDOMAINS,
           maxZoom: 19,
         }).addTo(map);
 

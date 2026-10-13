@@ -31,7 +31,7 @@ import {
   TRACK_LABEL,
   TRACK_TONE,
 } from "@/constants/status-presentation";
-import { MembershipStatus } from "@/types/enums";
+import { MembershipStatus, DriverTrack } from "@/types/enums";
 import { formatDate, pluralise } from "@/lib/format";
 
 /** One member's record, as the oversight team sees it. */
@@ -66,7 +66,7 @@ export function PassengerDetail({ passengerId }: { passengerId: string }) {
   }
 
   const verified = passenger.membershipStatus === MembershipStatus.VERIFIED;
-  const recent = (rides ?? []).slice(0, 4);
+  const recent = (rides ?? []).filter((ride) => ride.track === DriverTrack.PROFESSIONAL).slice(0, 4);
 
   return (
     <div className="mx-auto max-w-5xl">

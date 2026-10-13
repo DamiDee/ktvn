@@ -30,7 +30,7 @@ import {
   TRACK_LABEL,
   TRACK_TONE,
 } from "@/constants/status-presentation";
-import { RidePassengerState } from "@/types/enums";
+import { RidePassengerState, DriverTrack } from "@/types/enums";
 import {
   formatEta,
   formatPlate,
@@ -69,7 +69,7 @@ export function LiveRideDetail({ rideId }: { rideId: string }) {
 
   if (isLoading) return <PageLoader message="Loading the journey" />;
 
-  if (isError || !ride) {
+  if (isError || !ride || ride.track !== DriverTrack.PROFESSIONAL) {
     return (
       <div className="mx-auto max-w-4xl">
         <ErrorState

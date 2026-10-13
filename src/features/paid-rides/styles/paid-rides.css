@@ -10,10 +10,10 @@
 
 :root:has(.kx-rides) {
   /* Colour roles */
-  --ride-primary: var(--kx-gold-500);
-  --ride-primary-hover: var(--kx-gold-400);
-  --ride-primary-pressed: var(--kx-gold-600);
-  --ride-on-primary: var(--kx-forest-950);
+  --ride-primary: var(--premium-action);
+  --ride-primary-hover: var(--premium-action-hover);
+  --ride-primary-pressed: var(--premium-action-hover);
+  --ride-on-primary: var(--premium-action-ink);
   --ride-brand: var(--kx-forest-800);
   --ride-brand-soft: var(--kx-forest-50);
 
@@ -37,7 +37,7 @@
   --border-strong: var(--kx-border-strong);
 
   /* Map overlays */
-  --ride-route: var(--kx-forest-700);
+  --ride-route: var(--premium-action);
   --ride-route-casing: #ffffff;
   --ride-route-approach: var(--kx-gold-600);
   --ride-marker-pickup: var(--kx-forest-700);
@@ -87,7 +87,7 @@
   --ride-marker-pickup: var(--kx-gold-400);
   --ride-marker-destination: var(--kx-gold-300);
   --ride-vehicle-paint: var(--kx-neutral-300);
-  --ride-brand-soft: rgb(214 165 39 / 0.14);
+  --ride-brand-soft: color-mix(in srgb, var(--kx-gold-500) 14%, transparent);
   --ride-elev-1: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 12px -4px rgb(0 0 0 / 0.5);
 }
 

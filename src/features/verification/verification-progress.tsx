@@ -31,7 +31,7 @@ import {
   verificationNeedsApplicantAction,
   verificationProgress,
 } from "@/lib/state-machines";
-import { DocumentStatus, VerificationStatus } from "@/types/enums";
+import { DocumentStatus, VerificationStatus, DriverTrack } from "@/types/enums";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { useReducedMotionSafe } from "@/hooks/use-reduced-motion-safe";
 
@@ -71,6 +71,7 @@ export function VerificationProgress() {
     );
   }
 
+  if (data.track !== DriverTrack.PROFESSIONAL) return <ErrorState title="Application outside this workspace" description="This workspace displays professional driver applications." />;
   const presentation = VERIFICATION_PRESENTATION[data.status];
   const approved = isVerificationComplete(data.status);
   const needsAction = verificationNeedsApplicantAction(data.status);
@@ -122,7 +123,7 @@ export function VerificationProgress() {
         <Card radius="xl">
           <CardHeader
             title="Where things stand"
-            description="Both tracks pass the same five checks."
+            description="Five checks help prepare you for professional driving."
           />
           <Timeline items={timelineItems} className="mt-6" />
         </Card>

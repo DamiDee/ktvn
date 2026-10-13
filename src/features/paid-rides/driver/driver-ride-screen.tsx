@@ -99,7 +99,7 @@ export function DriverRideScreen() {
   const showOffer = (phase === "REQUEST_INCOMING" || phase === "REQUEST_ACCEPTING" || phase === "REQUEST_UNAVAILABLE") && offer;
 
   return (
-    <div className="absolute inset-0">
+    <div id="main" role="main" tabIndex={-1} aria-label="Driver ride workspace" className="absolute inset-0">
       <RideMap
         route={phase === "TRIP_ACTIVE" || phase === "TRIP_COMPLETED" ? (ride?.route ?? null) : null}
         approachRoute={phase === "EN_ROUTE_TO_PICKUP" ? (ride?.approach?.route ?? null) : null}

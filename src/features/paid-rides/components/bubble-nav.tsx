@@ -40,7 +40,7 @@ export function BubbleNav({ items, label, className }: { items: BubbleNavItem[];
         <motion.ul
           layout
           transition={spring}
-          className="flex items-center gap-1 rounded-full border border-white/10 bg-[color-mix(in_srgb,var(--kx-forest-900)_92%,transparent)] p-1.5 shadow-[var(--ride-elev-4)] backdrop-blur-xl dark:bg-[color-mix(in_srgb,var(--kx-graphite-800)_92%,transparent)]"
+          className="flex items-center gap-0.5 rounded-[24px] border border-[var(--border-subtle)] bg-[var(--surface-glass)] p-1.5 shadow-[var(--ride-elev-4)] backdrop-blur-xl"
         >
           {items.map((item, index) => {
             const active = index === activeIndex;
@@ -51,38 +51,26 @@ export function BubbleNav({ items, label, className }: { items: BubbleNavItem[];
                   href={item.href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "ride-press relative flex h-12 items-center justify-center rounded-full outline-offset-4",
-                    active ? "px-4" : "w-12",
+                    "ride-press relative flex h-12 w-[3.35rem] items-center justify-center rounded-[18px] outline-offset-4 min-[360px]:w-[3.8rem] lg:w-[4.5rem]",
                   )}
                 >
                   {active ? (
                     <motion.span
                       layoutId="bubble-lens"
                       transition={spring}
-                      className="absolute inset-0 rounded-full bg-[var(--ride-primary)] shadow-[inset_0_1px_0_rgb(255_255_255/0.45),0_6px_18px_-6px_rgb(214_165_39/0.7)]"
+                      className="absolute inset-0 rounded-[18px] bg-[var(--ride-primary)] shadow-sm"
                       aria-hidden
                     />
                   ) : null}
                   <motion.span
                     layout="position"
                     transition={spring}
-                    className={cn("relative z-10 flex items-center gap-2", active ? "text-[var(--ride-on-primary)]" : "text-white/62 hover:text-white")}
+                    className={cn("relative z-10 flex flex-col items-center gap-1", active ? "text-[var(--ride-on-primary)]" : "text-[var(--text-secondary)]")}
                   >
                     <motion.span animate={{ y: active ? -1 : 0, scale: active ? 1.06 : 1 }} transition={spring} className="flex">
                       <Icon className="size-[1.3rem]" strokeWidth={active ? 2.1 : 1.8} aria-hidden />
                     </motion.span>
-                    {active ? (
-                      <motion.span
-                        initial={prefersReduced ? false : { opacity: 0, x: -4 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.18, delay: prefersReduced ? 0 : 0.06 }}
-                        className="whitespace-nowrap text-[0.875rem] font-semibold tracking-[-0.01em]"
-                      >
-                        {item.label}
-                      </motion.span>
-                    ) : (
-                      <span className="sr-only">{item.label}</span>
-                    )}
+                    <span className="whitespace-nowrap text-[.625rem] leading-none font-semibold tracking-[-.01em]">{item.label}</span>
                   </motion.span>
                   {item.badge ? (
                     <span className="absolute top-1.5 right-1.5 z-20 flex min-w-[1.125rem] items-center justify-center rounded-full bg-[var(--ride-sos)] px-1 text-[0.625rem] leading-[1.125rem] font-bold text-white ring-2 ring-[var(--kx-forest-900)] dark:ring-[var(--kx-graphite-800)]">

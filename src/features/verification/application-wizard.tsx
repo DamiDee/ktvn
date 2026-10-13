@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,7 +12,6 @@ import {
   Car,
   Check,
   ChevronDown,
-  HandHeart,
   IdCard,
   Mail,
   MapPin,
@@ -25,15 +25,12 @@ import { Card, NestedTile } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { StepIndicator } from "@/components/ui/progress";
-import { VerifiedBadge } from "@/components/ui/badge";
 import { SafetyNote } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
-import { PageHeader } from "@/components/layout/app-shell";
 import { DocumentUpload } from "@/components/verification/document-upload";
 import { useApplicationStore } from "@/stores/application-store";
-import { verificationService } from "@/services";
 import { APPLICATION_STEPS, REQUIRED_DOCUMENTS } from "@/mocks/verification";
-import { DocumentType, DriverTrack } from "@/types/enums";
+import { DocumentType } from "@/types/enums";
 import { transitions } from "@/lib/motion";
 import {
   identitySchema,
@@ -56,7 +53,6 @@ import {
  * asked, not a fork in the process.
  */
 export function ApplicationWizard() {
-  const router = useRouter();
   const { toast } = useToast();
 
   const stepIndex = useApplicationStore((state) => state.stepIndex);
@@ -65,10 +61,12 @@ export function ApplicationWizard() {
   const back = useApplicationStore((state) => state.back);
   const markSubmitted = useApplicationStore((state) => state.markSubmitted);
 
-  const [submitting, setSubmitting] = useState(false);
+  const [complete, setComplete] = useState(false);
+  const stepContentRef = useRef<HTMLDivElement>(null);
   const [direction, setDirection] = useState(1);
 
-  const step = APPLICATION_STEPS[stepIndex];
+  const steps = APPLICATION_STEPS.map((item) => item.id === "track" ? { ...item, label: "Driving" } : item);
+  const step = steps[stepIndex];
 
   function goNext() {
     setDirection(1);
@@ -80,32 +78,34 @@ export function ApplicationWizard() {
     back();
   }
 
-  async function submit() {
-    setSubmitting(true);
-    try {
-      await verificationService.submitApplication();
-      markSubmitted();
-      toast({
-        title: "Application submitted",
-        description: "We'll review your documents and be in touch.",
-        tone: "success",
-      });
-      router.push("/driver/verification");
-    } finally {
-      setSubmitting(false);
-    }
+  function submit() {
+    markSubmitted();
+    setComplete(true);
+    toast({ title: "Application preview complete", description: "This preview has not created a driver account or sent your documents." });
   }
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <PageHeader
-        eyebrow="Driver application"
-        title="Drive with purpose."
-        description="The same verification standard applies whether you drive in service or professionally."
-      />
-
+    <div className="premium-driver-layout">
+      <aside className="premium-driver-story">
+        <p className="mb-4 text-xs font-semibold tracking-[.18em] text-ink-muted uppercase">K-Rides / Drive with us</p>
+        <h1 className="text-4xl font-medium leading-[1.08] tracking-[-.055em] text-ink sm:text-5xl">Your next chapter.<br /><span className="text-gold-800 dark:text-gold-300">Behind the wheel.</span></h1>
+        <p className="mt-5 max-w-sm text-sm leading-relaxed text-ink-secondary">Bring your ambition. We’ll guide you through the details, one simple step at a time.</p>
+        <div className="relative mt-7 hidden aspect-[4/3] overflow-hidden rounded-[28px] sm:block">
+          <Image src="/images/krides-driver-premium.webp" alt="A welcoming professional driver beside a graphite sedan." fill sizes="(max-width: 1023px) 90vw, 35vw" className="object-cover" />
+        </div>
+        <ol className="mt-6 hidden space-y-4 lg:block" aria-label="Your application journey">
+          {steps.map((item, index) => <li key={item.id} className="flex items-center gap-3 text-sm"><span className={cn("grid size-7 place-items-center rounded-full text-xs font-semibold", index <= stepIndex ? "bg-forest-900 text-white" : "bg-surface-nested text-ink-muted")}>{index < stepIndex ? <Check className="size-3.5" aria-hidden /> : index + 1}</span><span className={index === stepIndex ? "font-semibold text-ink" : "text-ink-secondary"}>{item.label}</span>{index < stepIndex ? <span className="sr-only">Completed</span> : null}</li>)}
+        </ol>
+      </aside>
+      <div className="min-w-0">
+      <div className="mb-6 rounded-2xl border border-line bg-surface px-4 py-3 text-xs leading-relaxed text-ink-secondary"><strong className="text-ink">Application preview.</strong> Driver registration is not connected yet. Use sample details only; documents are simulated, not submitted. This draft lasts only while the app stays open.</div>
+      <div className="mb-6" role="status">
+        <div className="mb-3 flex items-center justify-between gap-3"><span className="text-sm font-semibold text-ink">{complete ? "Preview complete" : stepIndex >= 4 ? "You’re almost there" : stepIndex > 0 ? "Looking good. Keep going." : "Let’s get you started"}</span><span className="text-xs text-ink-secondary">Step {stepIndex + 1} of {steps.length}</span></div>
+        <div className="premium-progress" role="progressbar" aria-label="Completed application steps" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={complete ? steps.length : stepIndex}><span style={{ width: `${(complete ? 1 : stepIndex / steps.length) * 100}%` }} /></div>
+      </div>
       <StepIndicator
-        steps={[...APPLICATION_STEPS]}
+        steps={steps}
+        showProgress={false}
         currentIndex={stepIndex}
         onStepClick={(index) => {
           setDirection(index > stepIndex ? 1 : -1);
@@ -114,12 +114,15 @@ export function ApplicationWizard() {
         className="mb-6"
       />
 
-      <Card radius="xl">
+      {complete ? <Card radius="xl"><span className="mb-5 grid size-14 place-items-center rounded-full bg-gold-100 text-gold-800"><Check className="size-7" aria-hidden /></span><h2 className="type-section-title text-ink">You’ve explored the full application.</h2><p className="mt-3 text-sm leading-relaxed text-ink-secondary">Your driver account has not been created. Live registration and document submission will be available once the driver service is connected.</p><Link href="/signup" className="mt-6 inline-flex min-h-11 items-center text-sm font-semibold text-gold-800 dark:text-gold-300">Back to member signup <ArrowRight className="ml-2 size-4" aria-hidden /></Link></Card> : <Card radius="xl">
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
+            ref={stepContentRef}
+            tabIndex={-1}
+            onAnimationComplete={() => { if (stepIndex > 0) stepContentRef.current?.focus(); }}
             key={step.id}
             custom={direction}
-            initial={{ opacity: 0, x: direction * 24 }}
+            initial={stepIndex === 0 ? false : { opacity: 0, x: direction * 24 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: direction * -24 }}
             transition={transitions.card}
@@ -141,7 +144,7 @@ export function ApplicationWizard() {
               <ReviewStep
                 onBack={goBack}
                 onSubmit={submit}
-                submitting={submitting}
+                submitting={false}
                 onEditStep={(index) => {
                   setDirection(-1);
                   setStepIndex(index);
@@ -150,7 +153,8 @@ export function ApplicationWizard() {
             ) : null}
           </motion.div>
         </AnimatePresence>
-      </Card>
+      </Card>}
+      </div>
     </div>
   );
 }
@@ -688,7 +692,7 @@ function DocumentsStep({
     <div>
       <StepHeading
         title="Vehicle documents"
-        description="The same three documents are required on both tracks."
+        description="Add the vehicle documents needed for a professional driver application."
       />
 
       <div className="space-y-4">
@@ -739,108 +743,17 @@ function DocumentsStep({
 
 /* --- 05 Track ------------------------------------------------------------- */
 
-function TrackStep({
-  onNext,
-  onBack,
-}: {
-  onNext: () => void;
-  onBack: () => void;
-}) {
-  const tracks = useApplicationStore((state) => state.tracks);
-  const toggleTrack = useApplicationStore((state) => state.toggleTrack);
-
-  const options = [
-    {
-      value: DriverTrack.VOLUNTEER,
-      label: "Volunteer",
-      icon: HandHeart,
-      description: "Serve through your journey.",
-      detail: "Offer seats you already have. No fare is charged or collected.",
-    },
-    {
-      value: DriverTrack.PROFESSIONAL,
-      label: "Professional",
-      icon: Wallet,
-      description: "Earn through verified transportation.",
-      detail: "Paid journeys with upfront fares, receipts and earnings records.",
-    },
-  ] as const;
-
-  return (
-    <div>
-      <StepHeading
-        title="Choose your driving tracks"
-        description="Select one or both. Each time you go online, you'll choose which approved track to use."
-      />
-
-      <div className="grid gap-3 sm:grid-cols-2" aria-label="Driver tracks">
-        {options.map((option) => {
-          const selected = tracks.includes(option.value);
-          const Icon = option.icon;
-          return (
-            <button
-              key={option.value}
-              type="button"
-              aria-pressed={selected}
-              onClick={() => toggleTrack(option.value)}
-              className={cn(
-                "relative rounded-[var(--kx-radius-lg)] border p-5 text-left transition-all duration-[200ms]",
-                selected
-                  ? "border-forest-500 bg-forest-50 shadow-sm dark:border-gold-500/70 dark:bg-gold-500/10"
-                  : "border-line bg-surface hover:border-line-strong hover:bg-surface-nested",
-              )}
-            >
-              <span className="flex items-start justify-between gap-4">
-                <span className="grid size-10 place-items-center rounded-full bg-forest-100 text-forest-700 dark:bg-gold-500/15 dark:text-gold-300">
-                  <Icon className="size-5" strokeWidth={1.8} aria-hidden />
-                </span>
-                <span
-                  className={cn(
-                    "grid size-6 place-items-center rounded-full border",
-                    selected
-                      ? "border-forest-600 bg-forest-600 text-white dark:border-gold-400 dark:bg-gold-400 dark:text-forest-950"
-                      : "border-line-strong text-transparent",
-                  )}
-                >
-                  <Check className="size-3.5" strokeWidth={3} aria-hidden />
-                </span>
-              </span>
-              <span className="type-card-title mt-4 block text-ink">{option.label}</span>
-              <span className="type-meta mt-1 block font-medium text-ink-secondary">
-                {option.description}
-              </span>
-              <span className="type-meta mt-2 block text-ink-muted">{option.detail}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="mt-5 flex items-center justify-center gap-2">
-        <VerifiedBadge label="Same verification standard" tone="forest" size="md" />
-      </div>
-
-      {tracks.length === 0 ? (
-        <p className="type-meta mt-4 text-center text-ink-muted">
-          Choose at least one track to continue.
-        </p>
-      ) : null}
-
-      <div className="mt-7 flex flex-col-reverse gap-2.5 border-t border-line pt-6 sm:flex-row sm:justify-end">
-        <Button variant="ghost" size="lg" icon={ArrowLeft} onClick={onBack}>
-          Back
-        </Button>
-        <Button
-          variant="primary"
-          size="lg"
-          iconRight={ArrowRight}
-          disabled={tracks.length === 0}
-          onClick={onNext}
-        >
-          Continue
-        </Button>
-      </div>
+function TrackStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
+  return <div>
+    <StepHeading title="Built for professional driving." description="A clear view of your requests, journeys and earnings, all in one place." />
+    <div className="rounded-2xl border border-line bg-surface-nested p-6">
+      <span className="mb-4 grid size-12 place-items-center rounded-2xl bg-forest-900 text-white"><Car className="size-6" aria-hidden /></span>
+      <h3 className="text-lg font-semibold tracking-tight text-ink">Paid rides</h3>
+      <p className="mt-2 text-sm leading-relaxed text-ink-secondary">Complete verification, go online when you’re ready, and manage your journeys from your driver dashboard.</p>
+      <p className="mt-5 flex items-center gap-2 text-sm font-medium text-gold-800 dark:text-gold-300"><Check className="size-4" aria-hidden />Professional driver application selected</p>
     </div>
-  );
+    <StepActions onBack={onBack} type="button" onNext={onNext} nextLabel="Review my details" />
+  </div>;
 }
 
 /* --- 06 Review ------------------------------------------------------------ */
@@ -856,7 +769,7 @@ function ReviewStep({
   submitting: boolean;
   onEditStep: (index: number) => void;
 }) {
-  const { identity, licence, vehicle, tracks, documents } = useApplicationStore();
+  const { identity, licence, vehicle, documents } = useApplicationStore();
 
   const uploaded = Object.keys(documents).length;
 
@@ -864,7 +777,7 @@ function ReviewStep({
     <div>
       <StepHeading
         title="Review your application"
-        description="Check everything reads correctly, then send it to the verification team."
+        description="One last look. Your details have stayed with you as you moved through these steps."
       />
 
       <div className="space-y-3">
@@ -933,35 +846,11 @@ function ReviewStep({
           ]}
         />
 
-        <ReviewSection
-          title="Driving tracks"
-          icon={tracks.includes(DriverTrack.PROFESSIONAL) ? Wallet : HandHeart}
-          onEdit={() => onEditStep(4)}
-          rows={[
-            [
-              "Approved tracks requested",
-              tracks.length
-                ? tracks
-                    .map((track) =>
-                      track === DriverTrack.PROFESSIONAL ? "Professional" : "Volunteer",
-                    )
-                    .join(" and ")
-                : undefined,
-            ],
-            [
-              "How it works",
-              tracks.length
-                ? "Choose an active track each time you go online."
-                : undefined,
-            ],
-          ]}
-        />
+        <ReviewSection title="Professional driving" icon={Wallet} onEdit={() => onEditStep(4)} rows={[["Service", "Paid rides"], ["Next step", "Document review and vehicle inspection when registration opens"]]} />
       </div>
 
       <SafetyNote className="mt-5">
-        Submitting sends your documents to the verification team. Approval also
-        requires a physical inspection of your vehicle, which we&rsquo;ll arrange
-        with you.
+        This is a preview only. No documents will be sent and no driver account will be created. Live onboarding will require document review and a physical vehicle inspection.
       </SafetyNote>
 
       <div className="mt-7 flex flex-col-reverse gap-2.5 border-t border-line pt-6 sm:flex-row sm:justify-end">
@@ -982,7 +871,7 @@ function ReviewStep({
           loadingLabel="Submitting"
           onClick={onSubmit}
         >
-          Submit for Verification
+          Complete application preview
         </Button>
       </div>
     </div>

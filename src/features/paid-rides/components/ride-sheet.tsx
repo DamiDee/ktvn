@@ -114,12 +114,12 @@ export function RideSheet({
         ref={sheetRef}
         aria-label={label}
         className={cn(
-          "pointer-events-auto absolute top-4 bottom-4 left-4 z-30 flex w-[25rem] max-w-[calc(100%-2rem)] flex-col overflow-hidden rounded-[var(--ride-radius-xl)] border border-[var(--border-subtle)] bg-[var(--surface-primary)] shadow-[var(--ride-elev-4)]",
+          "pointer-events-auto absolute top-6 bottom-6 left-6 z-30 flex w-[26rem] max-w-[calc(100%-3rem)] flex-col overflow-hidden rounded-[var(--ride-radius-xl)] border border-[var(--border-subtle)] bg-[var(--surface-primary)] shadow-[var(--ride-elev-4)]",
           tone === "emergency" && "ring-2 ring-[var(--ride-sos)]",
           className,
         )}
       >
-        <div ref={peekRef} className="shrink-0 px-6 pt-6">
+        <div ref={peekRef} className="shrink-0 px-6 pt-6 pb-4">
           {peek}
         </div>
         <div className="kx-scroll-thin min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-6 pb-6">{children}</div>

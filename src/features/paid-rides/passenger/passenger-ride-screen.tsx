@@ -163,7 +163,7 @@ export function PassengerRideScreen() {
 
   return (
     <PictureInPictureHost frame={trackerFrame}>
-      <div className="absolute inset-0">
+      <div id="main" role="main" tabIndex={-1} aria-label="Book and follow your ride" className="absolute inset-0">
         <RideMap
           route={route ?? null}
           approachRoute={approachRoute ?? null}
@@ -292,7 +292,7 @@ function RestoringSheet(props: { onCoverChange: (cover: { bottom: number; left: 
       resetKey="restoring"
       {...props}
       peek={
-        <div aria-busy aria-label="Restoring your trip" className="space-y-2 py-1">
+        <div role="status" aria-busy aria-label="Restoring your trip" className="space-y-2 py-1">
           <div className="kx-skeleton h-5 w-40" />
           <div className="kx-skeleton h-3.5 w-56" />
         </div>

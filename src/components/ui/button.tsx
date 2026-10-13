@@ -112,6 +112,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         ref={ref}
+        data-ui-variant={variant ?? "primary"}
         type={type}
         disabled={disabled || loading}
         aria-busy={loading || undefined}
@@ -163,6 +164,7 @@ export function ButtonLink({
   return (
     <Link
       href={href}
+      data-ui-variant={variant ?? "primary"}
       className={cn(buttonVariants({ variant, size, block, pill }), className)}
       {...props}
     >

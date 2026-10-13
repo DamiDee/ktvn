@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
+import Image from "next/image";
+import { Brand } from "@/components/layout/brand";
 import { MessageCircle, Navigation, Phone, Power, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
@@ -41,6 +43,8 @@ export function AvailabilityPanel({ online, transitioning, onCoverChange, bottom
       bottomOffset={bottomOffset}
       resetKey={online ? "online" : "offline"}
       peek={
+        <div>
+        <div className="mb-6 hidden items-center justify-between lg:flex"><Brand /><span className="ride-caption">Driver workspace</span></div>
         <div className="flex items-center gap-4 pt-1">
           <span className="relative flex size-12 shrink-0 items-center justify-center">
             {online ? <span className="ride-pulse-ring absolute inset-0 rounded-full bg-[var(--ride-success)] opacity-30" /> : null}
@@ -52,6 +56,7 @@ export function AvailabilityPanel({ online, transitioning, onCoverChange, bottom
               {online ? "Waiting for ride requests near you" : "Go online to start receiving ride requests"}
             </p>
           </div>
+        </div>
         </div>
       }
       footer={
@@ -73,6 +78,7 @@ export function AvailabilityPanel({ online, transitioning, onCoverChange, bottom
         </div>
       }
     >
+      {!online ? <div className="mb-5 hidden lg:block"><div className="relative mt-5 aspect-[4/3] overflow-hidden rounded-3xl"><Image src="/images/krides-driver-premium.webp" alt="A professional driver ready to welcome his next passenger." fill sizes="380px" className="object-cover" /></div><h1 className="mt-5 text-3xl leading-tight font-medium tracking-[-.05em]">Your time.<br />Your next opportunity.</h1><p className="ride-body-sm mt-3 text-[var(--text-secondary)]">Go online when you’re ready. Your next request will appear here.</p></div> : null}
       <p className="ride-caption pb-2">
         {online
           ? "Your location is shared with K-Rides while you're online, so nearby riders can be matched to you."

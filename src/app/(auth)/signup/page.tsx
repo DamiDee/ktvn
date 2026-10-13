@@ -1,19 +1,18 @@
 import type { Metadata } from "next";
 import { AuthShell } from "@/components/layout/auth-shell";
 import { SignUpForm } from "@/features/auth/signup-form";
-import { LIVE_FREE_BUSES } from "@/lib/freebus-config";
 
 export const metadata: Metadata = {
   title: "Create account",
   description:
-    "Join K-Rides and book free buses to service.",
+    "Create your K-Rides account. Your next journey starts here.",
 };
 
 export default function SignUpPage() {
   return (
     <AuthShell
-      eyebrow={LIVE_FREE_BUSES ? "Travel together" : "Verified community"}
-      trustStatement={LIVE_FREE_BUSES ? "Your community. Your service. A free seat for the journey." : "Membership is confirmed against the community register before your first journey."}
+      eyebrow="Make room for new journeys"
+      trustStatement="Life moves. Move with it."
     >
       <SignUpForm />
     </AuthShell>

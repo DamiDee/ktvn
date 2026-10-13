@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -34,6 +34,11 @@ import { isOversight, canBoard, liveHome } from "@/lib/freebus-contract";
 import type { ApiUser } from "@/types/freebus-api";
 import { PAID_RIDES_ENABLED } from "@/features/paid-rides/config";
 import { MemberGuide } from "./member-guide";
+import { Brand as ProductBrand } from "@/components/layout/brand";
+import { AdminWorkspaceSwitch } from "@/components/layout/admin-workspace-switch";
+import { ADMIN_NAV as LEGACY_ADMIN_NAV } from "@/constants/navigation";
+
+const PAID_ADMIN_NAV = LEGACY_ADMIN_NAV.filter((item) => item.href !== "/admin/free-buses");
 
 // ─── Session context ──────────────────────────────────────────────────────────
 
@@ -92,11 +97,22 @@ function roleLabel(user: ApiUser) {
 }
 
 /** Closes a transient overlay on Escape and stops the page behind it scrolling. */
-function useOverlay(open: boolean, close: () => void) {
+function useOverlay(open: boolean, close: () => void, ref: RefObject<HTMLElement | null>) {
   useEffect(() => {
     if (!open) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const controls = () => Array.from(ref.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), [tabindex="0"]') ?? []).filter((element) => element.getClientRects().length > 0);
+    (controls()[0] ?? ref.current)?.focus();
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close();
+      if (event.key === "Escape") { event.preventDefault(); close(); }
+      if (event.key === "Tab") {
+        const items = controls();
+        const first = items[0];
+        const last = items.at(-1);
+        if (!first) { event.preventDefault(); return; }
+        if (event.shiftKey && (document.activeElement === first || !ref.current?.contains(document.activeElement))) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && (document.activeElement === last || !ref.current?.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
+      }
     };
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -104,33 +120,15 @@ function useOverlay(open: boolean, close: () => void) {
     return () => {
       document.body.style.overflow = previous;
       document.removeEventListener("keydown", onKey);
+      if (previousFocus?.isConnected) previousFocus.focus();
     };
-  }, [open, close]);
+  }, [open, close, ref]);
 }
 
 // ─── Shared pieces ────────────────────────────────────────────────────────────
 
 function Brand({ compact = false }: { compact?: boolean }) {
-  return (
-    <div className="flex items-center gap-2.5">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/images/krides-icon.png"
-        alt=""
-        width={512}
-        height={512}
-        className={cn("shrink-0 rounded-[22%]", compact ? "size-7" : "size-8")}
-        aria-hidden
-        draggable={false}
-      />
-      <div>
-        <p className="text-sm font-semibold leading-tight text-ink">K-Rides</p>
-        {!compact ? (
-          <p className="text-[0.7rem] font-medium text-ink-muted">Free Buses</p>
-        ) : null}
-      </div>
-    </div>
-  );
+  return <ProductBrand compact={compact} />;
 }
 
 function NavLink({
@@ -246,6 +244,7 @@ function SidebarBody({
       ) : null}
 
       <div className="mx-3 mb-4">
+        {isOversight(user.role) && pathname.startsWith("/admin") ? <div className="mb-5"><AdminWorkspaceSwitch onNavigate={onNavigate} /></div> : null}
         <UserChip user={user} />
       </div>
 
@@ -254,7 +253,7 @@ function SidebarBody({
           <NavLink
             key={item.href}
             item={item}
-            active={pathname === item.href}
+            active={pathname === item.href || (item.href !== "/admin" && item.href !== "/admin/free-buses" && pathname.startsWith(`${item.href}/`))}
             onNavigate={onNavigate}
           />
         ))}
@@ -282,10 +281,11 @@ function AdminChrome({
   signingOut: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const close = () => setOpen(false);
-  useOverlay(open, close);
+  const close = useCallback(() => setOpen(false), []);
+  const dialogRef = useRef<HTMLElement>(null);
+  useOverlay(open, close, dialogRef);
 
-  const navigation = user.role === "RouteCoordinator" ? COORDINATOR_NAV : ADMIN_NAV;
+  const navigation = user.role === "RouteCoordinator" ? COORDINATOR_NAV : pathname.startsWith("/admin/free-buses") ? ADMIN_NAV : PAID_ADMIN_NAV;
   const active = navigation.find((item) => item.href === pathname);
 
   return (
@@ -329,6 +329,8 @@ function AdminChrome({
             aria-hidden
           />
           <aside
+            ref={dialogRef}
+            tabIndex={-1}
             className="absolute inset-y-0 left-0 flex w-[17.5rem] flex-col bg-surface shadow-2xl"
             role="dialog"
             aria-modal
@@ -378,8 +380,9 @@ function MemberChrome({
   signingOut: boolean;
 }) {
   const [account, setAccount] = useState(false);
-  const close = () => setAccount(false);
-  useOverlay(account, close);
+  const close = useCallback(() => setAccount(false), []);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useOverlay(account, close, dialogRef);
 
   return (
     <>
@@ -420,6 +423,8 @@ function MemberChrome({
           />
           <div
             className="absolute inset-x-0 bottom-0 rounded-t-[var(--kx-radius-2xl)] bg-surface pb-[calc(1rem+env(safe-area-inset-bottom,0px))] shadow-2xl"
+            ref={dialogRef}
+            tabIndex={-1}
             role="dialog"
             aria-modal
             aria-label="Your account"
@@ -508,11 +513,11 @@ export function LiveFreeBusShell({
   if (session.error || !session.data) {
     const signedOut = session.error instanceof FreebusError && session.error.status === 401;
     return (
-      <main className="mx-auto max-w-xl px-5 py-16">
+      <main id="main" className="mx-auto max-w-xl px-5 py-16">
         {signedOut ? (
           <EmptyState
             icon={BusFront}
-            title="Sign in to Free Buses"
+            title="Sign in to K-Rides"
             description="Use your member or oversight account to continue."
             action={<ButtonLink href="/login">Sign in</ButtonLink>}
           />
@@ -531,13 +536,15 @@ export function LiveFreeBusShell({
   }
 
   const user = session.data;
-  const allowed = admin ? canBoard(user.role) : user.role === "User";
+  const paidAdmin = admin && !pathname.startsWith("/admin/free-buses");
+  const allowed = admin ? paidAdmin ? isOversight(user.role) : canBoard(user.role) : user.role === "User";
   const home = liveHome(user.role);
   const memberNav = user.role === "User" && !admin;
 
-  const items = memberNav ? MEMBER_NAV : user.role === "RouteCoordinator" ? COORDINATOR_NAV : ADMIN_NAV;
+  const items = memberNav ? MEMBER_NAV : user.role === "RouteCoordinator" ? COORDINATOR_NAV : paidAdmin ? PAID_ADMIN_NAV : ADMIN_NAV;
   const connectedPage =
     items.some((item) => pathname === item.href) ||
+    (paidAdmin && isOversight(user.role) && PAID_ADMIN_NAV.some((item) => item.matchPrefix && pathname.startsWith(`${item.href}/`))) ||
     (memberNav && /^\/passenger\/free-buses\/passes\/[^/]+$/.test(pathname));
 
   async function signOut() {
@@ -572,8 +579,8 @@ export function LiveFreeBusShell({
   ) : !connectedPage ? (
     <EmptyState
       icon={BusFront}
-      title="We're focused on Free Buses"
-      description="Other modules remain part of the demo and are not connected to this live account."
+      title="Choose a workspace to continue"
+      description="This page isn't connected to your current workspace. Your available tools are in the menu."
       action={<ButtonLink href={home}>Open Free Buses</ButtonLink>}
     />
   ) : (
@@ -590,29 +597,32 @@ export function LiveFreeBusShell({
             onSignOut={signOut}
             signingOut={busy}
           />
-        ) : (
+        ) : canBoard(user.role) ? (
           <AdminChrome
             user={user}
             pathname={pathname}
             onSignOut={signOut}
             signingOut={busy}
           />
-        )}
+        ) : null}
 
         <div className="flex min-w-0 flex-1 flex-col">
           <main
+            id="main"
             className={cn(
               "flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8",
               // Clear the fixed tab bar on mobile.
               memberNav ? "pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] lg:pb-8" : "",
             )}
           >
+            {admin && isOversight(user.role) ? <div className="mx-auto mb-6 flex max-w-7xl flex-wrap items-center justify-between gap-3"><p className="text-xs font-medium tracking-[.14em] text-ink-muted uppercase">Operations / {paidAdmin ? "Paid rides" : "Free buses"}</p><div className="w-full sm:w-64"><AdminWorkspaceSwitch /></div></div> : null}
+            {paidAdmin && allowed ? <p role="status" className="mx-auto mb-6 max-w-7xl rounded-xl border border-line bg-surface px-4 py-3 text-xs leading-relaxed text-ink-secondary"><strong className="font-semibold text-ink">Paid-rides admin preview.</strong> These records and actions use demo data. Free Buses remains connected to the live service.</p> : null}
             {logoutError ? (
               <p role="alert" className="mb-4 text-danger-600">
                 {logoutError}
               </p>
             ) : null}
-            {memberNav && allowed && connectedPage ? <MemberGuide key={user.id} userId={user.id} pathname={pathname}>{body}</MemberGuide> : body}
+            <div className="mx-auto w-full max-w-7xl">{memberNav && allowed && connectedPage ? <MemberGuide key={user.id} userId={user.id} pathname={pathname}>{body}</MemberGuide> : body}</div>
           </main>
         </div>
 

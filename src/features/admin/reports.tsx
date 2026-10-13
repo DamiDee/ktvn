@@ -17,7 +17,6 @@ import { Button } from "@/components/ui/button";
 import { StatsCard } from "@/components/ui/stats-card";
 import { StatsCardSkeleton } from "@/components/ui/skeleton";
 import { FilterBar } from "@/components/ui/filter-bar";
-import { StatusChip } from "@/components/ui/badge";
 import { ErrorState } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { PageHeader } from "@/components/layout/app-shell";
@@ -76,7 +75,7 @@ export function Reports() {
       <PageHeader
         eyebrow="Control centre"
         title="Reports"
-        description="How the network is doing — adoption, verification, journeys, safety, ratings, service and retention."
+        description="How the network is doing — adoption, verification, journeys, safety, ratings and retention."
         action={
           <Button
             variant="secondary"
@@ -119,7 +118,7 @@ export function Reports() {
         />
       ) : (
         <div className="space-y-5">
-          {data.map((section) => {
+          {data.filter((section) => section.id !== "savings").map((section) => {
             const money = section.id === "savings";
             const Icon = SECTION_ICON[section.id];
 
@@ -139,7 +138,7 @@ export function Reports() {
                     </span>
                   }
                   title={section.title}
-                  description={section.description}
+                  description={section.id === "ratings" ? "Two-way ratings from the network." : section.description}
                 />
 
                 <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -179,16 +178,7 @@ export function Reports() {
                   </div>
                 ) : null}
 
-                {money ? (
-                  <div className="mt-5 flex flex-wrap items-center gap-2">
-                    <StatusChip tone="success">Volunteer track</StatusChip>
-                    <p className="type-meta min-w-0 flex-1 text-ink-muted">
-                      An estimate of what these journeys would have cost on the
-                      professional track. No volunteer driver is paid, and no
-                      fare is ever shown on a volunteer ride.
-                    </p>
-                  </div>
-                ) : null}
+
               </Card>
             );
           })}

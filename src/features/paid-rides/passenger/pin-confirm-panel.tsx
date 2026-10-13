@@ -67,7 +67,7 @@ export function PinConfirmPanel({ point, moving, onCoverChange, bottomOffset }: 
     >
       <div className="pb-1" aria-live="polite">
         {resolving ? (
-          <div className="space-y-2 py-1" aria-label="Finding address">
+          <div role="status" className="space-y-2 py-1" aria-label="Finding address">
             <div className="kx-skeleton h-4 w-2/3" />
             <div className="kx-skeleton h-3 w-1/2" />
           </div>

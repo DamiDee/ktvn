@@ -344,18 +344,14 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
     </details> : null}
 
     <Modal open={Boolean(managing)} onClose={() => setManaging(null)} title={managing ? `Manage ${memberName(managing)}` : "Manage passenger"} description={managing ? `Seat ${managing.seat_number} · ${managing.booking_ref} · ${managing.status}` : undefined}>
-      {managing ? (() => {
-        const pick = (fn: () => void) => () => { setManaging(null); fn(); };
-        const locked = running || busy || starting;
-        return (
+      {managing ? (
           <div className="space-y-3">
-            {managing.status === "Confirmed" ? <div className="flex items-center justify-between gap-4"><p className="text-sm text-ink">Board this passenger now</p><Button size="sm" variant="secondary" disabled={locked} onClick={pick(() => void boardNow(managing))}>Board</Button></div> : null}
-            {oversight ? <div className="flex items-center justify-between gap-4"><p className="text-sm text-ink">Show signed QR pass</p><Button size="sm" variant="ghost" icon={QrCode} onClick={pick(() => void showQr(managing))}>QR code</Button></div> : null}
-            {oversight && managing.status === "Confirmed" ? <div className="flex items-center justify-between gap-4"><p className="text-sm text-ink">Write pass to NFC tag</p><Button size="sm" variant="ghost" icon={Nfc} disabled={locked} onClick={pick(() => void prepareTag(managing))}>NFC tag</Button></div> : null}
-            {managing.status === "Confirmed" ? <div className="flex items-center justify-between gap-4 border-t border-line pt-3"><p className="text-sm text-ink">Release this seat</p><Button size="sm" variant="ghost" className="!text-danger-600" disabled={locked} onClick={pick(() => { setRevokeError(""); setRevoke(managing); })}>Revoke seat</Button></div> : null}
+            {managing.status === "Confirmed" ? <div className="flex items-center justify-between gap-4"><p className="text-sm text-ink">Board this passenger now</p><Button size="sm" variant="secondary" disabled={running || busy || starting} onClick={() => { setManaging(null); void boardNow(managing); }}>Board</Button></div> : null}
+            {oversight ? <div className="flex items-center justify-between gap-4"><p className="text-sm text-ink">Show signed QR pass</p><Button size="sm" variant="ghost" icon={QrCode} onClick={() => { setManaging(null); void showQr(managing); }}>QR code</Button></div> : null}
+            {oversight && managing.status === "Confirmed" ? <div className="flex items-center justify-between gap-4"><p className="text-sm text-ink">Write pass to NFC tag</p><Button size="sm" variant="ghost" icon={Nfc} disabled={running || busy || starting} onClick={() => { setManaging(null); void prepareTag(managing); }}>NFC tag</Button></div> : null}
+            {managing.status === "Confirmed" ? <div className="flex items-center justify-between gap-4 border-t border-line pt-3"><p className="text-sm text-ink">Release this seat</p><Button size="sm" variant="ghost" className="!text-danger-600" disabled={running || busy || starting} onClick={() => { setManaging(null); setRevokeError(""); setRevoke(managing); }}>Revoke seat</Button></div> : null}
           </div>
-        );
-      })() : null}
+      ) : null}
     </Modal>
 
     <Modal open={Boolean(qrBooking)} onClose={() => { tagAbort.current?.abort(); setQrBooking(null); setQrSrc(""); }} title="Boarding pass" description={qrBooking ? `Seat ${qrBooking.seat_number} · ${memberName(qrBooking)}` : undefined}>

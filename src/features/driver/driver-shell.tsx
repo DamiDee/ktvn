@@ -19,11 +19,18 @@ import { useSessionStore } from "@/stores/session-store";
 import { DriverAccountStatus } from "@/types/enums";
 import { LIVE_FREE_BUSES } from "@/lib/freebus-config";
 import { LiveFreeBusShell } from "@/features/free-buses/live-shell";
+import Link from "next/link";
+import { Brand } from "@/components/layout/brand";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { PaidRidesEntry } from "@/components/layout/paid-rides-entry";
 
 /** Routes whose map fills the viewport and supplies its own padding. */
 const BLEED_ROUTES = ["/driver/trip", "/driver/waiting"];
 
 export function DriverShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  if (pathname === "/driver/apply") return <div className="min-h-dvh bg-canvas"><header className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-5 py-5 sm:px-8"><Link href="/login" aria-label="K-Rides sign in"><Brand /></Link><div className="flex items-center gap-3"><Link href="/login" className="whitespace-nowrap text-sm font-medium text-ink">Sign in</Link><div className="hidden min-[360px]:block"><ThemeToggle /></div></div></header><main id="main" className="mx-auto max-w-7xl px-5 py-6 sm:px-8 sm:py-10">{children}</main></div>;
+  if (!pathname.startsWith("/driver/verification")) return <PaidRidesEntry href={pathname.startsWith("/driver/trips") ? "/rides/driver/trips" : pathname === "/driver/profile" ? "/rides/driver/account" : pathname === "/driver/requests" ? "/rides/driver/requests" : "/rides/driver"} />;
   return LIVE_FREE_BUSES ? <LiveFreeBusShell>{children}</LiveFreeBusShell> : <DemoDriverShell>{children}</DemoDriverShell>;
 }
 

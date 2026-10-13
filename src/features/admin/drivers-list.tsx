@@ -30,7 +30,6 @@ import type { Driver } from "@/types/models";
 
 type Filter =
   | "ALL"
-  | "VOLUNTEER"
   | "PROFESSIONAL"
   | "ONLINE"
   | "PENDING"
@@ -52,15 +51,12 @@ export function DriversList() {
     queryFn: () => userService.listDrivers(),
   });
 
-  const all = useMemo(() => data ?? [], [data]);
+  const all = useMemo(() => (data ?? []).filter((item) => item.track === DriverTrack.PROFESSIONAL), [data]);
 
   const rows = useMemo(() => {
     let list = all;
 
     switch (filter) {
-      case "VOLUNTEER":
-        list = list.filter((driver) => driver.track === DriverTrack.VOLUNTEER);
-        break;
       case "PROFESSIONAL":
         list = list.filter(
           (driver) => driver.track === DriverTrack.PROFESSIONAL,
@@ -227,8 +223,6 @@ export function DriversList() {
             options={[
               { value: "ALL", label: "All", count: all.length },
               { value: "ONLINE", label: "Online" },
-              { value: "VOLUNTEER", label: "Volunteer" },
-              { value: "PROFESSIONAL", label: "Professional" },
               { value: "PENDING", label: "Not yet approved" },
               {
                 value: "FLAGGED",

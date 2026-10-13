@@ -17,14 +17,13 @@ import { StatusBadge, StatusChip } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/states";
 import { StatsCardSkeleton, TableSkeleton } from "@/components/ui/skeleton";
-import { PageHeader } from "@/components/layout/app-shell";
+import { DriverTrack } from "@/types/enums";
+import { ButtonLink } from "@/components/ui/button";
 import { queryKeys } from "@/constants/query-keys";
 import { adminService } from "@/services";
 import {
   RIDE_STATUS_PRESENTATION,
   RIDE_TYPE_LABEL,
-  TRACK_LABEL,
-  TRACK_TONE,
 } from "@/constants/status-presentation";
 import { formatEta, shortName } from "@/lib/format";
 import type { LiveRideSummary } from "@/types/models";
@@ -55,16 +54,6 @@ const LIVE_COLUMNS: DataColumn<LiveRideSummary>[] = [
           </span>
         </span>
       </div>
-    ),
-  },
-  {
-    id: "track",
-    header: "Track",
-    meta: true,
-    cell: (ride) => (
-      <StatusChip tone={TRACK_TONE[ride.track]}>
-        {TRACK_LABEL[ride.track]}
-      </StatusChip>
     ),
   },
   {
@@ -126,11 +115,12 @@ export function AdminDashboard() {
 
   return (
     <div className="mx-auto max-w-7xl">
-      <PageHeader
-        eyebrow="Control centre"
-        title="Network overview"
-        description="Live journeys, verification throughput and anything needing attention."
-      />
+      <section className="premium-overview-hero mb-7">
+        <div className="relative z-10 flex flex-wrap items-end justify-between gap-6">
+          <div className="max-w-lg"><p className="mb-4 text-xs font-medium tracking-[.18em] text-white/70 uppercase">Your network, considered.</p><h1 className="text-3xl font-medium leading-tight tracking-[-.05em] sm:text-4xl">A clearer view.<br />A smoother operation.</h1><p className="mt-4 max-w-sm text-sm leading-relaxed text-white/75">Journeys, drivers and the decisions that keep your city moving.</p></div>
+          <ButtonLink href="/admin/live-rides" variant="inverse" icon={Radio}>Explore live rides</ButtonLink>
+        </div>
+      </section>
 
       {/* Primary metrics */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -178,7 +168,7 @@ export function AdminDashboard() {
               />
             ) : (
               <DataTable
-                rows={liveRides}
+                rows={liveRides.filter((ride) => ride.track === DriverTrack.PROFESSIONAL)}
                 columns={LIVE_COLUMNS}
                 rowKey={(ride) => ride.id}
                 rowHref={(ride) => `/admin/live-rides/${ride.id}`}
@@ -192,28 +182,9 @@ export function AdminDashboard() {
         {/* Secondary metrics + distribution */}
         <div className="min-w-0 space-y-5">
           <Card radius="xl">
-            <CardHeader title="Track distribution" description="Share of completed rides." />
-
-            <div className="mt-5 space-y-4">
-              {overview?.trackDistribution.map((entry) => (
-                <div key={entry.label}>
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="type-meta text-ink-secondary">{entry.label}</span>
-                    <span className="type-numeric text-[0.875rem] font-semibold text-ink">
-                      {entry.value}%
-                    </span>
-                  </div>
-                  <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--kx-text)_8%,transparent)]">
-                    <div
-                      className={cn(
-                        "h-full rounded-full transition-[width] duration-700 ease-[var(--kx-ease-out)]",
-                        entry.tone === "gold" ? "bg-gold-500" : "bg-lilac-600",
-                      )}
-                      style={{ width: `${entry.value}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
+            <CardHeader title="Your next actions" description="The essentials, without the noise." />
+            <div className="mt-5 grid gap-3">
+              {[{ href: "/admin/verifications", title: "Review applications", detail: "Documents & vehicle inspections", icon: ClipboardCheck }, { href: "/admin/drivers", title: "Manage your drivers", detail: "Accounts, eligibility & quality", icon: Car }].map(({ href, title, detail, icon: Icon }) => <Link key={href} href={href} className="group flex items-center gap-3 rounded-2xl border border-line p-4 transition-colors hover:bg-surface-nested"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-nested text-ink-secondary"><Icon className="size-5" aria-hidden /></span><span><span className="block text-sm font-semibold text-ink">{title}</span><span className="mt-1 block text-xs text-ink-secondary">{detail}</span></span></Link>)}
             </div>
           </Card>
 
@@ -258,8 +229,7 @@ export function AdminDashboard() {
               <div>
                 <p className="type-card-title text-white">Verification queue</p>
                 <p className="type-meta mt-1 text-white/60">
-                  Six applications are waiting on a decision. Both tracks are
-                  reviewed against the same standard.
+                  Review driver documents and schedule vehicle inspections from one focused workspace.
                 </p>
                 <Link
                   href="/admin/verifications"

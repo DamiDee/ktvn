@@ -15,7 +15,8 @@ import type { DriverPublicProfile, FareQuote, Money, SharedRideInfo, VehicleClas
 
 export function BigValue({ value, size = "lg", className, tone }: { value: SplitValue; size?: "md" | "lg" | "xl"; className?: string; tone?: "default" | "success" }) {
   return (
-    <span className={cn("ride-num inline-flex items-baseline gap-1", tone === "success" && "text-[var(--ride-success)]", className)} aria-label={value.spoken}>
+    <span className={cn("ride-num inline-flex items-baseline gap-1", tone === "success" && "text-[var(--ride-success)]", className)}>
+      <span className="sr-only">{value.spoken}</span>
       <span
         aria-hidden
         className={cn(
@@ -102,8 +103,7 @@ export function RouteStops({ pickup, destination, pickupHint, destinationHint, c
   compact?: boolean;
 }) {
   return (
-    <ol className="relative space-y-3" aria-label="Route">
-      <span aria-hidden className="absolute top-[1.1rem] bottom-[1.1rem] left-[0.4375rem] w-px border-l-2 border-dotted border-[var(--border-strong)]" />
+    <ol className="relative space-y-3 before:absolute before:top-[1.1rem] before:bottom-[1.1rem] before:left-[0.4375rem] before:w-px before:border-l-2 before:border-dotted before:border-[var(--border-strong)]" aria-label="Route">
       <li className="relative flex gap-3.5">
         <span aria-hidden className="relative z-10 mt-1.5 size-[0.9375rem] shrink-0 rounded-full border-[3.5px] border-[var(--ride-marker-pickup)] bg-[var(--surface-primary)]" />
         <div className="min-w-0 flex-1">

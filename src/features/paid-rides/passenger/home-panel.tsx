@@ -2,6 +2,8 @@
 
 import { ChevronRight, Clock3, LocateFixed, Search, ShieldCheck } from "lucide-react";
 import { greetingForHour } from "@/lib/format";
+import Image from "next/image";
+import { Brand } from "@/components/layout/brand";
 import { useLocationStore } from "../location/location-store";
 import { RideSheet } from "../components/ride-sheet";
 import { usePassengerStore } from "../state/passenger-store";
@@ -27,11 +29,13 @@ export function HomePanel({ onCoverChange, bottomOffset }: SheetHostProps) {
       resetKey="home"
       peek={
         <div>
-          <p className="ride-caption mb-1">{greetingForHour()}</p>
+          <div className="mb-5 hidden items-center justify-between lg:flex"><Brand /><span className="ride-caption">Abuja</span></div>
+          <p className="ride-caption mb-1">{greetingForHour()} · Let’s go somewhere</p>
+          <h1 className="mb-5 hidden text-[2.5rem] leading-[1.08] font-medium tracking-[-.06em] lg:block">A good day<br />starts with a ride.</h1>
           <button
             type="button"
             onClick={() => openSearch("destination")}
-            className="ride-press flex h-14 w-full items-center gap-3 rounded-[var(--ride-radius-lg)] bg-[var(--surface-secondary)] px-4 text-left"
+            className="ride-press flex h-16 w-full items-center gap-3 rounded-[var(--ride-radius-lg)] border border-[var(--border-strong)] bg-[var(--surface-secondary)] px-4 text-left"
           >
             <Search className="size-5 text-[var(--text-secondary)]" aria-hidden />
             <span className="ride-heading-md flex-1 text-[var(--text-primary)]">Where to?</span>
@@ -102,6 +106,11 @@ export function HomePanel({ onCoverChange, bottomOffset }: SheetHostProps) {
           </div>
         ) : null}
 
+        <div className="relative hidden h-44 overflow-hidden rounded-[24px] lg:block">
+          <Image src="/images/krides-journey-premium.webp" alt="A winding road through the hills around Abuja." fill sizes="380px" className="object-cover object-[50%_60%]" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#101827]/90 to-transparent" />
+          <p className="absolute right-5 bottom-5 left-5 text-xl font-medium tracking-tight text-white">Your everyday.<br />A little more extraordinary.</p>
+        </div>
         <p className="ride-caption flex items-center gap-1.5">
           <ShieldCheck className="size-3.5 text-[var(--ride-success)]" aria-hidden />
           Every driver is a verified member of the community.

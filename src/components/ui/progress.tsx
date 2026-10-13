@@ -68,11 +68,13 @@ export function StepIndicator({
   currentIndex,
   onStepClick,
   className,
+  showProgress = true,
 }: {
   steps: { id: string; number: string; label: string }[];
   currentIndex: number;
   onStepClick?: (index: number) => void;
   className?: string;
+  showProgress?: boolean;
 }) {
   return (
     <div className={cn("space-y-4", className)}>
@@ -107,11 +109,11 @@ export function StepIndicator({
         })}
       </ol>
 
-      <ProgressBar
+      {showProgress ? <ProgressBar
         value={(currentIndex + 1) / steps.length}
         label={`Step ${currentIndex + 1} of ${steps.length}`}
         size="sm"
-      />
+      /> : null}
     </div>
   );
 }

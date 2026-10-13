@@ -12,11 +12,14 @@ import { useSessionStore } from "@/stores/session-store";
 import { shortName } from "@/lib/format";
 import { LIVE_FREE_BUSES } from "@/lib/freebus-config";
 import { LiveFreeBusShell } from "@/features/free-buses/live-shell";
+import { PaidRidesEntry } from "@/components/layout/paid-rides-entry";
 
 /** Routes whose map fills the viewport and supplies its own padding. */
 const BLEED_ROUTES = ["/passenger/matching", "/passenger/trip"];
 
 export function PassengerShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  if (["/passenger/request", "/passenger/matching", "/passenger/trip", "/passenger/rides"].some((path) => pathname === path || pathname.startsWith(`${path}/`))) return <PaidRidesEntry href={pathname.startsWith("/passenger/rides") ? "/rides/history" : "/rides"} />;
   return LIVE_FREE_BUSES ? <LiveFreeBusShell>{children}</LiveFreeBusShell> : <DemoPassengerShell>{children}</DemoPassengerShell>;
 }
 

@@ -44,7 +44,7 @@ const INITIAL = {
   identity: {},
   licence: {},
   vehicle: {},
-  tracks: [] as DriverTrack[],
+  tracks: [DriverTrack.PROFESSIONAL] as DriverTrack[],
   documents: {},
   submitted: false,
 } as const;

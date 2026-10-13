@@ -12,6 +12,7 @@ import { ADMIN_USER } from "@/mocks/people";
 import { SosBanner } from "@/components/safety/sos-banner";
 import { LIVE_FREE_BUSES } from "@/lib/freebus-config";
 import { LiveFreeBusShell } from "@/features/free-buses/live-shell";
+import { AdminWorkspaceSwitch } from "@/components/layout/admin-workspace-switch";
 
 export function AdminShell({ children }: { children: ReactNode }) {
   return LIVE_FREE_BUSES ? <LiveFreeBusShell admin>{children}</LiveFreeBusShell> : <DemoAdminShell>{children}</DemoAdminShell>;
@@ -34,7 +35,7 @@ function DemoAdminShell({ children }: { children: ReactNode }) {
 
   return (
     <AppShell
-      nav={ADMIN_NAV}
+      nav={ADMIN_NAV.filter((item) => item.href !== "/admin/free-buses")}
       user={{
         name: shortName(admin.fullName),
         avatarUrl: admin.avatarUrl,
@@ -48,6 +49,8 @@ function DemoAdminShell({ children }: { children: ReactNode }) {
           : { label: "All clear", tone: "active" }
       }
     >
+      <div className="mb-6 ml-auto max-w-sm"><AdminWorkspaceSwitch /></div>
+      <p className="mb-6 text-xs text-ink-secondary">Preview workspace · Demo records and simulated actions</p>
       {sosLive && sos ? <SosBanner alert={sos} className="mb-6" /> : null}
       {children}
     </AppShell>

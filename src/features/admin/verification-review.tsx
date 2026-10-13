@@ -46,7 +46,7 @@ import {
   TRACK_TONE,
   VERIFICATION_PRESENTATION,
 } from "@/constants/status-presentation";
-import { DocumentStatus, DocumentType, VerificationStatus } from "@/types/enums";
+import { DocumentStatus, DocumentType, VerificationStatus, DriverTrack } from "@/types/enums";
 import {
   formatDate,
   formatDateTime,
@@ -184,6 +184,7 @@ export function VerificationReview({ id }: { id: string }) {
   }
 
   const record = data;
+  if (record.track !== DriverTrack.PROFESSIONAL) return <ErrorState title="Record outside this workspace" description="Open a professional driver application from the verification queue." />;
   const inspection = inspectionOverride ?? record.inspection;
   const documents = record.documents.map(
     (document) => documentEdits[document.id] ?? document,
@@ -486,7 +487,7 @@ export function VerificationReview({ id }: { id: string }) {
                         <DataPoint
                           label="Requirement"
                           value="Valid 3+ months"
-                          hint="The same rule applies on both tracks"
+                          hint="Required for professional driving"
                         />
                       </NestedTile>
                     </div>
@@ -605,8 +606,7 @@ export function VerificationReview({ id }: { id: string }) {
                   ))}
                 </ul>
                 <p className="type-meta mt-4 text-ink-muted">
-                  Volunteer and professional applicants submit the same six
-                  documents. Nothing here is waived for either track.
+                  Professional driver applications require all six documents.
                 </p>
               </TabPanel>
 
@@ -719,7 +719,7 @@ export function VerificationReview({ id }: { id: string }) {
               description={
                 settled
                   ? VERIFICATION_PRESENTATION[status].detail
-                  : "Both tracks are held to the same standard."
+                  : "All applications follow the same verification standard."
               }
             />
 

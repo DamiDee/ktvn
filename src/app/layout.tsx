@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { ConnectivityBanner } from "@/components/ui/connectivity-banner";
 import { Providers } from "./providers";
+import { ProductTheme } from "@/components/layout/product-theme";
 import "./globals.css";
+import "./product-theme.css";
 
 export const metadata: Metadata = {
   title: {
@@ -9,7 +11,7 @@ export const metadata: Metadata = {
     template: "%s · K-Rides",
   },
   description:
-    "A verified transportation network built for the Koinonia community. Find trusted volunteer or professional drivers, travel with live trip visibility, and stay connected from departure to destination.",
+    "K-Rides brings your next journey closer. Book paid rides, connect with professional drivers, and stay connected from departure to destination.",
   applicationName: "K-Rides",
   icons: {
     icon: [{ url: "/images/krides-icon-192.png", sizes: "192x192", type: "image/png" }],
@@ -43,8 +45,10 @@ export default function RootLayout({
           Skip to content
         </a>
         <Providers>
+          <ProductTheme>
           <ConnectivityBanner />
           {children}
+          </ProductTheme>
         </Providers>
       </body>
     </html>

@@ -19,7 +19,8 @@ export function RidePage({ title, subtitle, backHref, children, action }: { titl
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
         className="mx-auto w-full max-w-2xl px-4 sm:px-6"
-        style={{ paddingTop: "calc(var(--ride-safe-top) + 16px)", paddingBottom: "calc(var(--ride-safe-bottom) + 120px)" }}
+        // Clears the floating mode switch above the title.
+        style={{ paddingTop: "calc(var(--ride-safe-top) + 64px)", paddingBottom: "calc(var(--ride-safe-bottom) + 120px)" }}
       >
         <header className="mb-6 flex items-end justify-between gap-4 pt-2">
           <div className="min-w-0">

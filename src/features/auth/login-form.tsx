@@ -13,7 +13,7 @@ import {
   BadgeCheck,
   Car,
   ChevronRight,
-  HandHeart,
+  LockKeyhole,
   Mail,
   UserRound,
   type LucideIcon,
@@ -28,6 +28,7 @@ import { loginSchema, liveLoginSchema, type LoginValues } from "./schemas";
 import { LIVE_FREE_BUSES } from "@/lib/freebus-config";
 import { FreebusError } from "@/services/freebus-api";
 import { useQueryClient } from "@tanstack/react-query";
+import { PAID_RIDES_MODE } from "@/features/paid-rides/config";
 
 const ROLE_HOME: Record<string, string> = {
   [UserRole.PASSENGER]: "/passenger/rides",
@@ -56,13 +57,6 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
     detail: "Request a ride, follow a journey",
     email: "grace.adeyemi@example.com",
     icon: UserRound,
-  },
-  {
-    id: "volunteer",
-    label: "Volunteer driver",
-    detail: "Serving — never a fare in sight",
-    email: "emeka.nwosu@example.com",
-    icon: HandHeart,
   },
   {
     id: "professional",
@@ -103,7 +97,7 @@ export function LoginForm() {
     if (LIVE_FREE_BUSES) {
       const account = await liveAuth.session();
       queryClient.clear();
-      router.push(liveHome(account.role));
+      router.push(PAID_RIDES_MODE === "api" && account.role === "User" ? "/rides" : PAID_RIDES_MODE === "api" && account.role === "Driver" ? "/rides/driver" : liveHome(account.role));
       return;
     }
 
@@ -151,7 +145,7 @@ export function LoginForm() {
     <div>
       <h1 className="type-page-title text-ink">Welcome back.</h1>
       <p className="type-body mt-2.5 text-ink-secondary">
-        {LIVE_FREE_BUSES ? "Sign in with your email or username to use Free Buses." : "Sign in with the email or phone number on your membership record."}
+        Your next journey is waiting. Sign in to get moving.
       </p>
 
       {/* Demo accounts — one click into any side of the product */}
@@ -232,6 +226,7 @@ export function LoginForm() {
         ) : null}
 
         <Input
+          variant="journey"
           label={LIVE_FREE_BUSES ? "Email or username" : "Email or phone number"}
           placeholder="grace.adeyemi@example.com"
           autoComplete="username"
@@ -242,6 +237,8 @@ export function LoginForm() {
         />
 
         <PasswordInput
+          variant="journey"
+          icon={LockKeyhole}
           label="Password"
           placeholder="Your password"
           error={errors.password?.message}
@@ -257,7 +254,7 @@ export function LoginForm() {
           >
             Forgot password?
           </Link>
-        </div> : <p className="type-meta text-ink-muted">Your session stays signed in for up to 8 hours. Password recovery is not connected yet.</p>}
+        </div> : null}
 
         <Button
           type="submit"

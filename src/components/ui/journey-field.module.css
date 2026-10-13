@@ -1,0 +1,202 @@
+/*
+  "Journey" field — the sign-in and sign-up input.
+  The leading icon is a stop on a route: it lights up when the field is in
+  use, and a route line draws itself along the bottom edge. The label floats
+  inside the field instead of sitting above it.
+*/
+.field {
+  --journey-accent: var(--premium-action, var(--kx-gold-500));
+  --journey-accent-ink: var(--premium-action-ink, var(--kx-forest-950));
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 0 14px 0 12px;
+  border-radius: 20px;
+  background: var(--kx-surface-nested);
+  box-shadow: inset 0 0 0 1px var(--kx-border);
+  overflow: hidden;
+  transition:
+    background-color 220ms var(--kx-ease-standard),
+    box-shadow 220ms var(--kx-ease-standard);
+}
+
+.field:hover {
+  box-shadow: inset 0 0 0 1px var(--kx-border-strong);
+}
+
+.field:focus-within {
+  background: var(--kx-surface);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--journey-accent) 55%, transparent),
+    0 10px 28px -18px color-mix(in srgb, var(--journey-accent) 90%, transparent);
+}
+
+.stop {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  color: var(--kx-text-muted);
+  background: var(--kx-surface);
+  box-shadow: inset 0 0 0 1px var(--kx-border);
+  transition:
+    background-color 220ms var(--kx-ease-standard),
+    color 220ms var(--kx-ease-standard),
+    transform 220ms var(--kx-ease-out);
+}
+
+/* A plain dot when the field has no icon. */
+.stop:empty::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 2.5px solid currentColor;
+}
+
+.field:focus-within .stop {
+  color: var(--journey-accent-ink);
+  background: var(--journey-accent);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--journey-accent) 18%, transparent);
+  transform: scale(1.04);
+}
+
+.body {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+}
+
+.input {
+  width: 100%;
+  height: 100%;
+  min-height: 64px;
+  padding: 24px 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--kx-text);
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  outline: none;
+}
+
+.input::placeholder {
+  color: transparent;
+  transition: color 160ms ease;
+}
+
+.input:focus::placeholder {
+  color: var(--kx-text-muted);
+}
+
+.label {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--kx-text-secondary);
+  font-size: 0.9375rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  transform: translateY(-50%);
+  transform-origin: left center;
+  transition:
+    transform 200ms var(--kx-ease-out),
+    color 200ms ease,
+    letter-spacing 200ms ease;
+}
+
+/* Lifted: focused, or holding a value (placeholder hidden). */
+.input:focus + .label,
+.input:not(:placeholder-shown) + .label {
+  color: var(--kx-text-muted);
+  letter-spacing: 0.04em;
+  transform: translateY(-112%) scale(0.74);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.input:focus + .label {
+  color: var(--journey-accent);
+}
+
+.required {
+  margin-left: 2px;
+  color: var(--kx-danger-500);
+}
+
+.suffix {
+  flex-shrink: 0;
+}
+
+/* The route line that draws along the bottom while the field is in use. */
+.route {
+  position: absolute;
+  left: 30px;
+  right: 18px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--journey-accent), color-mix(in srgb, var(--journey-accent) 30%, transparent));
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 420ms var(--kx-ease-out);
+}
+
+.route::after {
+  content: "";
+  position: absolute;
+  right: -3px;
+  top: -2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--journey-accent);
+}
+
+.field:focus-within .route {
+  transform: scaleX(1);
+}
+
+.invalid {
+  --journey-accent: var(--kx-danger-500);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--kx-danger-500) 55%, transparent);
+}
+
+.invalid .stop {
+  color: var(--kx-danger-500);
+}
+
+.invalid .route {
+  transform: scaleX(1);
+}
+
+.disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .field,
+  .stop,
+  .label,
+  .route {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .field {
+    border: 1px solid CanvasText;
+  }
+}

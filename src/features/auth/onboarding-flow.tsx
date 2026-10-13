@@ -7,7 +7,7 @@ import {
   ArrowLeft,
   ArrowRight,
   BadgeCheck,
-  HandHeart,
+  BusFront,
   MapPin,
   Share2,
   ShieldAlert,
@@ -308,15 +308,15 @@ function TracksStep() {
   return (
     <StepFrame
       headline="Choose how you travel."
-      body="Both tracks pass the same verification. The difference is whether the journey is given in service or paid for."
+      body="Everyday rides when you need them. Community buses for scheduled services."
     >
       <div className="grid gap-4 sm:grid-cols-2">
         {[
           {
-            icon: HandHeart,
-            title: "Volunteer",
-            description: TRACK_DESCRIPTION[DriverTrack.VOLUNTEER],
-            detail: "A member with a free seat, going where you're going.",
+            icon: BusFront,
+            title: "Free Buses",
+            description: "Reserve a seat for a scheduled service.",
+            detail: "Choose your pickup point and keep your boarding pass handy.",
             tone: "gold" as const,
           },
           {

@@ -8,6 +8,7 @@ import { useReducedMotionSafe } from "@/hooks/use-reduced-motion-safe";
 import { PAID_RIDES_CONFIG } from "../config";
 import type { GeoPoint, RouteGeometry, VehicleClass } from "../domain/types";
 import type { RideMapHandle } from "./map-provider";
+import { LIGHT_TILE_ATTRIBUTION, LIGHT_TILE_SUBDOMAINS, LIGHT_TILE_URL, OSM_TILE_ATTRIBUTION, OSM_TILE_URL } from "@/lib/map-tiles";
 import {
   MARKER_SIZES,
   destinationMarkerHtml,
@@ -287,15 +288,18 @@ export const LeafletRideMap = forwardRef<RideMapHandle, RideMapProps>(function L
     const instance = map.current;
     const leaflet = L.current;
     if (!ready || !instance || !leaflet) return;
-    const custom = resolvedTheme === "dark" ? PAID_RIDES_CONFIG.tiles.dark : PAID_RIDES_CONFIG.tiles.light;
-    const url = custom || "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+    const dark = resolvedTheme === "dark";
+    const custom = dark ? PAID_RIDES_CONFIG.tiles.dark : PAID_RIDES_CONFIG.tiles.light;
+    // Light theme: the white Positron basemap. Dark theme: stock OSM, darkened by CSS.
+    const url = custom || (dark ? OSM_TILE_URL : LIGHT_TILE_URL);
     if (tiles.current && (tiles.current as Leaflet.TileLayer & { _url?: string })._url === url) return;
     tiles.current?.remove();
     tiles.current = leaflet
       .tileLayer(url, {
         maxZoom: 19,
-        attribution: "© <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>",
-        className: custom ? "ride-tiles-custom" : "ride-tiles-default",
+        attribution: custom || dark ? OSM_TILE_ATTRIBUTION : LIGHT_TILE_ATTRIBUTION,
+        ...(!custom && !dark ? { subdomains: LIGHT_TILE_SUBDOMAINS } : {}),
+        className: custom ? "ride-tiles-custom" : dark ? "ride-tiles-default" : "ride-tiles-light",
         detectRetina: false,
       })
       .addTo(instance);

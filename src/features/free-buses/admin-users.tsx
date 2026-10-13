@@ -265,9 +265,6 @@ export function AdminUsers() {
             align: "end",
             actions: true,
             cell: (user) => {
-              // Nobody edits their own role or account state — that is how an
-              // organisation locks itself out of its own oversight.
-              const locked = isSelf(user) || (isOversight(user.role) && !canChangeOversight);
               return (
                 <Button size="sm" variant="secondary" onClick={() => { setError(""); setManaging(user); }}>
                   Manage

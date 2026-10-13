@@ -22,7 +22,7 @@ import { DocumentStatus, DriverTrack, VerificationStatus } from "@/types/enums";
 import { formatDate, pluralise } from "@/lib/format";
 import type { DriverVerification } from "@/types/models";
 
-type Filter = "ALL" | "REVIEW" | "INSPECTION" | "CHANGES" | "VOLUNTEER" | "PROFESSIONAL";
+type Filter = "ALL" | "REVIEW" | "INSPECTION" | "CHANGES" | "PROFESSIONAL";
 
 export function VerificationQueue() {
   const [filter, setFilter] = useState<Filter>("ALL");
@@ -34,7 +34,7 @@ export function VerificationQueue() {
   });
 
   const rows = useMemo(() => {
-    let list = data ?? [];
+    let list = (data ?? []).filter((item) => item.track === DriverTrack.PROFESSIONAL);
 
     switch (filter) {
       case "REVIEW":
@@ -57,9 +57,6 @@ export function VerificationQueue() {
           (record) => record.status === VerificationStatus.CHANGES_REQUIRED,
         );
         break;
-      case "VOLUNTEER":
-        list = list.filter((record) => record.track === DriverTrack.VOLUNTEER);
-        break;
       case "PROFESSIONAL":
         list = list.filter(
           (record) => record.track === DriverTrack.PROFESSIONAL,
@@ -77,7 +74,7 @@ export function VerificationQueue() {
     return list;
   }, [data, filter, search]);
 
-  const all = data ?? [];
+  const all = (data ?? []).filter((item) => item.track === DriverTrack.PROFESSIONAL);
 
   function documentSummary(record: DriverVerification) {
     const ready = record.documents.filter(
@@ -184,7 +181,7 @@ export function VerificationQueue() {
       <PageHeader
         eyebrow="Control centre"
         title="Verification queue"
-        description="Applications waiting on a decision. Both tracks are reviewed against the same standard."
+        description="Review professional driver applications, documents and inspections."
         action={
           <StatusChip tone="pending" dot size="md">
             {all.length} {pluralise(all.length, "application")}
@@ -212,8 +209,6 @@ export function VerificationQueue() {
               { value: "REVIEW", label: "In review" },
               { value: "INSPECTION", label: "Inspection" },
               { value: "CHANGES", label: "Changes required" },
-              { value: "VOLUNTEER", label: "Volunteer" },
-              { value: "PROFESSIONAL", label: "Professional" },
             ]}
           />
         }

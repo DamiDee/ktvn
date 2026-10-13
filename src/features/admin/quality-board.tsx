@@ -17,7 +17,7 @@ import { PageHeader } from "@/components/layout/app-shell";
 import { queryKeys } from "@/constants/query-keys";
 import { adminService } from "@/services";
 import { TRACK_LABEL, TRACK_TONE } from "@/constants/status-presentation";
-import { UserRole } from "@/types/enums";
+import { UserRole, DriverTrack } from "@/types/enums";
 import { formatRelativeTime, pluralise } from "@/lib/format";
 import type { QualityFlag } from "@/types/models";
 
@@ -94,7 +94,7 @@ export function QualityBoard() {
                             ? "Driver"
                             : "Passenger"}
                         </StatusChip>
-                        {flag.track ? (
+                        {flag.track === DriverTrack.PROFESSIONAL ? (
                           <StatusChip tone={TRACK_TONE[flag.track]}>
                             {TRACK_LABEL[flag.track]}
                           </StatusChip>
@@ -151,7 +151,7 @@ export function QualityBoard() {
                       3.0
                     </p>
                     <p className="type-meta mt-1 text-ink-muted">
-                      Same on both tracks
+                      Professional driving standards
                     </p>
                   </NestedTile>
                 </div>

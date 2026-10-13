@@ -16,7 +16,7 @@ import {
   Users,
 } from "lucide-react";
 import { Card, CardHeader, DataPoint, NestedTile } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { StatusBadge, StatusChip, VerifiedBadge } from "@/components/ui/badge";
 import { CountUp } from "@/components/ui/stats-card";
@@ -97,6 +97,7 @@ export function DriverDetail({ driverId }: { driverId: string }) {
   }
 
   const volunteer = driver.track === DriverTrack.VOLUNTEER;
+  if (volunteer) return <EmptyState icon={Car} title="Record outside this workspace" description="This workspace only displays professional driver records." action={<ButtonLink href="/admin/drivers">Back to drivers</ButtonLink>} />;
   const accountStatus = accountOverride ?? driver.accountStatus ?? DriverAccountStatus.ACTIVE;
   const deactivated = accountStatus === DriverAccountStatus.DEACTIVATED;
   const flagged = flagOverride ?? driver.flagged ?? false;

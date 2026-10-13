@@ -19,6 +19,7 @@ import { usePreferencesStore } from "../state/preferences-store";
 import { useDriverSession, usePassengerSession } from "../state/use-ride-sessions";
 import { useSilentLocation } from "../location/use-location";
 import { MockDevPanel } from "./mock-dev-panel";
+import { RideModeSwitch } from "./mode-switch";
 
 /**
  * Paid Rides shell: an immersive, full-viewport frame with its own bubble
@@ -162,6 +163,17 @@ export function RideModuleShell({ children }: { children: ReactNode }) {
           inert={navHidden || undefined}
         >
           <BubbleNav items={navItems} label={role === "driver" ? "Driver navigation" : "Paid Rides navigation"} />
+        </div>
+        <div
+          className={cn(
+            "pointer-events-none absolute left-3 z-30 transition-[opacity,transform] duration-300 ease-[var(--ride-ease)] lg:left-[calc(25rem+2.5rem)]",
+            navHidden && "-translate-y-3 opacity-0",
+          )}
+          style={{ top: desktop ? 16 : "calc(var(--ride-safe-top) + 12px)" }}
+          aria-hidden={navHidden || undefined}
+          inert={navHidden || undefined}
+        >
+          <RideModeSwitch />
         </div>
         {PAID_RIDES_MODE === "mock" ? <MockDevPanel role={role} /> : null}
       </div>

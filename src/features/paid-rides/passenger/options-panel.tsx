@@ -107,7 +107,7 @@ export function OptionsPanel({ estimate, onCoverChange, bottomOffset }: SheetHos
       }
     >
       {estimate.isPending ? (
-        <div className="space-y-2 pb-2" aria-busy aria-label="Loading ride options">
+        <div role="status" className="space-y-2 pb-2" aria-busy aria-label="Loading ride options">
           <OptionCardSkeleton />
           <OptionCardSkeleton />
           <OptionCardSkeleton />

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertCircle, ArrowRight, Mail, Phone, User } from "lucide-react";
+import { AlertCircle, ArrowRight, AtSign, Car, Globe2, LockKeyhole, Mail, MapPin, Phone, ShieldCheck, User } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Input, PasswordInput } from "@/components/ui/input";
@@ -82,8 +82,14 @@ export function SignUpForm() {
     <div>
       <h1 className="type-page-title text-ink">Create your account.</h1>
       <p className="type-body mt-2.5 text-ink-secondary">
-        Join your community and book a seat on a free bus to service.
+        A few details, and you’re one step closer to your next ride.
       </p>
+
+      <Link href="/driver/apply" className="mt-6 flex min-h-16 items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3 transition-colors hover:border-line-strong hover:bg-surface-nested">
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-gold-100 text-gold-800 dark:bg-gold-500/15 dark:text-gold-300"><Car className="size-5" aria-hidden /></span>
+        <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-ink">Sign up as a driver</span><span className="block text-xs text-ink-secondary">Your car. Your next opportunity.</span></span>
+        <ArrowRight className="size-4 shrink-0 text-ink-secondary" aria-hidden />
+      </Link>
 
       <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-5" noValidate>
         {formError ? (
@@ -101,6 +107,7 @@ export function SignUpForm() {
         ) : null}
 
         <Input
+          variant="journey"
           label="Full name"
           placeholder="Grace Adeyemi"
           autoComplete="name"
@@ -112,6 +119,7 @@ export function SignUpForm() {
 
         <div className="grid gap-5 sm:grid-cols-2">
           <Input
+            variant="journey"
             label="Email"
             type="email"
             placeholder="you@example.com"
@@ -123,6 +131,7 @@ export function SignUpForm() {
           />
 
           <Input
+            variant="journey"
             label="Phone"
             type="tel"
             placeholder="+234 802 000 0000"
@@ -135,15 +144,17 @@ export function SignUpForm() {
         </div>
 
         {LIVE_FREE_BUSES ? <>
-          <Input label="Username" autoComplete="username" required error={errors.username?.message} {...register("username")} />
-          <Input label="Address" autoComplete="street-address" required error={errors.address?.message} {...register("address")} />
-          <Input label="Country" autoComplete="country-name" required error={errors.country?.message} {...register("country")} />
+          <Input variant="journey" icon={AtSign} label="Username" autoComplete="username" required error={errors.username?.message} {...register("username")} />
+          <Input variant="journey" icon={MapPin} label="Address" autoComplete="street-address" required error={errors.address?.message} {...register("address")} />
+          <Input variant="journey" icon={Globe2} label="Country" autoComplete="country-name" required error={errors.country?.message} {...register("country")} />
         </> : null}
 
         <Controller name="city" control={control} render={({ field }) => <CityPicker value={field.value} onChange={field.onChange} onBlur={field.onBlur} inputRef={field.ref} error={errors.city?.message} disabled={isSubmitting} />} />
 
         <div>
           <PasswordInput
+            variant="journey"
+            icon={LockKeyhole}
             label="Password"
             placeholder="At least 8 characters"
             autoComplete="new-password"
@@ -175,6 +186,8 @@ export function SignUpForm() {
         </div>
 
         <PasswordInput
+          variant="journey"
+          icon={ShieldCheck}
           label="Confirm password"
           placeholder="Re-enter your password"
           autoComplete="new-password"
@@ -218,7 +231,7 @@ export function SignUpForm() {
         Already have an account?{" "}
         <Link
           href="/login"
-          className="font-medium text-forest-700 underline-offset-4 hover:underline dark:text-gold-300"
+          className="font-medium text-forest-700 underline underline-offset-4 dark:text-gold-300"
         >
           Sign in
         </Link>

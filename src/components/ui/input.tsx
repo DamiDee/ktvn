@@ -5,6 +5,7 @@ import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "rea
 import { AlertCircle, Eye, EyeOff, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import checkboxStyles from "./checkbox.module.css";
+import journeyStyles from "./journey-field.module.css";
 
 const FIELD_BASE = [
   "w-full rounded-[var(--kx-radius-sm)] border bg-surface px-4 text-[0.9375rem] text-ink",
@@ -58,12 +59,12 @@ export function FieldWrapper({
       {children}
 
       {error ? (
-        <p className="flex items-start gap-1.5 text-[0.8125rem] text-danger-600 dark:text-red-300">
+        <p id={htmlFor ? `${htmlFor}-description` : undefined} className="flex items-start gap-1.5 text-[0.8125rem] text-danger-600 dark:text-red-300">
           <AlertCircle className="mt-0.5 size-3.5 shrink-0" strokeWidth={2} aria-hidden />
           {error}
         </p>
       ) : hint ? (
-        <p className="text-[0.8125rem] text-ink-muted">{hint}</p>
+        <p id={htmlFor ? `${htmlFor}-description` : undefined} className="text-[0.8125rem] text-ink-muted">{hint}</p>
       ) : null}
     </div>
   );
@@ -76,6 +77,11 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   icon?: LucideIcon;
   suffix?: ReactNode;
   inputSize?: "md" | "lg";
+  /**
+   * `journey` — the sign-in/sign-up field: floating label inside, the icon
+   * as a route stop that lights up, and a route line drawn on focus.
+   */
+  variant?: "default" | "journey";
   wrapperClassName?: string;
 }
 
@@ -87,6 +93,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
     icon: Icon,
     suffix,
     inputSize = "md",
+    variant = "default",
     className,
     wrapperClassName,
     id,
@@ -98,6 +105,44 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   const generatedId = useId();
   const inputId = id ?? generatedId;
   const describedBy = error || hint ? `${inputId}-description` : undefined;
+
+  if (variant === "journey") {
+    return (
+      <FieldWrapper hint={hint} error={error} htmlFor={inputId} className={wrapperClassName}>
+        <div className={cn(journeyStyles.field, error && journeyStyles.invalid, props.disabled && journeyStyles.disabled)}>
+          <span className={journeyStyles.stop} aria-hidden>
+            {Icon ? <Icon className="size-[1.05rem]" strokeWidth={1.9} /> : null}
+          </span>
+          <div className={journeyStyles.body}>
+            <input
+              ref={ref}
+              id={inputId}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={describedBy}
+              required={required}
+              className={cn(journeyStyles.input, className)}
+              {...props}
+              // The floating label relies on :placeholder-shown, so a blank
+              // placeholder stands in when none is given.
+              placeholder={props.placeholder ?? " "}
+            />
+            {label ? (
+              <label htmlFor={inputId} className={journeyStyles.label}>
+                {label}
+                {required ? (
+                  <span className={journeyStyles.required} aria-hidden>
+                    *
+                  </span>
+                ) : null}
+              </label>
+            ) : null}
+          </div>
+          {suffix ? <div className={journeyStyles.suffix}>{suffix}</div> : null}
+          <span className={journeyStyles.route} aria-hidden />
+        </div>
+      </FieldWrapper>
+    );
+  }
 
   return (
     <FieldWrapper
@@ -198,6 +243,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           ref={ref}
           id={textareaId}
           aria-invalid={error ? true : undefined}
+          aria-describedby={error || hint ? `${textareaId}-description` : undefined}
           required={required}
           className={cn(
             FIELD_BASE,
@@ -254,6 +300,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
           ref={ref}
           id={selectId}
           aria-invalid={error ? true : undefined}
+          aria-describedby={error || hint ? `${selectId}-description` : undefined}
           required={required}
           className={cn(
             FIELD_BASE,
@@ -315,6 +362,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
             id={checkboxId}
             type="checkbox"
             aria-invalid={error ? true : undefined}
+            aria-describedby={error ? `${checkboxId}-description` : undefined}
             className={cn(
               "kx-tap mt-0.5 size-4.5 shrink-0 cursor-pointer appearance-none rounded-[6px] border border-line-strong bg-surface",
               "transition-[background-color,border-color] duration-[165ms]",
@@ -329,7 +377,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
           <span className="leading-snug">{label}</span>
         </label>
         {error ? (
-          <p className="flex items-start gap-1.5 pl-7.5 text-[0.8125rem] text-danger-600 dark:text-red-300">
+          <p id={`${checkboxId}-description`} className="flex items-start gap-1.5 pl-7.5 text-[0.8125rem] text-danger-600 dark:text-red-300">
             <AlertCircle className="mt-0.5 size-3.5 shrink-0" strokeWidth={2} aria-hidden />
             {error}
           </p>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducedMotion } from "motion/react";
+import { useMediaQuery } from "./use-media-query";
 
 /**
  * Reduced-motion aware helpers.
@@ -10,7 +10,9 @@ import { useReducedMotion } from "motion/react";
  * losing meaning.
  */
 export function useReducedMotionSafe() {
-  const prefersReduced = useReducedMotion() ?? false;
+  // Match server markup during hydration, then read the device preference.
+  // Branching on Motion's client-only result caused loader SVG mismatches.
+  const prefersReduced = useMediaQuery("(prefers-reduced-motion: reduce)");
 
   return {
     prefersReduced,

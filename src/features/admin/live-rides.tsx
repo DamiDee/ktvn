@@ -27,7 +27,6 @@ import type { LiveRideSummary } from "@/types/models";
 type Filter =
   | "ALL"
   | "SOS"
-  | "VOLUNTEER"
   | "PROFESSIONAL"
   | "SHARED"
   | "PRIVATE"
@@ -50,7 +49,7 @@ export function LiveRides() {
     queryFn: () => adminService.listLiveRides(),
   });
 
-  const all = useMemo(() => data ?? [], [data]);
+  const all = useMemo(() => (data ?? []).filter((item) => item.track === DriverTrack.PROFESSIONAL), [data]);
 
   const rides = useMemo(() => {
     let list = all;
@@ -58,9 +57,6 @@ export function LiveRides() {
     switch (filter) {
       case "SOS":
         list = list.filter((ride) => ride.sosActive);
-        break;
-      case "VOLUNTEER":
-        list = list.filter((ride) => ride.track === DriverTrack.VOLUNTEER);
         break;
       case "PROFESSIONAL":
         list = list.filter((ride) => ride.track === DriverTrack.PROFESSIONAL);
@@ -132,8 +128,6 @@ export function LiveRides() {
               { value: "SOS", label: "SOS", count: sosCount },
               { value: "IN_PROGRESS", label: "In progress" },
               { value: "MATCHING", label: "Matching" },
-              { value: "VOLUNTEER", label: "Volunteer" },
-              { value: "PROFESSIONAL", label: "Professional" },
               { value: "SHARED", label: "Shared" },
               { value: "PRIVATE", label: "Private" },
             ]}

@@ -103,6 +103,7 @@ export function StatsCard({
 
   return (
     <div
+      data-ui-stat=""
       className={cn(
         "group relative overflow-hidden rounded-[var(--kx-radius-lg)] border border-line bg-surface p-5",
         "transition-[transform,box-shadow,border-color] duration-[250ms] ease-[var(--kx-ease-standard)]",
