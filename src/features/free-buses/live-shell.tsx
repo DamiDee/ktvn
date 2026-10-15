@@ -21,7 +21,6 @@ import {
   X,
   ChevronRight,
   ClipboardList,
-  CarFront,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -32,7 +31,7 @@ import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { liveAuth, FreebusError } from "@/services/freebus-api";
 import { isOversight, canBoard, liveHome } from "@/lib/freebus-contract";
 import type { ApiUser } from "@/types/freebus-api";
-import { PAID_RIDES_ENABLED } from "@/features/paid-rides/config";
+import { TransportModeSwitch } from "@/components/layout/transport-mode-switch";
 import { MemberGuide } from "./member-guide";
 import { Brand as ProductBrand } from "@/components/layout/brand";
 import { AdminWorkspaceSwitch } from "@/components/layout/admin-workspace-switch";
@@ -83,8 +82,6 @@ const MEMBER_NAV: NavItem[] = [
   { href: "/passenger/free-buses/passes", label: "Boarding passes", short: "Passes", icon: Ticket },
   { href: "/passenger/free-buses/requests", label: "Trip requests", short: "Requests", icon: HandHeart },
   { href: "/passenger/free-buses/trips", label: "My journeys", short: "Journeys", icon: LineChart },
-  // Paid Rides lives at /rides with its own shell; listed only while its flag is on.
-  ...(PAID_RIDES_ENABLED ? [{ href: "/rides", label: "Paid rides", short: "Rides", icon: CarFront }] : []),
   { href: "/passenger/profile", label: "Profile", short: "Profile", icon: UserRound },
 ];
 
@@ -260,7 +257,7 @@ function SidebarBody({
       </nav>
 
       <div className="mt-auto space-y-1 border-t border-line p-3">
-        <ThemeToggle />
+        {user.role === "User" ? <TransportModeSwitch /> : <ThemeToggle />}
         <SignOutButton onSignOut={onSignOut} signingOut={signingOut} />
       </div>
     </div>
@@ -397,11 +394,11 @@ function MemberChrome({
         />
       </aside>
 
-      {/* Mobile top bar: brand, theme, and an account button that is visibly an account. */}
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-surface/95 px-4 py-2.5 backdrop-blur lg:hidden">
+      {/* The service switch stays accessible while the member scrolls. */}
+      <header className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-line bg-surface/95 px-3 py-2.5 backdrop-blur lg:hidden">
         <Brand compact />
         <div className="flex items-center gap-1">
-          <ThemeToggle />
+          <TransportModeSwitch />
           <button
             type="button"
             onClick={() => setAccount(true)}

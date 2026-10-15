@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeftRight, Bell, ChevronRight, Inbox, MapPinned, PictureInPicture2, Trash2 } from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { AppearanceSettings } from "@/components/layout/appearance-settings";
 import { EmptyState } from "@/components/ui/states";
 import { useMounted } from "@/hooks/use-media-query";
 import { getRideCapabilities } from "../capabilities";
@@ -67,6 +68,7 @@ export function AccountPage({ role }: { role: "passenger" | "driver" }) {
 
   return (
     <RidePage title="Account">
+      <AppearanceSettings />
       <PageSection>
         <div className="flex items-center gap-4 rounded-[var(--ride-radius-lg)] bg-[var(--surface-primary)] p-4 shadow-[var(--kx-shadow-xs)]">
           {viewer.data ? <PersonAvatar name={viewer.data.displayName} src={viewer.data.avatarUrl} size={56} /> : <div className="kx-skeleton size-14 !rounded-full" />}

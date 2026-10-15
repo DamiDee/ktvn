@@ -10,7 +10,7 @@ import { useReducedMotionSafe } from "@/hooks/use-reduced-motion-safe";
  *
  * Original artwork crossfades with a brief, gentle reveal; story-style
  * progress bars show where you are and are clickable, and autoplay pauses
- * on hover, keyboard focus, a hidden tab, or reduced motion.
+ * through the slideshow controls, on a hidden tab, or with reduced motion.
  */
 
 export interface AuthSlide {
@@ -28,7 +28,7 @@ export const ABUJA_SLIDES: AuthSlide[] = [
     alt: "Original K-Rides artwork: a pearl-white sedan on an Abuja-inspired boulevard, with a granite rock and skyline beyond.",
     place: "The city, reimagined",
     line: "Abuja-inspired journeys.",
-    focus: "50% 55%",
+    focus: "50% 60%",
   },
   {
     src: "/images/abuja/krides-city-gate.webp",
@@ -42,7 +42,7 @@ export const ABUJA_SLIDES: AuthSlide[] = [
     alt: "Original K-Rides artwork: a smiling Nigerian driver welcomes a passenger beside a sedan in an Abuja-inspired setting.",
     place: "People make the journey",
     line: "A warmer welcome, every time.",
-    focus: "50% 55%",
+    focus: "50% 30%",
   },
 ];
 
@@ -52,11 +52,13 @@ export function AuthCarousel({
   slides = ABUJA_SLIDES,
   index,
   onIndexChange,
+  onSelect,
   paused = false,
 }: {
   slides?: AuthSlide[];
   index: number;
   onIndexChange: (index: number) => void;
+  onSelect?: (index: number) => void;
   paused?: boolean;
 }) {
   const { prefersReduced } = useReducedMotionSafe();
@@ -124,7 +126,7 @@ export function AuthCarousel({
             type="button"
             aria-pressed={slideIndex === index}
             aria-label={`Show ${item.place}`}
-            onClick={() => go(slideIndex)}
+            onClick={() => onSelect ? onSelect(slideIndex) : go(slideIndex)}
             className="relative flex h-11 flex-1 items-center rounded-lg"
           >
             <span className="relative h-1 w-full overflow-hidden rounded-full bg-white/30" aria-hidden>

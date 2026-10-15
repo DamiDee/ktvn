@@ -14,7 +14,7 @@
   min-height: 64px;
   padding: 0 14px 0 12px;
   border-radius: 20px;
-  background: var(--kx-surface-nested);
+  background: var(--journey-field-bg, var(--kx-surface-nested));
   box-shadow: inset 0 0 0 1px var(--kx-border);
   overflow: hidden;
   transition:
@@ -27,7 +27,7 @@
 }
 
 .field:focus-within {
-  background: var(--kx-surface);
+  background: var(--journey-field-focus-bg, var(--kx-surface));
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--journey-accent) 55%, transparent),
     0 10px 28px -18px color-mix(in srgb, var(--journey-accent) 90%, transparent);
@@ -43,7 +43,7 @@
   height: 38px;
   border-radius: 999px;
   color: var(--kx-text-muted);
-  background: var(--kx-surface);
+  background: var(--journey-icon-bg, var(--kx-surface));
   box-shadow: inset 0 0 0 1px var(--kx-border);
   transition:
     background-color 220ms var(--kx-ease-standard),

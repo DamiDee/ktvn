@@ -22,6 +22,7 @@ import { StatusBadge, VerifiedBadge } from "@/components/ui/badge";
 import { CountUp } from "@/components/ui/stats-card";
 import { PageLoader } from "@/components/ui/route-loader";
 import { PageHeader } from "@/components/layout/app-shell";
+import { AppearanceSettings } from "@/components/layout/appearance-settings";
 import { queryKeys } from "@/constants/query-keys";
 import { userService } from "@/services";
 import { MEMBERSHIP_PRESENTATION } from "@/constants/status-presentation";
@@ -43,6 +44,7 @@ export function PassengerProfile() {
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader eyebrow="Your account" title="Profile" />
+      <AppearanceSettings />
 
       <div className="space-y-5">
         {/* Identity */}
