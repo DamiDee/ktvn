@@ -5,6 +5,7 @@ import { MessageCircle } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/states";
 import { trackRideEvent } from "../analytics";
+import { PAID_RIDES_FEATURES } from "../config";
 import { firstName } from "../domain/format";
 import { chatAvailable, isTerminal } from "../domain/ride-status";
 import type { Ride, RideMessage } from "../domain/types";
@@ -52,7 +53,29 @@ function unavailableReason(ride: Ride): string | undefined {
   return undefined;
 }
 
+/** Shown on the chat routes while chat is switched off (backend v1). */
+function ChatOff({ backHref }: { backHref: string }) {
+  return (
+    <div className="flex h-full items-center justify-center bg-[var(--kx-bg)] px-6 pb-24">
+      <EmptyState
+        icon={MessageCircle}
+        title="Messaging isn't available yet"
+        description="In-app chat is coming soon. Use the call button on your ride if one is shown."
+        action={<ButtonLink href={backHref}>Back to ride</ButtonLink>}
+      />
+    </div>
+  );
+}
+
 export function PassengerChatScreen({ rideId }: { rideId?: string }) {
+  return PAID_RIDES_FEATURES.chat ? <PassengerChat rideId={rideId} /> : <ChatOff backHref="/rides" />;
+}
+
+export function DriverChatScreen() {
+  return PAID_RIDES_FEATURES.chat ? <DriverChat /> : <ChatOff backHref="/rides/driver" />;
+}
+
+function PassengerChat({ rideId }: { rideId?: string }) {
   useHideRideNav(true);
   const ride = usePassengerStore((store) => store.session.ride);
   const session = usePassengerStore((store) => store.session);
@@ -100,7 +123,7 @@ export function PassengerChatScreen({ rideId }: { rideId?: string }) {
   );
 }
 
-export function DriverChatScreen() {
+function DriverChat() {
   useHideRideNav(true);
   const ride = useDriverStore((store) => store.state.ride.ride);
   const session = useDriverStore((store) => store.state.ride);

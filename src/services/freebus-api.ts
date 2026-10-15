@@ -40,6 +40,14 @@ function recallIdentity(): string | null {
   }
 }
 
+/**
+ * The signed-in account's id, as remembered at login (`UserDto.id`), or null.
+ * Not a credential: Paid Rides uses it only to address the driver's socket path.
+ */
+export function signedInUserId(): string | null {
+  return typeof window === "undefined" ? null : recallIdentity();
+}
+
 export class FreebusError extends Error {
   constructor(
     message: string,

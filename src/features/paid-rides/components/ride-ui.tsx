@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { BadgeCheck, Star, Users } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { formatDistance, formatMoney, formatMoneyRange, splitDistance, splitDuration, type SplitValue } from "../domain/format";
-import type { DriverPublicProfile, FareQuote, Money, SharedRideInfo, VehicleClass } from "../domain/types";
+import type { DriverPublicProfile, FareQuote, Money, Ride, SharedRideInfo, VehicleClass } from "../domain/types";
 
 /**
  * Small presentational building blocks shared by passenger and driver
@@ -68,6 +68,27 @@ export function FareAmount({ fare, emphasis = "md", className }: { fare: FareQuo
 
 export function MoneyText({ money, className }: { money: Money; className?: string }) {
   return <span className={cn("ride-num", className)}>{formatMoney(money)}</span>;
+}
+
+/**
+ * Waiting charge after the driver arrives. Only server values are shown:
+ * the running charge from `ride.waiting`, else the policy from the quote.
+ * Renders nothing when the server reports neither.
+ */
+export function WaitingNote({ ride, className }: { ride: Ride; className?: string }) {
+  const waiting = ride.waiting;
+  const policy = ride.fare.waiting;
+  let text: string | null = null;
+  if (waiting && waiting.charge.amountMinor > 0) {
+    text = `Waiting charge so far: ${formatMoney(waiting.charge)} (${waiting.billableMinutes} min at ${formatMoney(waiting.perMinute)}/min).`;
+  } else if (waiting?.freeUntil) {
+    const until = new Date(waiting.freeUntil).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    text = `Free waiting until ${until}, then ${formatMoney(waiting.perMinute)} per minute.`;
+  } else if (policy && policy.perMinute.amountMinor > 0) {
+    text = `${policy.freeMinutes} min of free waiting, then ${formatMoney(policy.perMinute)} per minute.`;
+  }
+  if (!text) return null;
+  return <p className={cn("ride-caption text-[var(--text-secondary)]", className)}>{text}</p>;
 }
 
 export function FareBreakdown({ fare, className }: { fare: FareQuote; className?: string }) {

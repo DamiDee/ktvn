@@ -71,6 +71,23 @@ export interface FareQuote {
   breakdown: FareLine[];
   /** True until the trip completes and the server settles the final fare. */
   isEstimate: boolean;
+  /** Waiting charge policy once the driver has arrived, when the server sets one. */
+  waiting?: WaitingPolicy;
+}
+
+export interface WaitingPolicy {
+  freeMinutes: number;
+  perMinute: Money;
+}
+
+/** Live waiting charge on a ride, from the server; the client never computes it. */
+export interface WaitingInfo {
+  freeUntil: string | null;
+  freeSeconds: number;
+  waitedSeconds: number;
+  billableMinutes: number;
+  perMinute: Money;
+  charge: Money;
 }
 
 export type VehicleClass = "compact" | "sedan" | "suv" | "van" | "premium";
@@ -244,6 +261,8 @@ export interface Ride {
   shareUrl?: string;
   /** When the product requires a trip PIN, the passenger sees it here. */
   tripPin?: string;
+  /** Waiting time and charge after the driver arrived, when the server reports it. */
+  waiting?: WaitingInfo;
 }
 
 export interface RideSummary {

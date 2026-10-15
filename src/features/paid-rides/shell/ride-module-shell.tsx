@@ -8,7 +8,7 @@ import { cn } from "@/lib/cn";
 import { useIsDesktop } from "@/hooks/use-media-query";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/states";
-import { PAID_RIDES_MODE } from "../config";
+import { PAID_RIDES_FEATURES, PAID_RIDES_MODE } from "../config";
 import { trackRideEvent } from "../analytics";
 import { toRideError } from "../domain/errors";
 import { BubbleNav, type BubbleNavItem } from "../components/bubble-nav";
@@ -106,14 +106,16 @@ export function RideModuleShell({ children }: { children: ReactNode }) {
         ? [
             { href: "/rides/driver", label: "Drive", icon: CarFront },
             { href: "/rides/driver/requests", label: "Requests", icon: Inbox, badge: offerWaiting ? 1 : 0 },
-            { href: "/rides/driver/messages", label: "Messages", icon: MessageCircle, badge: driverUnread },
+            ...(PAID_RIDES_FEATURES.chat ? [{ href: "/rides/driver/messages", label: "Messages", icon: MessageCircle, badge: driverUnread }] : []),
             { href: "/rides/driver/trips", label: "Trips", icon: History, match: (path) => path.startsWith("/rides/driver/trips") },
             { href: "/rides/driver/account", label: "Account", icon: UserRound },
           ]
         : [
             { href: "/rides", label: "Ride", icon: MapPinned, match: (path) => path === "/rides" || path === "/rides/current" },
             { href: "/rides/history", label: "Activity", icon: History, match: (path) => path.startsWith("/rides/history") || /^\/rides\/(?!driver|messages|safety|account)[^/]+$/.test(path) },
-            { href: "/rides/messages", label: "Messages", icon: MessageCircle, badge: passengerUnread, match: (path) => path === "/rides/messages" || path.endsWith("/chat") },
+            ...(PAID_RIDES_FEATURES.chat
+              ? [{ href: "/rides/messages", label: "Messages", icon: MessageCircle, badge: passengerUnread, match: (path: string) => path === "/rides/messages" || path.endsWith("/chat") }]
+              : []),
             { href: "/rides/safety", label: "Safety", icon: LifeBuoy, match: (path) => path === "/rides/safety" || path.endsWith("/safety") },
             { href: "/rides/account", label: "Account", icon: UserRound },
           ],

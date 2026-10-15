@@ -10,6 +10,15 @@ import { splitDistance, splitDuration } from "../src/features/paid-rides/domain/
 import { computeDriverRide, computePassengerRide, passengerStageAt } from "../src/features/paid-rides/services/mock/mock-timeline.ts";
 import { mockQuote } from "../src/features/paid-rides/services/mock/mock-pricing.ts";
 import { MOCK_DRIVERS, MOCK_PRODUCTS } from "../src/features/paid-rides/services/mock/mock-fixtures.ts";
+import {
+  mapAvailability,
+  mapContact,
+  mapEstimate,
+  mapRealtimeEvent,
+  mapRide,
+  mapRideEnvelope,
+  mapViewer,
+} from "../src/features/paid-rides/services/api-mappers.ts";
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -366,4 +375,122 @@ test("fare lines always add up to the quoted total", () => {
     const sum = quote.breakdown.reduce((total, line) => total + line.amount.amountMinor, 0);
     assert.equal(sum, quote.total.amountMinor, product.name);
   }
+});
+
+// ─── Real backend mapping (docs/paid-rides/openapi.json) ─────────────────────
+
+test("viewer roles map case-insensitively; everyone signed in can ride", () => {
+  assert.deepEqual(mapViewer({ displayName: "Ada", roles: ["User"] }).roles, ["passenger"]);
+  assert.deepEqual(mapViewer({ displayName: "Bayo", roles: ["Driver"] }).roles, ["passenger", "driver"]);
+  assert.deepEqual(mapViewer({ displayName: "Chi", roles: ["driver", "Admin"] }).roles, ["passenger", "driver"]);
+  assert.deepEqual(mapViewer({ displayName: "Dupe" }).roles, ["passenger"]);
+});
+
+test("availability envelope and calling capability are read defensively", () => {
+  assert.equal(mapAvailability({ availability: { status: "ON_TRIP", updatedAt: "2026-10-15T12:00:00Z" } }), "ON_TRIP");
+  assert.equal(mapAvailability({ availability: "online" }), "ONLINE");
+  assert.equal(mapAvailability(null), "OFFLINE");
+  assert.deepEqual(mapContact({ call: "masked", chat: false }), { call: "none", callHref: undefined, chat: false }, "no href, no call button");
+  assert.equal(mapContact({ call: "direct", callHref: "tel:+234", chat: false }).call, "direct");
+  assert.equal(mapContact({ call: "carrier-pigeon", callHref: "tel:+234" }).call, "none");
+});
+
+test("estimate maps options, unavailable products and the waiting policy", () => {
+  const ngn = (amountMinor) => ({ amountMinor, currency: "NGN" });
+  const estimate = mapEstimate(
+    {
+      estimateId: "est-1",
+      expiresAt: "2026-10-15T12:05:00Z",
+      defaultPaymentMethodId: "cash",
+      paymentMethods: [{ id: "cash", kind: "Cash", label: "Cash" }],
+      route: { name: "a Free Bus route by mistake", stops: [] },
+      options: [
+        {
+          available: true,
+          pickupEtaSeconds: 240,
+          option: { id: "standard", name: "Standard", description: "Everyday", vehicleClass: "Sedan", capacity: 4, shared: false },
+          fare: { total: ngn(350000), range: { low: ngn(320000), high: ngn(380000) }, breakdown: [{ code: "base", label: "Base", amount: ngn(50000) }], isEstimate: true, waiting: { freeMinutes: 3, perMinute: ngn(5000) } },
+        },
+        {
+          available: false,
+          option: { id: "xl", name: "XL", description: "", vehicleClass: "van", capacity: 6, shared: false },
+          fare: { total: ngn(600000), range: { low: ngn(600000), high: ngn(600000) }, breakdown: [], isEstimate: true, waiting: { freeMinutes: 3, perMinute: ngn(5000) } },
+        },
+      ],
+    },
+    { pickup, destination },
+  );
+  assert.equal(estimate.estimateId, "est-1");
+  assert.equal(estimate.options[0].vehicleClass, "sedan");
+  assert.equal(estimate.options[0].fare.waiting.freeMinutes, 3);
+  assert.equal(estimate.options[1].available, false);
+  assert.equal(estimate.options[1].fare.range, undefined, "a zero-width range is a fixed price");
+  assert.equal(estimate.paymentMethods[0].kind, "cash");
+  assert.equal(estimate.route.source, "approximate", "an unexpected route shape falls back to a straight line");
+  assert.deepEqual(estimate.route.points, [pickup.point, destination.point]);
+});
+
+test("ride projection keeps the ride route shape and the waiting charge", () => {
+  const ngn = (amountMinor) => ({ amountMinor, currency: "NGN" });
+  const wire = {
+    id: "ride-9",
+    version: 4,
+    status: "DRIVER_ARRIVED",
+    createdAt: "2026-10-15T12:00:00Z",
+    updatedAt: "2026-10-15T12:06:00Z",
+    pickup: { name: "Wuse Market", point: { lat: 9.0647, lng: 7.4728 } },
+    destination: { name: "Jabi Lake Mall", point: { lat: 9.0721, lng: 7.4246 } },
+    route,
+    option: { id: "standard", name: "Standard", vehicleClass: "sedan", capacity: 4, shared: false, description: "" },
+    fare: { total: ngn(350000), range: { low: ngn(320000), high: ngn(380000) }, breakdown: [], isEstimate: true, waiting: { freeMinutes: 3, perMinute: ngn(5000) } },
+    payment: { methodLabel: "Cash", status: "Pending" },
+    driver: { displayName: "Musa", verified: true, completedRides: 120, contact: { call: "none", chat: false }, vehicle: { make: "Toyota", model: "Corolla", color: "Silver", plate: "ABC-123", vehicleClass: "sedan", capacity: 4 } },
+    cancellation: null,
+    timestamps: { arrivedAt: "2026-10-15T12:05:00Z" },
+    sos: { status: "none" },
+    waiting: { billableMinutes: 2, charge: ngn(10000), freeSeconds: 180, freeUntil: "2026-10-15T12:08:00Z", perMinute: ngn(5000), waitedSeconds: 300 },
+  };
+  const mapped = mapRide(wire);
+  assert.equal(mapped.version, 4);
+  assert.equal(mapped.route.source, "road");
+  assert.equal(mapped.route.points.length, 3);
+  assert.equal(mapped.payment.status, "pending");
+  assert.equal(mapped.pickup.secondary, "");
+  assert.equal(mapped.driver.contact.call, "none");
+  assert.equal(mapped.waiting.charge.amountMinor, 10000);
+  assert.equal(mapped.cancellation, undefined);
+  assert.equal(mapRideEnvelope({ ride: null }), null);
+  assert.equal(mapRideEnvelope({ ride: wire }).id, "ride-9");
+});
+
+test("socket events: seq is ignored for this backend, so repeats are not dropped and jumps don't resync", () => {
+  const frame = (id, seq, payload) => ({ id, rideId: "ride-1", seq, rideVersion: null, occurredAt: "2026-10-15T12:00:00Z", payload });
+  const location = (second) => ({ type: "ride.driver.location_updated", location: { point: { lat: 9.06 + second / 1000, lng: 7.47 }, recordedAt: `2026-10-15T12:00:0${second}Z` } });
+  const a = mapRealtimeEvent(frame("evt-a", 1, location(1)), { trustSeq: false });
+  const b = mapRealtimeEvent(frame("evt-b", 1, location(2)), { trustSeq: false });
+  const c = mapRealtimeEvent(frame("evt-c", 7, location(3)), { trustSeq: false });
+  assert.equal(a.seq, null);
+  assert.equal(mapRealtimeEvent(frame("evt-z", 3, location(0)), { trustSeq: true }).seq, 3);
+  assert.equal(mapRealtimeEvent(frame("evt-x", 1, { type: "chat.typing.started" }), { trustSeq: false }), null, "unknown events are dropped");
+
+  let state = rideSessionReducer(ready(), { type: "SNAPSHOT", ride: ride("DRIVER_EN_ROUTE", 2) });
+  for (const e of [a, b, a, c]) state = rideSessionReducer(state, { type: "EVENT", event: e });
+  assert.equal(state.seenEventIds.length, 3, "same id applied once; repeated seq still applied");
+  assert.equal(state.resyncToken, 0, "a seq jump is not treated as missed events");
+  assert.equal(state.ride.driverLocation.recordedAt, "2026-10-15T12:00:03Z");
+});
+
+test("an expiry without an offer id is matched by the event's ride", () => {
+  const raw = mapRealtimeEvent({ id: "evt-exp", rideId: "ride-o9", seq: 1, occurredAt: "2026-10-15T12:00:20Z", payload: { type: "driver.request.expired" } }, { trustSeq: false });
+  let state = driverSessionReducer(onlineDriver(), { type: "OFFER_RECEIVED", offer: offer("o9") });
+  state = driverSessionReducer(state, { type: "RIDE", msg: { type: "EVENT", event: raw } });
+  assert.equal(state.offer.phase, "expired");
+
+  const offerEvent = mapRealtimeEvent(
+    { id: "evt-offer", rideId: "r-2", seq: 1, occurredAt: "2026-10-15T12:00:00Z", payload: { type: "driver.request.received", offer: { offerId: "o-2", rideId: "r-2", expiresAt: "2026-10-15T12:00:20Z", pickup: { name: "HQ", point: { lat: 6.52, lng: 3.37 } }, destination: { name: "Airport", point: { lat: 6.57, lng: 3.32 } }, option: { id: "standard", name: "Standard", vehicleClass: "sedan", capacity: 4, shared: false }, fare: { total: { amountMinor: 350000, currency: "NGN" } }, driverEarning: { amountMinor: 300000, currency: "NGN" }, tripDistanceMeters: 14200, tripDurationSeconds: 1800, passenger: { displayName: "Grace A.", rating: 4.9 } } } },
+    { trustSeq: false },
+  );
+  assert.equal(offerEvent.payload.offer.earning.amountMinor, 300000);
+  assert.equal(offerEvent.payload.offer.pickupDistanceMeters, 0, "missing pickup distance degrades to zero");
+  assert.equal(offerEvent.payload.offer.passenger.displayName, "Grace A.");
 });

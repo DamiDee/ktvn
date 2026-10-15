@@ -13,12 +13,13 @@ import type { Ride } from "../domain/types";
 import { ActionTile } from "../components/action-tile";
 import { PinCharacter } from "../components/characters";
 import { RideSheet } from "../components/ride-sheet";
-import { DriverIdentity, EtaValue, RouteStops, SharedRideNote } from "../components/ride-ui";
+import { DriverIdentity, EtaValue, RouteStops, SharedRideNote, WaitingNote } from "../components/ride-ui";
 import { PipPromptCard } from "../pip/floating-tracker";
 import { SafetyCenter } from "../safety/safety-center";
 import { shareTrip } from "../safety/share-trip";
 import { usePassengerStore } from "../state/passenger-store";
 import type { SheetHostProps } from "./panel-types";
+import { PAID_RIDES_FEATURES } from "../config";
 
 /**
  * DRIVER_MATCHED → EN_ROUTE → ARRIVING → ARRIVED.
@@ -114,11 +115,13 @@ export function DriverPanel({ ride, phase, onCoverChange, bottomOffset }: SheetH
 
         <DriverIdentity driver={driver} emphasis={arrived ? "arrived" : "default"} />
 
+        {arrived ? <WaitingNote ride={ride} /> : null}
+
         <div className="flex gap-2">
           {driver.contact.call !== "none" && driver.contact.callHref ? (
             <ActionTile icon={Phone} label="Call" href={driver.contact.callHref} />
           ) : null}
-          {driver.contact.chat ? <ActionTile icon={MessageCircle} label="Message" href={`/rides/${ride.id}/chat`} badge={unread} /> : null}
+          {driver.contact.chat && PAID_RIDES_FEATURES.chat ? <ActionTile icon={MessageCircle} label="Message" href={`/rides/${ride.id}/chat`} badge={unread} /> : null}
           <ActionTile icon={ShieldCheck} label="Safety" tone="safety" onClick={() => setSafetyOpen(true)} />
           <ActionTile icon={Share2} label="Share" onClick={() => void onShare()} />
         </div>

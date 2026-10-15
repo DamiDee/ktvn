@@ -93,6 +93,11 @@ export function CompletionPanel({ ride, onCoverChange, bottomOffset }: SheetHost
             <p className="ride-label">{paymentFailed ? "Amount due" : `Paid · ${ride.payment.methodLabel}`}</p>
             <p className="ride-num text-[1.5rem] font-semibold tracking-[-0.03em]">{formatMoney(ride.fare.total)}</p>
           </div>
+          {ride.waiting && ride.waiting.charge.amountMinor > 0 ? (
+            <p className="ride-caption -mt-2 mb-3 text-right text-[var(--text-secondary)]">
+              Includes {formatMoney(ride.waiting.charge)} for {ride.waiting.billableMinutes} min of waiting
+            </p>
+          ) : null}
           <MetricRow
             items={[
               { label: "Distance", value: formatDistance(ride.route.distanceMeters) },

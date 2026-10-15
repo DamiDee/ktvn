@@ -23,10 +23,21 @@ export const PAID_RIDES_MODE: PaidRidesMode = readMode();
 export const PAID_RIDES_ENABLED = PAID_RIDES_MODE !== "off";
 
 export const PAID_RIDES_CONFIG = {
-  /** REST base for `api` mode, e.g. https://api.example.com/api/v1 */
+  /** REST base for `api` mode; the backend serves under /api/v1, e.g. https://api.example.com/api/v1 */
   apiBaseUrl: process.env.NEXT_PUBLIC_PAID_RIDES_API_BASE_URL ?? "",
-  /** WebSocket endpoint for `api` mode, e.g. wss://api.example.com/rides/ws */
+  /**
+   * WebSocket endpoint for `api` mode, e.g. wss://api.example.com/api/v1/rides/ws.
+   * Passengers connect to it as is; drivers connect to `<url>/<driverId>`.
+   */
   realtimeUrl: process.env.NEXT_PUBLIC_PAID_RIDES_REALTIME_URL ?? "",
+
+  /**
+   * Whether the socket's `seq` may be trusted for de-duplication and gap
+   * detection. The real backend's `seq` semantics are unconfirmed (its
+   * examples repeat `seq: 1`), so in `api` mode events are de-duplicated by
+   * id only and ride versions alone gate snapshots.
+   */
+  trustRealtimeSeq: false,
 
   /** Tile templates. Empty means the OpenStreetMap default with token styling. */
   tiles: {
@@ -53,7 +64,12 @@ export const PAID_RIDES_CONFIG = {
     acquireTimeoutMs: 12_000,
     maxFixAgeMs: 30_000,
     lowAccuracyMeters: 120,
-    transmit: { minIntervalMs: 4_000, maxIntervalMs: 20_000, minDistanceMeters: 15 },
+    /**
+     * `maxIntervalMs` is the stationary heartbeat. The backend drops a driver
+     * from its Redis presence index after 15 s without a fix, so it must stay
+     * comfortably under that.
+     */
+    transmit: { minIntervalMs: 4_000, maxIntervalMs: 10_000, minDistanceMeters: 15 },
   },
 
   /** Realtime reconnection. */
@@ -78,6 +94,19 @@ export const PAID_RIDES_CONFIG = {
 
   /** Trip PIN is off until the product requires it. */
   tripPinRequired: false,
+} as const;
+
+/**
+ * Product features that depend on the data source. The simulation has them
+ * all; the real backend enables each once it exists there.
+ */
+export const PAID_RIDES_FEATURES = {
+  /**
+   * In-app chat. Off in v1 of the backend: `ContactView.chat` is always false
+   * and there are no message endpoints. `NEXT_PUBLIC_PAID_RIDES_CHAT=on`
+   * turns it on for `api` mode once they exist.
+   */
+  chat: PAID_RIDES_MODE === "mock" || process.env.NEXT_PUBLIC_PAID_RIDES_CHAT === "on",
 } as const;
 
 /** Local-storage keys. Only non-sensitive values are ever stored. */

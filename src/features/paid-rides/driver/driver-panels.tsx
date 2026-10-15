@@ -9,14 +9,14 @@ import { MessageCircle, Navigation, Phone, Power, ShieldCheck } from "lucide-rea
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog, Modal } from "@/components/ui/modal";
-import { PAID_RIDES_CONFIG } from "../config";
+import { PAID_RIDES_CONFIG, PAID_RIDES_FEATURES } from "../config";
 import { ERROR_COPY } from "../domain/errors";
 import { firstName, formatArrivalClock, formatDistance, formatDuration, formatMoney } from "../domain/format";
 import type { GeoPoint, Ride } from "../domain/types";
 import { ActionTile } from "../components/action-tile";
 import { PinCharacter } from "../components/characters";
 import { RideSheet } from "../components/ride-sheet";
-import { EtaValue, MetricRow, PersonAvatar, RatingPill, RouteStops } from "../components/ride-ui";
+import { EtaValue, MetricRow, PersonAvatar, RatingPill, RouteStops, WaitingNote } from "../components/ride-ui";
 import { SafetyCenter } from "../safety/safety-center";
 import { useDriverStore } from "../state/driver-store";
 
@@ -116,7 +116,7 @@ function ContactRow({ ride, onSafety }: { ride: Ride; onSafety: () => void }) {
   return (
     <div className="flex gap-2">
       {contact && contact.call !== "none" && contact.callHref ? <ActionTile icon={Phone} label="Call" href={contact.callHref} /> : null}
-      {contact?.chat ? <ActionTile icon={MessageCircle} label="Message" href="/rides/driver/messages" badge={unread} /> : null}
+      {contact?.chat && PAID_RIDES_FEATURES.chat ? <ActionTile icon={MessageCircle} label="Message" href="/rides/driver/messages" badge={unread} /> : null}
       <ActionTile icon={ShieldCheck} label="Safety" tone="safety" onClick={onSafety} />
     </div>
   );
@@ -189,6 +189,7 @@ export function PickupPanel({ ride, arrived, onCoverChange, bottomOffset }: Cove
           <ActionError />
           {arrived ? (
             <>
+              <WaitingNote ride={ride} className="text-center" />
               {PAID_RIDES_CONFIG.tripPinRequired ? (
                 <input
                   value={pin}

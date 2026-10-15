@@ -14,6 +14,7 @@ import { SafetyCenter } from "../safety/safety-center";
 import { shareTrip } from "../safety/share-trip";
 import { usePassengerStore } from "../state/passenger-store";
 import type { SheetHostProps } from "./panel-types";
+import { PAID_RIDES_FEATURES } from "../config";
 
 /**
  * TRIP_ACTIVE: map first, then destination, ETA, remaining distance, safety,
@@ -76,7 +77,7 @@ export function TripPanel({ ride, paused, onCoverChange, bottomOffset }: SheetHo
         <div className="flex gap-2">
           <ActionTile icon={ShieldCheck} label="Safety" tone="safety" onClick={() => setSafetyOpen(true)} />
           <ActionTile icon={Share2} label="Share trip" onClick={() => void onShare()} />
-          {ride.driver?.contact.chat ? <ActionTile icon={MessageCircle} label="Message" href={`/rides/${ride.id}/chat`} badge={unread} /> : null}
+          {ride.driver?.contact.chat && PAID_RIDES_FEATURES.chat ? <ActionTile icon={MessageCircle} label="Message" href={`/rides/${ride.id}/chat`} badge={unread} /> : null}
         </div>
 
         {ride.driver ? (

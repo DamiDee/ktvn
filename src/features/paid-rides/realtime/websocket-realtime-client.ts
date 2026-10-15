@@ -1,25 +1,41 @@
-import { PAID_RIDES_CONFIG } from "../config";
+import { signedInUserId } from "@/services/freebus-api";
+import { PAID_RIDES_CONFIG, PAID_RIDES_FEATURES } from "../config";
 import { backoffDelay } from "../domain/location-policy";
 import type { ConnectionStatus, LiveLocation, RideEvent } from "../domain/types";
+import { mapRealtimeEvent } from "../services/api-mappers";
 import { ListenerSet, type RideRealtimeClient } from "./realtime-client";
 
 /**
- * Native WebSocket implementation.
+ * Native WebSocket implementation for the real backend
+ * (docs/paid-rides/API_AND_WEBSOCKET_SPEC.md §2).
  *
- * Wire format (JSON, one object per frame) — see the backend requirements:
- *   client → server  { type: "subscribe" | "unsubscribe", channel: "ride:<id>" | "driver" }
- *                    { type: "location", location }   { type: "typing", rideId, typing }
- *                    { type: "ping" }
- *   server → client  { type: "event", event: RideEvent }   { type: "pong" }
+ * Endpoints: passengers connect to the bare URL; drivers connect to
+ * `<url>/<driverId>`, which registers them for offers. There is no `driver`
+ * channel, so "subscribing to the driver feed" means connecting on the
+ * driver path.
  *
- * The socket authenticates with the same HTTP-only session cookie as REST;
- * no token is put in the URL.
+ * Wire format (JSON, one object per frame):
+ *   client → server  { type: "subscribe" | "unsubscribe", channel: "ride:<id>" }
+ *                    { type: "location", location }   { type: "ping" }
+ *   server → client  { type: "event", event: { id, rideId, seq, rideVersion, occurredAt, payload } }
+ *                    { type: "pong" }
+ *
+ * The socket authenticates with the same HTTP-only `access_token` cookie as
+ * REST; no token is put in the URL. Events are mapped and de-duplicated by
+ * id; `seq` is ignored unless `PAID_RIDES_CONFIG.trustRealtimeSeq`.
  */
 
-type ServerFrame = { type: "event"; event: RideEvent } | { type: "pong" } | { type: string };
+type ServerFrame = { type?: unknown; event?: unknown };
+
+export interface WebSocketClientOptions {
+  url?: string;
+  /** The signed-in driver's user id; null falls back to the bare URL. */
+  driverId?: () => string | null;
+}
 
 export class WebSocketRealtimeClient implements RideRealtimeClient {
   private socket: WebSocket | null = null;
+  private socketUrl: string | null = null;
   private readonly channels = new Set<string>();
   private readonly events = new ListenerSet<[RideEvent]>();
   private readonly statuses = new ListenerSet<[ConnectionStatus]>();
@@ -28,12 +44,16 @@ export class WebSocketRealtimeClient implements RideRealtimeClient {
   private attempt = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private switchTimer: ReturnType<typeof setTimeout> | null = null;
   private wanted = false;
   private everConnected = false;
+  private asDriver = false;
   private readonly url: string;
+  private readonly driverId: () => string | null;
 
-  constructor(url: string = PAID_RIDES_CONFIG.realtimeUrl) {
-    this.url = url;
+  constructor(options: WebSocketClientOptions = {}) {
+    this.url = (options.url ?? PAID_RIDES_CONFIG.realtimeUrl).replace(/\/$/, "");
+    this.driverId = options.driverId ?? signedInUserId;
   }
 
   get status(): ConnectionStatus {
@@ -44,6 +64,17 @@ export class WebSocketRealtimeClient implements RideRealtimeClient {
     if (status === this.currentStatus) return;
     this.currentStatus = status;
     this.statuses.emit(status);
+  }
+
+  /** The endpoint for the current role. */
+  private targetUrl(): string {
+    if (!this.asDriver) return this.url;
+    const driverId = this.driverId();
+    // TODO(paid-rides): without a remembered user id (Free Buses live login
+    // stores it) the driver can't be addressed, so offers won't arrive.
+    // `/rides/me` doesn't return the id; ask the backend to take identity
+    // from the cookie instead (BACKEND_SPEC_ALIGNMENT.md, "two WebSocket endpoints").
+    return driverId ? `${this.url}/${encodeURIComponent(driverId)}` : this.url;
   }
 
   connect(): void {
@@ -60,8 +91,10 @@ export class WebSocketRealtimeClient implements RideRealtimeClient {
     }
 
     this.setStatus(this.everConnected ? "reconnecting" : "connecting");
-    const socket = new WebSocket(this.url);
+    const url = this.targetUrl();
+    const socket = new WebSocket(url);
     this.socket = socket;
+    this.socketUrl = url;
 
     socket.onopen = () => {
       const wasReconnect = this.everConnected;
@@ -80,12 +113,16 @@ export class WebSocketRealtimeClient implements RideRealtimeClient {
       } catch {
         return;
       }
-      if (frame.type === "event" && "event" in frame) this.events.emit(frame.event as RideEvent);
+      if (frame.type !== "event") return;
+      const event = mapRealtimeEvent(frame.event, { trustSeq: PAID_RIDES_CONFIG.trustRealtimeSeq });
+      if (event) this.events.emit(event);
     };
 
     socket.onclose = () => {
       this.stopHeartbeat();
-      if (this.socket === socket) this.socket = null;
+      if (this.socket !== socket) return;
+      this.socket = null;
+      this.socketUrl = null;
       if (this.wanted) this.scheduleReconnect();
       else this.setStatus("idle");
     };
@@ -127,10 +164,33 @@ export class WebSocketRealtimeClient implements RideRealtimeClient {
     this.wanted = false;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.reconnectTimer = null;
+    if (this.switchTimer) clearTimeout(this.switchTimer);
+    this.switchTimer = null;
     this.stopHeartbeat();
     this.socket?.close(1000, "client closed");
     this.socket = null;
+    this.socketUrl = null;
     this.setStatus("idle");
+  }
+
+  /**
+   * Move the connection to the endpoint for the current role. Deferred one
+   * tick so an unsubscribe immediately followed by a subscribe (a React
+   * effect re-run) doesn't drop the socket.
+   */
+  private reconnectForRole(): void {
+    if (this.switchTimer) clearTimeout(this.switchTimer);
+    this.switchTimer = setTimeout(() => {
+      this.switchTimer = null;
+      if (!this.wanted || !this.socket || this.socketUrl === this.targetUrl()) return;
+      const previous = this.socket;
+      this.socket = null;
+      this.socketUrl = null;
+      this.stopHeartbeat();
+      previous.close(1000, "switching endpoint");
+      // A deliberate switch is a reconnect: the session re-reads its snapshot.
+      this.connect();
+    }, 0);
   }
 
   private startHeartbeat(): void {
@@ -168,12 +228,17 @@ export class WebSocketRealtimeClient implements RideRealtimeClient {
     this.unsubscribe(`ride:${rideId}`);
   }
 
+  /** Offers and availability arrive on the driver endpoint; no channel frame is sent. */
   subscribeToDriver(): void {
-    this.subscribe("driver");
+    if (this.asDriver) return;
+    this.asDriver = true;
+    this.reconnectForRole();
   }
 
   unsubscribeFromDriver(): void {
-    this.unsubscribe("driver");
+    if (!this.asDriver) return;
+    this.asDriver = false;
+    this.reconnectForRole();
   }
 
   sendLocation(location: LiveLocation): boolean {
@@ -181,7 +246,8 @@ export class WebSocketRealtimeClient implements RideRealtimeClient {
   }
 
   sendTyping(rideId: string, typing: boolean): void {
-    this.send({ type: "typing", rideId, typing });
+    // No typing frames on this backend until chat exists.
+    if (PAID_RIDES_FEATURES.chat) this.send({ type: "typing", rideId, typing });
   }
 
   onEvent(listener: (event: RideEvent) => void): () => void {

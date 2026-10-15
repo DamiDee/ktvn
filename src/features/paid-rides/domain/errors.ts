@@ -17,6 +17,7 @@ export type RideErrorCode =
   | "already_taken"
   | "request_expired"
   | "driver_ineligible"
+  | "wrong_pin"
   | "payment_failed"
   | "rate_limited"
   | "unavailable"
@@ -72,6 +73,7 @@ export const ERROR_COPY: Record<RideErrorCode, { title: string; body: string }> 
   already_taken: { title: "Another driver got this one", body: "The ride was assigned before your acceptance reached us." },
   request_expired: { title: "This request expired", body: "It was offered to another driver." },
   driver_ineligible: { title: "You can't take this ride", body: "Your vehicle or account doesn't match this ride type." },
+  wrong_pin: { title: "That PIN didn't match", body: "Ask the passenger for the 4-digit PIN shown in their app." },
   payment_failed: { title: "Payment didn't go through", body: "Choose another payment method to continue." },
   rate_limited: { title: "Please wait a moment", body: "Too many attempts in a short time." },
   unavailable: { title: "Paid Rides is having trouble", body: "Our service is temporarily unavailable. Try again shortly." },

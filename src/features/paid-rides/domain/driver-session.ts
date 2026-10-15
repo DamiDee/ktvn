@@ -86,8 +86,10 @@ function withOfferEvent(state: DriverSessionState, event: RideEvent): DriverSess
   if (payload.type === "driver.availability.changed") return driverSessionReducer(state, { type: "AVAILABILITY_CONFIRMED", availability: payload.availability });
 
   if (payload.type === "driver.request.expired" || payload.type === "driver.request.withdrawn") {
-    if (state.queuedOffer?.offerId === payload.offerId) return { ...state, queuedOffer: null };
-    if (state.offer?.offer.offerId !== payload.offerId) return state;
+    // Without an offer id (not guaranteed by the backend spec) the event's ride identifies the offer.
+    const matches = (offer: RideOffer) => (payload.offerId ? offer.offerId === payload.offerId : event.rideId !== null && offer.rideId === event.rideId);
+    if (state.queuedOffer && matches(state.queuedOffer)) return { ...state, queuedOffer: null };
+    if (!state.offer || !matches(state.offer.offer)) return state;
     // An accept already in flight is settled by its own response.
     if (state.offer.phase === "accepting") return state;
     const phase: OfferPhase = payload.type === "driver.request.withdrawn" && payload.reason === "taken" ? "taken" : "expired";
