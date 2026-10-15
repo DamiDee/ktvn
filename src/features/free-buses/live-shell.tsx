@@ -250,7 +250,7 @@ function SidebarBody({
           <NavLink
             key={item.href}
             item={item}
-            active={pathname === item.href || (item.href !== "/admin" && item.href !== "/admin/free-buses" && pathname.startsWith(`${item.href}/`))}
+            active={pathname === item.href || (!["/admin", "/admin/free-buses", "/passenger/free-buses"].includes(item.href) && pathname.startsWith(`${item.href}/`))}
             onNavigate={onNavigate}
           />
         ))}

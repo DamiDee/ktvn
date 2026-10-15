@@ -145,6 +145,16 @@ html:has([data-product-ui="premium"]) a:hover [data-ui-icon="trailing"], html:ha
 .premium-journey-intro { position: relative; isolation: isolate; border: 1px solid var(--kx-border); border-radius: 28px 12px 28px 28px; padding: clamp(24px, 4vw, 36px); background: linear-gradient(120deg, var(--kx-surface), var(--kx-surface-nested)); }
 .premium-journey-intro > :not(.premium-fluid) { position: relative; z-index: 1; }
 .premium-journey-intro h1 { font-size: clamp(28px, 4vw, 38px); line-height: 1.1; font-weight: 500; letter-spacing: -.055em; text-wrap: balance; }
+/* Shared title-card treatment, independent of the surrounding light/dark theme. */
+[data-product-ui="premium"] :is([data-ui-heading]:not(.premium-heading-plain), .premium-journey-intro, .premium-overview-hero) {
+  background: radial-gradient(ellipse at 100% 0, #2c426e 0, transparent 65%), #14213d;
+  border-color: #34435f;
+  color: #fff;
+}
+[data-product-ui="premium"] :is([data-ui-heading]:not(.premium-heading-plain), .premium-journey-intro, .premium-overview-hero) :is(h1, h2, h3) { color: #fff; }
+[data-product-ui="premium"] :is([data-ui-heading]:not(.premium-heading-plain), .premium-journey-intro, .premium-overview-hero) p { color: #fff; }
+[data-product-ui="premium"] :is([data-ui-heading]:not(.premium-heading-plain), .premium-journey-intro, .premium-overview-hero) p:is(.type-micro, .uppercase) { color: #ffce70; }
+[data-product-ui="premium"] [data-ui-heading]:not(.premium-heading-plain) a:not([data-ui-variant]) { color: #ffce70; }
 .premium-departure-card { border-radius: 24px 12px 24px 24px; overflow: hidden; }
 .premium-departure-time { background: linear-gradient(155deg, var(--kx-surface-nested), var(--kx-surface)); border-right-style: dashed; }
 .premium-ride-search { background: linear-gradient(135deg, var(--kx-surface), var(--kx-bg-mist)); box-shadow: inset 0 1px 0 rgb(255 255 255 / .35), var(--kx-shadow-md); border-radius: 24px 12px 24px 24px; }

@@ -28,6 +28,14 @@ export function watParts(value: string) {
   return { date: local.toISOString().slice(0, 10), time: local.toISOString().slice(11, 19), sunday: local.getUTCDay() === 0 };
 }
 
+/** Keep today's departures and unfinished journeys visible in the admin workspace. */
+export function isPastAdminTrip(trip: ApiTrip, now: number) {
+  if (trip.status === "Completed" || trip.status === "Cancelled") return true;
+  if (trip.status === "InProgress") return false;
+  const lastTravelDay = watParts(trip.return_time || trip.departure_time).date;
+  return Boolean(lastTravelDay) && lastTravelDay < watParts(new Date(now).toISOString()).date;
+}
+
 export function activityTime(value: string, now: number) {
   const timestamp = Date.parse(apiTimestamp(value));
   if (!Number.isFinite(timestamp)) return { absolute: "Time unavailable", relative: "Time unavailable", timestamp: 0 };

@@ -19,6 +19,7 @@ import { useLiveQuery } from "./live-queries";
 import { useLiveUser } from "./live-shell";
 import { CityPicker } from "@/components/ui/city-picker";
 import { PassengerStrikes } from "./passenger-strikes";
+import { displayName, displayPhone } from "@/lib/account-display";
 
 const ROLES: { value: ApiRole; label: string; short?: string; description: string }[] = [
   { value: "User", label: "Member", description: "Books a free seat and carries a boarding pass." },
@@ -189,10 +190,10 @@ export function AdminUsers() {
 
       <RecordsTable
         caption="Platform accounts"
-        rows={users.data}
+        rows={users.data.map((user) => ({ ...user, first_name: displayName(user.first_name), last_name: displayName(user.last_name) }))}
         rowKey={(user) => user.id}
         searchIn={(user) =>
-          `${user.first_name} ${user.last_name} ${user.email} ${user.username} ${user.phone} ${ROLE_LABEL[user.role] ?? user.role}`
+          `${user.first_name} ${user.last_name} ${user.email} ${user.username} ${user.phone} ${displayPhone(user.phone)} ${user.phone?.replace(/\D/g, "")} ${ROLE_LABEL[user.role] ?? user.role}`
         }
         searchPlaceholder="Search name, email, username or phone"
         initialSort={{ id: "name", direction: "asc" }}
@@ -235,7 +236,7 @@ export function AdminUsers() {
             header: "Phone",
             meta: true,
             hideBelow: "xl",
-            cell: (user) => <span className="type-numeric text-ink-secondary">{user.phone}</span>,
+            cell: (user) => <span className="type-numeric whitespace-nowrap text-ink-secondary">{displayPhone(user.phone)}</span>,
           },
           {
             id: "role",
