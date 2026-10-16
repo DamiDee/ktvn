@@ -38,6 +38,12 @@ async function boardingRequest<T>(path: string, options: RequestInit = {}) {
   return freebusRequest<T>(path, options);
 }
 
+function boardingError(error: unknown, fallback: string) {
+  return error instanceof FreebusError && error.status === 403
+    ? "Your account does not have permission to verify or board passengers. Ask an admin to enable boarding access for your role."
+    : error instanceof Error ? error.message : fallback;
+}
+
 export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
   const user = useLiveUser();
   const oversight = isOversight(user.role);
@@ -117,8 +123,8 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
       await board(booking, session);
     } catch (e) {
       const uncertain = e instanceof FreebusError && (e.status === 0 || e.status >= 500 || e.status === 401);
-      if (uncertain) stop();
-      setResult({ ok: false, text: uncertain ? "Scanner paused: the server response was unavailable. Check the manifest before restarting; boarding may have succeeded." : e instanceof Error ? e.message : "Could not confirm boarding. Check the manifest before retrying." });
+      if (uncertain || (e instanceof FreebusError && e.status === 403)) stop();
+      setResult({ ok: false, text: uncertain ? "Scanner paused: the server response was unavailable. Check the manifest before restarting; boarding may have succeeded." : boardingError(e, "Could not confirm boarding. Check the manifest before retrying.") });
       void bookings.refetch();
     } finally { locked.current = false; setBusy(false); }
   }
@@ -234,11 +240,12 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
   };
 
   async function boardNow(booking: ApiBooking) {
-    if (locked.current) return;
+    if (locked.current || starting) return;
+    stop(); setStation("manifest");
     locked.current = true; setBusy(true); setResult(null);
     try { await board(await freebusRequest<ApiBooking>(`bookings/${booking.id}`)); }
-    catch (e) { setResult({ ok: false, text: e instanceof Error ? e.message : "Boarding failed." }); }
-    finally { locked.current = false; setBusy(false); }
+    catch (e) { setResult({ ok: false, text: boardingError(e, "Boarding failed. Check the manifest before retrying.") }); }
+    finally { void bookings.refetch(); locked.current = false; setBusy(false); }
   }
 
   return <>
@@ -258,7 +265,7 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
       {station === "scan" ? <>
         {mode === "qr" ? <video ref={video} muted playsInline className="mb-4 aspect-video max-h-80 w-full rounded-xl bg-black object-cover" aria-label="QR camera preview" /> : <p className="mb-4 text-sm text-ink-secondary">NDEF tags on supported Android Chrome devices. Phone-to-phone NFC passes are not supported by web browsers. Use QR on other devices.</p>}
         <div className="flex gap-3"><Button disabled={!busId || running || busy} loading={starting} onClick={() => void start()}>Start scanner</Button><Button variant="secondary" disabled={!running && !starting} onClick={stop}>Stop scanner</Button></div>
-        <p className="mt-3 text-sm text-ink-muted">{running ? "Scanner active with no time limit. Verified passes for this bus board automatically. Stop when you’re finished." : "Camera / NFC permission is required once. No extra confirmation per successful scan. Completed and cancelled trips stay closed."}</p>
+        <p className="mt-3 text-sm text-ink-muted">{running ? "Scanner active with no time limit. Verified passes for this bus board automatically. Boarding from the manifest stops the scanner." : "Camera / NFC permission is required once. No extra confirmation per successful scan. Completed and cancelled trips stay closed."}</p>
       </> : (
         <p className="mt-4 text-sm text-ink-muted">The scanner is off while you search. Board a passenger from the manifest below, show their QR pass, or write it to an NFC tag.</p>
       )}
@@ -301,7 +308,7 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
             { id: "trip", header: "Trip", meta: true, sortBy: (booking) => { const trip = tripById.get(booking.trip_id ?? ""); return routeById.get(trip?.route_id ?? "")?.name ?? ""; }, cell: (booking) => {
               const trip = tripById.get(booking.trip_id ?? "");
               const route = routeById.get(trip?.route_id ?? "");
-              const leg = bookingLeg(booking, trip);
+              const leg = bookingLeg(booking, trip, route);
               const isReturn = leg === "return";
               const dirLabel = leg === "outbound" ? "Outbound" : leg === "return" ? "Return" : null;
               return (
@@ -338,7 +345,7 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
     {busId ? <details className="mt-5"><summary className="cursor-pointer text-sm text-ink-secondary">Board by typing a reference</summary>
       <form className="mt-3 flex flex-wrap items-end gap-3" onSubmit={async (event) => { event.preventDefault(); const data = new FormData(event.currentTarget); const reference = String(data.get("reference") ?? "").trim(); const booking = manifest.find((b) => b.booking_ref === reference); if (!booking) { setResult({ ok: false, text: "Reference not found in this bus manifest." }); return; } await boardNow(booking); }}>
         <Input name="reference" label="Booking reference" required placeholder="Exact booking reference" />
-        <Button type="submit" disabled={running || busy || starting}>Board by reference</Button>
+        <Button type="submit" disabled={busy || starting}>Board by reference</Button>
       </form>
       <p className="mt-3 text-xs text-ink-muted">Check the passenger against the manifest first. A signed QR or NFC pass is the preferred proof.</p>
     </details> : null}
@@ -346,7 +353,7 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
     <Modal open={Boolean(managing)} onClose={() => setManaging(null)} title={managing ? `Manage ${memberName(managing)}` : "Manage passenger"} description={managing ? `Seat ${managing.seat_number} · ${managing.booking_ref} · ${managing.status}` : undefined}>
       {managing ? (
           <div className="space-y-3">
-            {managing.status === "Confirmed" ? <div className="flex items-center justify-between gap-4"><p className="text-sm text-ink">Board this passenger now</p><Button size="sm" variant="secondary" disabled={running || busy || starting} onClick={() => { setManaging(null); void boardNow(managing); }}>Board</Button></div> : null}
+            {managing.status === "Confirmed" ? <div className="flex items-center justify-between gap-4"><p className="text-sm text-ink">Board this passenger now{running ? <span className="mt-1 block text-xs text-ink-secondary">The scanner will stop before boarding.</span> : null}</p><Button size="sm" variant="secondary" disabled={busy || starting} onClick={() => { setManaging(null); void boardNow(managing); }}>Board</Button></div> : null}
             {oversight ? <div className="flex items-center justify-between gap-4"><p className="text-sm text-ink">Show signed QR pass</p><Button size="sm" variant="ghost" icon={QrCode} onClick={() => { setManaging(null); void showQr(managing); }}>QR code</Button></div> : null}
             {oversight && managing.status === "Confirmed" ? <div className="flex items-center justify-between gap-4"><p className="text-sm text-ink">Write pass to NFC tag</p><Button size="sm" variant="ghost" icon={Nfc} disabled={running || busy || starting} onClick={() => { setManaging(null); void prepareTag(managing); }}>NFC tag</Button></div> : null}
             {managing.status === "Confirmed" ? <div className="flex items-center justify-between gap-4 border-t border-line pt-3"><p className="text-sm text-ink">Release this seat</p><Button size="sm" variant="ghost" className="!text-danger-600" disabled={running || busy || starting} onClick={() => { setManaging(null); setRevokeError(""); setRevoke(managing); }}>Revoke seat</Button></div> : null}

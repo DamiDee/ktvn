@@ -3,6 +3,17 @@ import assert from "node:assert/strict";
 import { createSessionTransport } from "../src/lib/session-transport.ts";
 
 const response = (status) => new Response(JSON.stringify({ status }), { status });
+test("refresh has JSON headers even when the caller transport adds none", async () => {
+  let renewed = false;
+  const transport = createSessionTransport(async (path, options) => {
+    if (path === "auth/refresh") {
+      assert.equal(options.headers["Content-Type"], "application/json");
+      assert.equal(options.body, "{}"); renewed = true;
+    }
+    return response(renewed ? 200 : 401);
+  }, () => {});
+  assert.equal((await transport.request("rides/current")).status, 200);
+});
 test("concurrent expired requests share one refresh and replay with the same options", async () => {
   let refreshes = 0, expired = 0, renewed = false;
   const calls = [];

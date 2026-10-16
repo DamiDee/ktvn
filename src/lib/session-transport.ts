@@ -6,7 +6,7 @@ export function createSessionTransport(send: (path: string, options: RequestInit
     if (!pending) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15_000);
-      pending = send("auth/refresh", { method: "POST", body: "{}", signal: controller.signal }).then((response) => {
+      pending = send("auth/refresh", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: "{}", signal: controller.signal }).then((response) => {
         if (response.ok) version += 1;
         else if (response.status === 401 || response.status === 403) expired();
         return response;
@@ -18,6 +18,7 @@ export function createSessionTransport(send: (path: string, options: RequestInit
     async request(path: string, options: RequestInit = {}) {
       const startedAtVersion = version;
       let response = await send(path, options);
+      if (options.signal?.aborted) throw new DOMException("Request cancelled", "AbortError");
       if (response.status !== 401 || path.startsWith("auth/") || (path === "users" && options.method === "POST")) return response;
       if (startedAtVersion === version) {
         const renewed = await refresh();

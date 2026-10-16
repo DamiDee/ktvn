@@ -1,5 +1,6 @@
 import type { ApiUser, ApiRegistration } from "@/types/freebus-api";
-import { createSessionTransport } from "@/lib/session-transport";
+import { getSessionClient, withSessionLock } from "./session-client";
+import { accountSession, changeAccountSession } from "@/lib/account-session";
 
 /**
  * Direct browser access to the Free Buses API.
@@ -42,7 +43,7 @@ function recallIdentity(): string | null {
 
 /**
  * The signed-in account's id, as remembered at login (`UserDto.id`), or null.
- * Not a credential: Paid Rides uses it only to address the driver's socket path.
+ * Not a credential. Socket identity comes from the authenticated session, not this id.
  */
 export function signedInUserId(): string | null {
   return typeof window === "undefined" ? null : recallIdentity();
@@ -58,12 +59,10 @@ export class FreebusError extends Error {
   }
 }
 
-const transport = createSessionTransport((path, options) => fetch(`${BASE}/${path}`, {
-  ...options, credentials: "include", cache: "no-store",
-  headers: { "Content-Type": "application/json", Accept: "application/json", ...options.headers },
-}), () => rememberIdentity(null));
+const transport = getSessionClient(BASE);
 
 export async function freebusRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const scope = accountSession.capture();
   let response: Response;
   try {
     response = await transport.request(path, options);
@@ -76,6 +75,7 @@ export async function freebusRequest<T>(path: string, options: RequestInit = {})
   }
 
   const body = await response.json().catch(() => null);
+  scope.assertCurrent();
   if (!response.ok) {
     if (response.status === 401) rememberIdentity(null);
     throw new FreebusError(
@@ -92,6 +92,10 @@ export async function freebusRequest<T>(path: string, options: RequestInit = {})
 
 export const liveAuth = {
   async login(user: string, password: string) {
+    changeAccountSession(true);
+    rememberIdentity(null);
+    return withSessionLock(BASE, async () => {
+    const scope = accountSession.capture();
     const result = await freebusRequest<{ user: ApiUser; token_type: string }>("auth/login", {
       method: "POST",
       body: JSON.stringify({ user, password }),
@@ -99,8 +103,11 @@ export const liveAuth = {
     if (!result?.user?.id) throw new FreebusError("Login did not return an account.", 502);
     if (!result.user.is_active)
       throw new FreebusError("This account is deactivated. Contact the oversight team.", 403);
+    scope.assertCurrent();
     rememberIdentity(result.user.id);
+    changeAccountSession(false);
     return result.user;
+    });
   },
 
   register: (payload: ApiRegistration) =>
@@ -117,12 +124,15 @@ export const liveAuth = {
   },
 
   async logout() {
+    changeAccountSession(true);
+    rememberIdentity(null);
+    return withSessionLock(BASE, async () => {
     try {
-      await transport.settleRefresh();
       await freebusRequest<unknown>("auth/logout", { method: "POST" });
     } finally {
       // Signing out locally must succeed even when the API cannot be reached.
       rememberIdentity(null);
     }
+    });
   },
 };

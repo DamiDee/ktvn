@@ -10,7 +10,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/states";
 import { PAID_RIDES_FEATURES, PAID_RIDES_MODE } from "../config";
 import { trackRideEvent } from "../analytics";
-import { toRideError } from "../domain/errors";
+import { ERROR_COPY, toRideError } from "../domain/errors";
 import { BubbleNav, type BubbleNavItem } from "../components/bubble-nav";
 import { getRideService } from "../services";
 import { useDriverStore } from "../state/driver-store";
@@ -131,12 +131,16 @@ export function RideModuleShell({ children }: { children: ReactNode }) {
   const forbidden = role === "driver" && viewer.data && !viewer.data.roles.includes("driver");
 
   let body: ReactNode = children;
-  if (viewerError?.code === "unauthorized") {
+  if (viewer.isPending) {
+    body = <CenteredState><p role="status">Verifying your Paid Rides account…</p></CenteredState>;
+  } else if (viewerError?.code === "unauthorized") {
     body = (
       <CenteredState>
         <EmptyState icon={CarFront} title="Sign in to use Paid Rides" description="Your session has ended." action={<ButtonLink href="/login">Sign in</ButtonLink>} />
       </CenteredState>
     );
+  } else if (viewerError) {
+    body = <CenteredState><EmptyState icon={CarFront} title={ERROR_COPY[viewerError.code].title} description={ERROR_COPY[viewerError.code].body} action={<button type="button" className="underline" onClick={() => void viewer.refetch()}>Try again</button>} /></CenteredState>;
   } else if (forbidden) {
     body = (
       <CenteredState>
@@ -153,7 +157,7 @@ export function RideModuleShell({ children }: { children: ReactNode }) {
   return (
     <ShellContext.Provider value={context}>
       <div className="kx-rides fixed inset-0 overflow-hidden" data-role={role}>
-        {role === "driver" ? <DriverSession /> : <PassengerSession />}
+        {viewer.data && !viewerError && !forbidden ? (role === "driver" ? <DriverSession /> : <PassengerSession />) : null}
         <div className="absolute inset-0">{body}</div>
         <div
           className={cn(

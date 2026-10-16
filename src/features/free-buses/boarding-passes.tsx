@@ -9,7 +9,7 @@ import { ConfirmDialog } from "@/components/ui/modal";
 import { useLiveQuery } from "./live-queries";
 import { useLiveUser } from "./live-shell";
 import { freebusRequest } from "@/services/freebus-api";
-import { qrImageSource, type BookingQr } from "@/lib/boarding";
+import { bookingBoardingOpen, qrImageSource, type BookingQr } from "@/lib/boarding";
 import { extractArray, watParts } from "@/lib/trips";
 import { BusFront, CheckCircle2, MapPin, Ticket } from "lucide-react";
 import { BoardedCelebration } from "./boarded-celebration";
@@ -60,7 +60,7 @@ export function BoardingPass({ id }: { id: string }) {
   const dropoffId = booking.data?.dropoff_point || route.data?.end_point;
   const start = useLiveQuery<ApiPoint>(`points/${pickupId}`, Boolean(pickupId));
   const end = useLiveQuery<ApiPoint>(`points/${dropoffId}`, Boolean(dropoffId));
-  const active = booking.data?.status === "Confirmed" && trip.data?.status === "NotStarted";
+  const active = Boolean(booking.data && bookingBoardingOpen(booking.data, trip.data));
   const qr = useLiveQuery<BookingQr>(`bookings/${encodeURIComponent(id)}/qrcode`, active);
   const [cancel, setCancel] = useState(false);
   const [busy, setBusy] = useState(false);

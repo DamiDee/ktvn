@@ -2,12 +2,14 @@ import { PAID_RIDES_MODE } from "../config";
 import { MockRealtimeClient } from "./mock-realtime-client";
 import type { RideRealtimeClient } from "./realtime-client";
 import { WebSocketRealtimeClient } from "./websocket-realtime-client";
+import { accountSession } from "@/lib/account-session";
 
 /**
  * One realtime connection per tab, shared by the passenger and driver
  * sessions. Created lazily on the client only.
  */
 let client: RideRealtimeClient | null = null;
+accountSession.subscribe(() => { client?.disconnect(); client = null; });
 
 export function getRealtimeClient(): RideRealtimeClient {
   client ??= PAID_RIDES_MODE === "api" ? new WebSocketRealtimeClient() : new MockRealtimeClient();

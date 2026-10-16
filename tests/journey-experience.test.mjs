@@ -14,9 +14,18 @@ test("walk-in allocation adds to the existing count without inventing tickets", 
   assert.deepEqual(walkInAllocation(bus, trip, 3), { passenger_count: 18 });
   for (const count of [0, -1, 1.5, NaN, Infinity, 4]) assert.throws(() => walkInAllocation(bus, trip, count));
 });
-test("walk-ins cannot change a mismatched, closed, moving or maintenance bus", () => {
+test("walk-ins cannot change a mismatched, closed, maintenance or invalid bus", () => {
   for (const override of [{ current_trip_id: null }, { current_trip_id: "other" }, { status: "Maintenance" }, { state: "Transit" }, { current_passenger_count: -1 }]) assert.throws(() => walkInAllocation({ ...bus, ...override }, trip, 1));
-  for (const status of ["InProgress", "Completed", "Cancelled"]) assert.throws(() => walkInAllocation(bus, { ...trip, status }, 1));
+  for (const status of ["Completed", "Cancelled"]) assert.throws(() => walkInAllocation(bus, { ...trip, status }, 1));
+});
+test("walk-ins at later stops use the running trip without reopening the bus", () => {
+  const runningTrip = { ...trip, status: "InProgress" };
+  for (const state of ["Boarding", "Stationary", "Transit", "Arrived"]) {
+    assert.deepEqual(walkInAllocation({ ...bus, state }, runningTrip, 3), { passenger_count: 18 });
+    assert.throws(() => walkInAllocation({ ...bus, state }, runningTrip, 4));
+  }
+  assert.throws(() => walkInAllocation({ ...bus, status: "Maintenance" }, runningTrip, 1));
+  assert.throws(() => walkInAllocation({ ...bus, current_trip_id: "other" }, runningTrip, 1));
 });
 test("ticket journey labels distinguish both directions and round trips", () => {
   assert.equal(journeyTypeLabel("Pickup"), "To church"); assert.equal(journeyTypeLabel("Dropoff"), "To home"); assert.equal(journeyTypeLabel("RoundTrip"), "Round trip"); assert.equal(journeyTypeLabel(null), "Journey type unavailable");

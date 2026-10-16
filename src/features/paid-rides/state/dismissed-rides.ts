@@ -1,6 +1,7 @@
 "use client";
 
 import { isLive } from "../domain/ride-status";
+import { accountSession } from "@/lib/account-session";
 import type { Ride } from "../domain/types";
 
 /**
@@ -11,6 +12,7 @@ import type { Ride } from "../domain/types";
  */
 
 const KEY = "kx-rides:dismissed";
+accountSession.subscribe(() => { try { sessionStorage.removeItem(KEY); } catch { /* unavailable */ } });
 
 function read(): string[] {
   try {

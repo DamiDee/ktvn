@@ -47,7 +47,7 @@ export function useDriverLocationReporter(active: boolean): void {
   useLocationWatch(active);
 
   useEffect(() => {
-    if (!active || !fix) return;
+    if (!active || !fix || classifyFix(fix, Date.now(), PAID_RIDES_CONFIG.location) !== "good") return;
     const next = { point: fix.point, at: fix.timestamp };
     if (!shouldTransmit(lastSent.current, next, PAID_RIDES_CONFIG.location.transmit)) return;
     lastSent.current = next;
@@ -61,22 +61,30 @@ export function useDriverLocationReporter(active: boolean): void {
     });
   }, [active, fix]);
 
-  // A stationary device may not report new fixes at all; repeat the latest
-  // one so the driver doesn't drop out of matching while parked.
+  // Acquire a real fresh fix while parked. Never re-date old coordinates:
+  // the backend must be allowed to expire drivers whose GPS has gone stale.
   useEffect(() => {
     if (!active) return;
     const { maxIntervalMs } = PAID_RIDES_CONFIG.location.transmit;
+    let acquiring = false;
     const timer = setInterval(() => {
       const latest = useLocationStore.getState().fix;
       if (!latest || Date.now() - lastSentAt.current < maxIntervalMs) return;
+      if (Date.now() - latest.timestamp >= maxIntervalMs) {
+        if (!acquiring) {
+          acquiring = true;
+          void useLocationStore.getState().request().finally(() => { acquiring = false; });
+        }
+        return;
+      }
+      if (classifyFix(latest, Date.now(), PAID_RIDES_CONFIG.location) !== "good") return;
       lastSentAt.current = Date.now();
       transmit({
         point: latest.point,
         heading: latest.heading,
         speedMps: latest.speedMps,
         accuracyMeters: latest.accuracyMeters,
-        // The device still reports this position now.
-        recordedAt: new Date().toISOString(),
+        recordedAt: new Date(latest.timestamp).toISOString(),
       });
     }, Math.max(1_000, Math.round(maxIntervalMs / 2)));
     return () => clearInterval(timer);

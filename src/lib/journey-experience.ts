@@ -76,7 +76,8 @@ export function bookingDeparture(booking: ApiBooking, trip?: ApiTrip, route?: Ap
 /** The allocation endpoint takes an absolute count, not an atomic increment. */
 export function walkInAllocation(bus: ApiBus, trip: ApiTrip, additional: number) {
   if (!bus.current_trip_id || trip.id !== bus.current_trip_id) throw new Error("This bus has no matching trip. Ask an admin to assign it first.");
-  if (trip.status !== "NotStarted" || bus.status === "Maintenance" || !["Stationary", "Boarding"].includes(bus.state)) throw new Error("This bus is not open for boarding.");
+  if (!["NotStarted", "InProgress"].includes(trip.status) || bus.status === "Maintenance") throw new Error("This bus is not open for boarding.");
+  if (trip.status === "NotStarted" && !["Stationary", "Boarding"].includes(bus.state)) throw new Error("This bus is not ready for boarding.");
   if (!Number.isSafeInteger(additional) || additional < 1) throw new Error("Enter a whole number of passengers, at least 1.");
   if (!Number.isSafeInteger(bus.current_passenger_count) || bus.current_passenger_count < 0 || !Number.isSafeInteger(bus.capacity)) throw new Error("The bus occupancy is unavailable. Refresh before boarding.");
   const passenger_count = bus.current_passenger_count + additional;

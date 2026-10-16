@@ -383,7 +383,7 @@ test("viewer roles map case-insensitively; everyone signed in can ride", () => {
   assert.deepEqual(mapViewer({ displayName: "Ada", roles: ["User"] }).roles, ["passenger"]);
   assert.deepEqual(mapViewer({ displayName: "Bayo", roles: ["Driver"] }).roles, ["passenger", "driver"]);
   assert.deepEqual(mapViewer({ displayName: "Chi", roles: ["driver", "Admin"] }).roles, ["passenger", "driver"]);
-  assert.deepEqual(mapViewer({ displayName: "Dupe" }).roles, ["passenger"]);
+  assert.throws(() => mapViewer({ displayName: "Dupe" }), { code: "unavailable" }, "a malformed viewer must not authorize a session");
 });
 
 test("availability envelope and calling capability are read defensively", () => {

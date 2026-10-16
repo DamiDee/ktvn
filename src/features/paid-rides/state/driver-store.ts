@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { accountSession, accountResult } from "@/lib/account-session";
 import { trackRideEvent } from "../analytics";
 import { toRideError } from "../domain/errors";
 import { driverSessionReducer, initialDriverSession, type DriverSessionMsg, type DriverSessionState } from "../domain/driver-session";
@@ -45,41 +46,50 @@ export const useDriverStore = create<DriverStore>()((set, get) => {
 
     refresh: () => {
       refreshInFlight ??= (async () => {
+        const scope = accountSession.capture();
+        if (accountSession.isBlocked()) return;
         rideDispatch({ type: "BOOTSTRAP_START" });
         try {
           const service = getRideService();
-          const [availability, ride] = await Promise.all([service.getDriverAvailability(), service.getCurrentDriverRide()]);
+          const [availability, ride] = await accountResult(scope, Promise.all([service.getDriverAvailability(), service.getCurrentDriverRide()]));
           dispatch({ type: "AVAILABILITY_CONFIRMED", availability });
           rideDispatch({ type: "BOOTSTRAP_SUCCESS", ride: withoutDismissed(ride) });
         } catch (error) {
+          if (!scope.isCurrent()) return;
           rideDispatch({ type: "BOOTSTRAP_FAILURE", code: toRideError(error).code });
         } finally {
-          refreshInFlight = null;
+          if (scope.isCurrent()) refreshInFlight = null;
         }
       })();
       return refreshInFlight;
     },
 
     setOnline: async (online) => {
+      const scope = accountSession.capture();
+      if (accountSession.isBlocked()) return;
       const before = get().state.availability;
       dispatch({ type: "AVAILABILITY_REQUEST", online });
       if (get().state.availability === before) return;
       try {
-        const availability = await getRideService().setDriverAvailability(online, { idempotencyKey: newIdempotencyKey() });
+        const availability = await accountResult(scope, getRideService().setDriverAvailability(online, { idempotencyKey: newIdempotencyKey() }));
         dispatch({ type: "AVAILABILITY_CONFIRMED", availability });
         if (online) trackRideEvent("driver_went_online");
       } catch (error) {
+        if (!scope.isCurrent()) return;
         dispatch({ type: "AVAILABILITY_FAILED", code: toRideError(error).code });
       }
     },
 
     acceptOffer: async () => {
+      const scope = accountSession.capture();
+      if (accountSession.isBlocked()) return;
       const offer = get().state.offer;
       if (!offer || offer.phase !== "incoming") return;
       const offerId = offer.offer.offerId;
       dispatch({ type: "ACCEPT_START", offerId });
       // One key per offer: a retried tap can never accept twice.
       const result = await getRideService().acceptOffer(offer.offer, { idempotencyKey: `accept:${offerId}` });
+      if (!scope.isCurrent()) return;
       dispatch({ type: "ACCEPT_RESULT", offerId, outcome: result.outcome, ride: result.ride });
       if (result.outcome === "accepted") trackRideEvent("driver_accepted_request");
       // An unanswered accept may still have landed — ask the server.
@@ -87,13 +97,16 @@ export const useDriverStore = create<DriverStore>()((set, get) => {
     },
 
     declineOffer: async () => {
+      const scope = accountSession.capture();
+      if (accountSession.isBlocked()) return;
       const offer = get().state.offer;
       if (!offer || offer.phase !== "incoming") return;
       const offerId = offer.offer.offerId;
       dispatch({ type: "DECLINE_START", offerId });
       try {
-        await getRideService().declineOffer(offerId, { idempotencyKey: `decline:${offerId}` });
+        await accountResult(scope, getRideService().declineOffer(offerId, { idempotencyKey: `decline:${offerId}` }));
       } catch {
+        if (!scope.isCurrent()) return;
         // Declining is advisory; an unanswered decline simply expires.
       }
       dispatch({ type: "DECLINE_DONE", offerId });
@@ -102,6 +115,8 @@ export const useDriverStore = create<DriverStore>()((set, get) => {
     dismissOffer: () => dispatch({ type: "OFFER_DISMISSED" }),
 
     rideAction: async (action, pin = null) => {
+      const scope = accountSession.capture();
+      if (accountSession.isBlocked()) return;
       const ride = get().state.ride.ride;
       if (!ride || get().state.ride.pending) return;
       rideDispatch({ type: "ACTION_START", action });
@@ -110,27 +125,35 @@ export const useDriverStore = create<DriverStore>()((set, get) => {
       try {
         const next =
           action === "arrive"
-            ? await service.markArrived(ride.id, { idempotencyKey: key })
+            ? await accountResult(scope, service.markArrived(ride.id, { idempotencyKey: key }))
             : action === "start"
-              ? await service.startRide(ride.id, pin, { idempotencyKey: key })
-              : await service.completeRide(ride.id, { idempotencyKey: key });
+              ? await accountResult(scope, service.startRide(ride.id, pin, { idempotencyKey: key }))
+              : await accountResult(scope, service.completeRide(ride.id, { idempotencyKey: key }));
         rideDispatch({ type: "ACTION_SUCCESS", action, ride: next });
         if (action === "start") trackRideEvent("trip_started");
         if (action === "complete") trackRideEvent("trip_completed");
       } catch (error) {
+        if (!scope.isCurrent()) return;
         rideDispatch({ type: "ACTION_FAILURE", action, code: toRideError(error).code });
         void get().refresh();
       }
     },
 
     cancelRide: async (reason) => {
+      const scope = accountSession.capture();
+      if (accountSession.isBlocked()) return;
       const ride = get().state.ride.ride;
       if (!ride) return;
       rideDispatch({ type: "ACTION_START", action: "cancel" });
       try {
-        const next = await getRideService().driverCancelRide(ride.id, reason, { idempotencyKey: `driver-cancel:${ride.id}` });
-        rideDispatch({ type: "ACTION_SUCCESS", action: "cancel", ride: next });
+        const next = await accountResult(scope, getRideService().driverCancelRide(ride.id, reason, { idempotencyKey: `driver-cancel:${ride.id}` }));
+        if (next.status === "SEARCHING") {
+          // This is the passenger's re-dispatch, not a new trip for the old driver.
+          rideDispatch({ type: "RIDE_DISMISSED" });
+          await accountResult(scope, get().refresh());
+        } else rideDispatch({ type: "ACTION_SUCCESS", action: "cancel", ride: next });
       } catch (error) {
+        if (!scope.isCurrent()) return;
         rideDispatch({ type: "ACTION_FAILURE", action: "cancel", code: toRideError(error).code });
       }
     },
@@ -142,6 +165,8 @@ export const useDriverStore = create<DriverStore>()((set, get) => {
     },
 
     sendMessage: async (body) => {
+      const scope = accountSession.capture();
+      if (accountSession.isBlocked()) return;
       const ride = get().state.ride.ride;
       const text = body.trim();
       if (!ride || !text) return;
@@ -151,26 +176,35 @@ export const useDriverStore = create<DriverStore>()((set, get) => {
         message: { id: clientId, clientId, rideId: ride.id, from: "me", body: text, sentAt: new Date().toISOString(), status: "sending" },
       });
       try {
-        const message = await getRideService().sendMessage({ rideId: ride.id, clientId, body: text }, { idempotencyKey: clientId });
+        const message = await accountResult(scope, getRideService().sendMessage({ rideId: ride.id, clientId, body: text }, { idempotencyKey: clientId }));
         rideDispatch({ type: "MESSAGE_CONFIRMED", clientId, message });
       } catch {
+        if (!scope.isCurrent()) return;
         rideDispatch({ type: "MESSAGE_FAILED", clientId });
       }
     },
 
     retryMessage: async (message) => {
+      const scope = accountSession.capture();
+      if (accountSession.isBlocked()) return;
       const ride = get().state.ride.ride;
       if (!ride || !message.clientId) return;
       rideDispatch({ type: "MESSAGE_OPTIMISTIC", message: { ...message, status: "sending" } });
       try {
-        const confirmed = await getRideService().sendMessage(
+        const confirmed = await accountResult(scope, getRideService().sendMessage(
           { rideId: ride.id, clientId: message.clientId, body: message.body },
           { idempotencyKey: message.clientId },
-        );
+        ));
         rideDispatch({ type: "MESSAGE_CONFIRMED", clientId: message.clientId, message: confirmed });
       } catch {
+        if (!scope.isCurrent()) return;
         rideDispatch({ type: "MESSAGE_FAILED", clientId: message.clientId });
       }
     },
   };
+});
+
+accountSession.subscribe(() => {
+  refreshInFlight = null;
+  useDriverStore.setState({ state: initialDriverSession });
 });

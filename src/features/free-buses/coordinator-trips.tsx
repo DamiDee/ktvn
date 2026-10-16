@@ -9,7 +9,7 @@ import { StatusChip } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/modal";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { freebusRequest } from "@/services/freebus-api";
-import { watParts } from "@/lib/trips";
+import { tripHasReturn, watParts } from "@/lib/trips";
 import type { ApiBus, ApiRoute, ApiTrip } from "@/types/freebus-api";
 import { useLiveQuery } from "./live-queries";
 import { useTripBookings } from "./use-trip-bookings";
@@ -51,7 +51,7 @@ export function CoordinatorTrips() {
   }
 
   return <>
-    <PageHeader eyebrow="Free Buses · Route Coordinator" title="Trips" description="Start a trip once boarding is finished and the bus has left. Complete it when everyone has arrived." />
+    <PageHeader eyebrow="Free Buses · Route Coordinator" title="Trips" description="Start when the bus leaves the first pickup point. Scan valid passes at later stops while the trip stays in progress. Complete a round trip only after the return journey ends." />
     {notice ? <p role="status" className="mb-4 rounded-xl border border-forest-500/30 bg-forest-50 p-4 font-medium text-forest-900 dark:bg-forest-500/12 dark:text-forest-100">{notice}</p> : null}
     {bookingsError ? <p role="alert" className="mb-4 text-sm text-danger-600">Booked counts are unavailable right now: {bookingsError.message}</p> : null}
     {open.length === 0 ? <Card radius="xl"><EmptyState icon={CalendarClock} size="sm" title="No open trips" description="Scheduled and running trips appear here." /></Card> : <div className="grid gap-4 md:grid-cols-2">
@@ -74,12 +74,12 @@ export function CoordinatorTrips() {
           </div>
           <div className="p-5 pt-4">
             {running
-              ? <Button block size="lg" variant="gold" icon={CheckCircle2} onClick={() => { setError(""); setPending({ trip, kind: "complete" }); }}>Complete trip</Button>
+              ? <Button block size="lg" variant="gold" icon={CheckCircle2} onClick={() => { setError(""); setPending({ trip, kind: "complete" }); }}>{tripHasReturn(trip) ? "Complete round trip" : "Complete trip"}</Button>
               : <Button block size="lg" icon={PlayCircle} onClick={() => { setError(""); setPending({ trip, kind: "start" }); }}>Start trip</Button>}
           </div>
         </Card>;
       })}
     </div>}
-    <ConfirmDialog open={Boolean(pending)} onClose={() => { if (!busy) setPending(null); }} title={pending?.kind === "start" ? "Start this trip?" : "Complete this trip?"} description={error || (pending ? `${routeName(pending.trip)} · ${watParts(pending.trip.departure_time).date}. ${pending.kind === "start" ? "Only start after boarding is finished and the bus has left." : "Members will see the trip as completed."}` : "")} confirmLabel={pending?.kind === "start" ? "Start trip" : "Complete trip"} loading={busy} onConfirm={confirm} />
+    <ConfirmDialog open={Boolean(pending)} onClose={() => { if (!busy) setPending(null); }} title={pending?.kind === "start" ? "Start this trip?" : pending && tripHasReturn(pending.trip) ? "Complete the entire round trip?" : "Complete this trip?"} description={error || (pending ? `${routeName(pending.trip)} · ${watParts(pending.trip.departure_time).date}. ${pending.kind === "start" ? "Start when the bus leaves the first pickup point. Passengers can still board at later stops while the trip is in progress." : tripHasReturn(pending.trip) ? "Only complete after the return journey has ended. This closes both legs and prevents any remaining return passengers from boarding." : "Members will see the trip as completed."}` : "")} confirmLabel={pending?.kind === "start" ? "Start trip" : pending && tripHasReturn(pending.trip) ? "Complete round trip" : "Complete trip"} loading={busy} onConfirm={confirm} />
   </>;
 }

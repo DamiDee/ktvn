@@ -1,3 +1,4 @@
+import { RideServiceError } from "../domain/errors.ts";
 import type {
   CancelledBy,
   ContactOptions,
@@ -66,7 +67,7 @@ export function mapPoint(value: unknown): GeoPoint | null {
   const lat = num(raw.lat);
   // `GeoPoint` elsewhere in the backend uses `long`; accept either.
   const lng = num(raw.lng) ?? num(raw.long) ?? num(raw.lon);
-  return lat === undefined || lng === undefined ? null : { lat, lng };
+  return lat === undefined || lng === undefined || Math.abs(lat) > 90 || Math.abs(lng) > 180 ? null : { lat, lng };
 }
 
 const ZERO_POINT: GeoPoint = { lat: 0, lng: 0 };
@@ -74,7 +75,7 @@ const ZERO_POINT: GeoPoint = { lat: 0, lng: 0 };
 export function mapMoney(value: unknown): Money | null {
   const raw = obj(value);
   const amountMinor = num(raw?.amountMinor);
-  if (!raw || amountMinor === undefined) return null;
+  if (!raw || amountMinor === undefined || !Number.isSafeInteger(amountMinor) || amountMinor < 0) return null;
   return { amountMinor, currency: str(raw.currency) ?? "NGN" };
 }
 
@@ -129,13 +130,13 @@ export function mapRoute(value: unknown, ends?: { from: GeoPoint; to: GeoPoint }
 export function mapLocation(value: unknown): LiveLocation | null {
   const raw = obj(value);
   const point = mapPoint(raw?.point);
-  if (!raw || !point) return null;
+  if (!raw || !point || !str(raw.recordedAt) || !Number.isFinite(Date.parse(String(raw.recordedAt)))) return null;
   return {
     point,
     heading: num(raw.heading) ?? null,
     speedMps: num(raw.speedMps) ?? null,
     accuracyMeters: num(raw.accuracyMeters) ?? null,
-    recordedAt: str(raw.recordedAt) ?? new Date().toISOString(),
+    recordedAt: String(raw.recordedAt),
   };
 }
 
@@ -167,7 +168,8 @@ export function mapVehicle(value: unknown): Vehicle | undefined {
 export function mapContact(value: unknown): ContactOptions {
   const raw = obj(value) ?? {};
   const call = str(raw.call)?.toLowerCase();
-  const callHref = str(raw.callHref);
+  const href = str(raw.callHref);
+  const callHref = href && /^tel:\+?[\d ()-]+$/.test(href) ? href : undefined;
   const mode = call === "masked" || call === "direct" ? call : "none";
   return {
     call: mode !== "none" && callHref ? mode : "none",
@@ -181,7 +183,8 @@ export function mapContact(value: unknown): ContactOptions {
 export function mapFare(value: unknown): FareQuote {
   const raw = obj(value) ?? {};
   // A bare Money (as in the spec's offer example) is read as the total.
-  const total = mapMoney(raw.total) ?? mapMoney(raw) ?? NO_MONEY;
+  const total = mapMoney(raw.total) ?? mapMoney(raw);
+  if (!total) throw new RideServiceError("unavailable");
   const range = obj(raw.range);
   const low = mapMoney(range?.low);
   const high = mapMoney(range?.high);
@@ -204,6 +207,7 @@ const PAYMENT_KINDS = new Set<PaymentMethodKind>(["cash", "card", "wallet", "tra
 
 export function mapEstimate(value: unknown, ends: { pickup: Place; destination: Place }): FareEstimate {
   const raw = obj(value) ?? {};
+  if (!str(raw.estimateId) || !str(raw.expiresAt) || !Number.isFinite(Date.parse(String(raw.expiresAt)))) throw new RideServiceError("unavailable");
   const options: RideOption[] = list(raw.options).flatMap((entry) => {
     const item = obj(entry);
     const option = obj(item?.option);
@@ -287,6 +291,8 @@ function optionalString(value: unknown): string | undefined {
 
 export function mapRide(value: unknown): Ride {
   const raw = obj(value) ?? {};
+  if (!Number.isSafeInteger(raw.version) || Number(raw.version) < 0) throw new RideServiceError("unavailable");
+  if (!str(raw.id) || !mapPoint(obj(raw.pickup)?.point) || !mapPoint(obj(raw.destination)?.point) || !["REQUESTED", "SEARCHING", "NO_DRIVERS", "DRIVER_ASSIGNED", "DRIVER_EN_ROUTE", "DRIVER_ARRIVING", "DRIVER_ARRIVED", "IN_PROGRESS", "PAUSED", "COMPLETED", "CANCELLED"].includes(String(raw.status).toUpperCase())) throw new RideServiceError("unavailable");
   const pickup = mapPlace(raw.pickup);
   const destination = mapPlace(raw.destination);
   const option = obj(raw.option) ?? {};
@@ -367,7 +373,9 @@ export function mapRide(value: unknown): Ride {
 
 /** `RideEnvelope { ride? }` → the ride, or null when there is none. */
 export function mapRideEnvelope(value: unknown): Ride | null {
-  const ride = obj(value)?.ride;
+  const raw = obj(value);
+  if (!raw || !("ride" in raw) || (raw.ride !== null && !obj(raw.ride))) throw new RideServiceError("unavailable");
+  const ride = raw.ride;
   return obj(ride) ? mapRide(ride) : null;
 }
 
@@ -380,6 +388,7 @@ export function mapRideEnvelope(value: unknown): Ride | null {
  */
 export function mapViewer(value: unknown): Viewer {
   const raw = obj(value) ?? {};
+  if (!str(raw.displayName) || !Array.isArray(raw.roles) || raw.roles.length === 0) throw new RideServiceError("unavailable");
   const roles = list(raw.roles).map((role) => String(role).toLowerCase());
   return {
     displayName: str(raw.displayName) ?? "",
@@ -496,7 +505,9 @@ export function mapRealtimeEvent(value: unknown, options: { trustSeq: boolean })
   const id = str(raw?.id);
   if (!raw || !id) return null;
   const occurredAt = str(raw.occurredAt) ?? new Date().toISOString();
-  const payload = mapPayload(raw.payload, new Date().toISOString());
+  let payload: RideEventPayload | null;
+  try { payload = mapPayload(raw.payload, new Date().toISOString()); }
+  catch { return null; } // A malformed server frame must not crash the socket listener.
   if (!payload) return null;
   return {
     id,

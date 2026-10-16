@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { accountSession } from "@/lib/account-session";
 import { STORAGE_KEYS } from "../config";
 import { isLive } from "../domain/ride-status";
 import { useLifecycleRecovery } from "../hooks/use-lifecycle-recovery";
 import { getRealtimeClient } from "../realtime";
+import { useDriverLocationReporter } from "../location/use-location";
 import { useDriverStore } from "./driver-store";
 import { usePassengerStore } from "./passenger-store";
 
@@ -43,10 +45,12 @@ function useRealtimeWiring(
   refresh: () => void,
 ) {
   useEffect(() => {
+    const scope = accountSession.capture();
+    if (accountSession.isBlocked()) return;
     const client = getRealtimeClient();
-    const offEvent = client.onEvent(onEvent);
-    const offStatus = client.onStatus(onStatus);
-    const offReconnect = client.onReconnected(refresh);
+    const offEvent = client.onEvent((event) => { if (scope.isCurrent()) onEvent(event); });
+    const offStatus = client.onStatus((status) => { if (scope.isCurrent()) onStatus(status); });
+    const offReconnect = client.onReconnected(() => { if (scope.isCurrent()) refresh(); });
     client.connect();
     onStatus(client.status);
     return () => {
@@ -101,8 +105,9 @@ export function usePassengerSession(): void {
   }, [live, rideId]);
 
   useEffect(() => {
-    if (!live || connection === "open") return;
-    const timer = setInterval(() => void refresh(), FALLBACK_POLL_MS);
+    if (!live) return;
+    // Sequence/replay semantics are not guaranteed: reconcile even on an open socket.
+    const timer = setInterval(() => void refresh(), connection === "open" ? 30_000 : FALLBACK_POLL_MS);
     return () => clearInterval(timer);
   }, [live, connection, refresh]);
 }
@@ -116,6 +121,7 @@ export function useDriverSession(): void {
   const connection = useDriverStore((store) => store.state.ride.connection);
   const resyncToken = useDriverStore((store) => store.state.ride.resyncToken);
   const listening = availability === "ONLINE" || availability === "ON_TRIP" || availability === "GOING_OFFLINE";
+  useDriverLocationReporter(listening);
 
   useRealtimeWiring(
     useStableEvent((event) => rideDispatch({ type: "EVENT", event })),
@@ -146,10 +152,10 @@ export function useDriverSession(): void {
   }, [rideId]);
 
   useEffect(() => {
-    if (!live || connection === "open") return;
-    const timer = setInterval(() => void refresh(), FALLBACK_POLL_MS);
+    if (!live && !listening) return;
+    const timer = setInterval(() => void refresh(), connection === "open" ? 30_000 : FALLBACK_POLL_MS);
     return () => clearInterval(timer);
-  }, [live, connection, refresh]);
+  }, [live, listening, connection, refresh]);
 }
 
 /**

@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { accountSession } from "@/lib/account-session";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { STORAGE_KEYS } from "../config";
 import type { Place } from "../domain/types";
@@ -65,3 +66,8 @@ export const usePreferencesStore = create<PreferencesState>()(
 export function rememberRecentPlace(place: Place): void {
   usePreferencesStore.getState().addRecentPlace(place);
 }
+
+accountSession.subscribe(() => {
+  usePreferencesStore.setState({ recentPlaces: [], lastRole: "passenger", pipPromptDismissed: false, notificationPromptDismissed: false });
+  try { localStorage.removeItem(STORAGE_KEYS.currentRideId); } catch { /* unavailable */ }
+});

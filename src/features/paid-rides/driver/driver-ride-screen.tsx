@@ -7,7 +7,6 @@ import { useIsDesktop } from "@/hooks/use-media-query";
 import { PAID_RIDES_CONFIG } from "../config";
 import { deriveDriverPhase, type DriverPhase } from "../domain/phases";
 import { useLocationStore } from "../location/location-store";
-import { useDriverLocationReporter } from "../location/use-location";
 import { useWakeLock } from "../hooks/use-wake-lock";
 import { useDriverStore } from "../state/driver-store";
 import { useHideRideNav, useRideShell } from "../shell/ride-module-shell";
@@ -51,8 +50,6 @@ export function DriverRideScreen() {
   const [recenterToken, setRecenterToken] = useState(0);
   const viewer = useQuery({ queryKey: ["paid-rides", "viewer"], queryFn: ({ signal }) => getRideService().getViewer(signal), staleTime: 5 * 60_000 });
 
-  const online = state.availability === "ONLINE" || state.availability === "ON_TRIP" || state.availability === "GOING_OFFLINE";
-  useDriverLocationReporter(online);
   useWakeLock(phase === "EN_ROUTE_TO_PICKUP" || phase === "ARRIVED_AT_PICKUP" || phase === "TRIP_ACTIVE");
 
   const onCoverChange = useCallback((next: { bottom: number; left: number }) => {

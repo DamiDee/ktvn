@@ -27,7 +27,7 @@ export const PAID_RIDES_CONFIG = {
   apiBaseUrl: process.env.NEXT_PUBLIC_PAID_RIDES_API_BASE_URL ?? "",
   /**
    * WebSocket endpoint for `api` mode, e.g. wss://api.example.com/api/v1/rides/ws.
-   * Passengers connect to it as is; drivers connect to `<url>/<driverId>`.
+   * All roles use this URL. The backend identifies drivers from the session cookie.
    */
   realtimeUrl: process.env.NEXT_PUBLIC_PAID_RIDES_REALTIME_URL ?? "",
 

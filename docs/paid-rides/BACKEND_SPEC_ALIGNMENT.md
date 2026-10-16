@@ -1,5 +1,7 @@
 # Paid Rides: backend spec vs frontend requirements
 
+> Historical comparison. For the current code audit, fixes and unresolved release gates, see [Integration audit — 15 October 2026](./INTEGRATION_AUDIT_2026-10-15.md). In particular, the current socket uses one authenticated URL for all roles, not a driver-ID suffix.
+
 Compares the backend developer's `API_AND_WEBSOCKET_SPEC.md` (Rust/Axum "K-Ride" engine, 15 Oct 2026) with `PAID_RIDES_BACKEND_REQUIREMENTS.md` (what the frontend on `feature/paid-rides` expects). Section numbers: **S§** = spec, **R§** = requirements.
 
 ## Update, 15 Oct: `openapi.json` (copy at `paid-rides/openapi.json`)

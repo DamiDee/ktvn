@@ -12,6 +12,7 @@ import { BarChart } from "@/components/analytics/bar-chart";
 import { PageLoader } from "@/components/ui/route-loader";
 import { FreebusError } from "@/services/freebus-api";
 import { activeBooking } from "@/lib/freebus-contract";
+import { bookingBoardingOpen } from "@/lib/boarding";
 import { watParts } from "@/lib/trips";
 import type { ApiBooking, ApiBus, ApiPoint, ApiRoute, ApiTrip } from "@/types/freebus-api";
 import { useLiveQuery } from "./live-queries";
@@ -61,7 +62,7 @@ export function MemberTrips() {
 
     const history = [...bookings.data].sort((a, b) => b.created_at.localeCompare(a.created_at));
     const travelled = history.filter((booking) => booking.status === "Boarded");
-    const upcoming = history.filter((booking) => booking.status === "Confirmed" && tripsById.get(booking.trip_id ?? "")?.status === "NotStarted");
+    const upcoming = history.filter((booking) => bookingBoardingOpen(booking, tripsById.get(booking.trip_id ?? "")));
     const released = history.filter(
       (booking) => booking.status === "Cancelled" || booking.status === "Revoked",
     );

@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { accountSession, accountResult } from "@/lib/account-session";
 import { toRideError } from "../domain/errors";
 import { emptyDraft, type BookingDraft } from "../domain/phases";
 import { initialRideSession, rideSessionReducer, type RideSessionMsg, type RideSessionState } from "../domain/ride-session";
@@ -74,26 +75,31 @@ export const usePassengerStore = create<PassengerStore>()((set, get) => {
     refreshCurrentRide: () => {
       // Visibility, focus, reconnect and gap detection can all ask at once.
       refreshInFlight ??= (async () => {
+        const scope = accountSession.capture();
+        if (accountSession.isBlocked()) return;
         dispatch({ type: "BOOTSTRAP_START" });
         try {
-          const ride = withoutDismissed(await getRideService().getCurrentRide());
+          const ride = withoutDismissed(await accountResult(scope, getRideService().getCurrentRide()));
           dispatch({ type: "BOOTSTRAP_SUCCESS", ride });
         } catch (error) {
+          if (!scope.isCurrent()) return;
           dispatch({ type: "BOOTSTRAP_FAILURE", code: toRideError(error).code });
         } finally {
-          refreshInFlight = null;
+          if (scope.isCurrent()) refreshInFlight = null;
         }
       })();
       return refreshInFlight;
     },
 
     requestRide: async (estimate) => {
+      const scope = accountSession.capture();
+      if (accountSession.isBlocked()) return;
       const { draft, requestKey, session } = get();
       if (session.pending || !draft.pickup || !draft.destination || !draft.optionId) return;
       dispatch({ type: "ACTION_START", action: "request" });
       trackRideEvent("ride_requested", { option: draft.optionId });
       try {
-        const ride = await getRideService().requestRide(
+        const ride = await accountResult(scope, getRideService().requestRide(
           {
             estimateId: estimate.estimateId,
             optionId: draft.optionId,
@@ -102,10 +108,11 @@ export const usePassengerStore = create<PassengerStore>()((set, get) => {
             destination: draft.destination,
           },
           { idempotencyKey: requestKey },
-        );
+        ));
         dispatch({ type: "ACTION_SUCCESS", action: "request", ride });
         set({ draft: { ...emptyDraft, pickup: draft.pickup }, requestKey: newIdempotencyKey() });
       } catch (error) {
+        if (!scope.isCurrent()) return;
         const code = toRideError(error).code;
         dispatch({ type: "ACTION_FAILURE", action: "request", code });
         // The request may have reached the server before the connection
@@ -115,41 +122,50 @@ export const usePassengerStore = create<PassengerStore>()((set, get) => {
     },
 
     retrySearch: async (optionId) => {
+      const scope = accountSession.capture();
+      if (accountSession.isBlocked()) return;
       const ride = get().session.ride;
       if (!ride) return;
       dispatch({ type: "ACTION_START", action: "request" });
       try {
-        const next = await getRideService().retrySearch(ride.id, optionId, { idempotencyKey: newIdempotencyKey() });
+        const next = await accountResult(scope, getRideService().retrySearch(ride.id, optionId, { idempotencyKey: newIdempotencyKey() }));
         dispatch({ type: "ACTION_SUCCESS", action: "request", ride: next });
       } catch (error) {
+        if (!scope.isCurrent()) return;
         dispatch({ type: "ACTION_FAILURE", action: "request", code: toRideError(error).code });
       }
     },
 
     cancelRide: async (reason) => {
+      const scope = accountSession.capture();
+      if (accountSession.isBlocked()) return;
       const ride = get().session.ride;
       if (!ride) return;
       dispatch({ type: "ACTION_START", action: "cancel" });
       try {
-        const next = await getRideService().cancelRide(ride.id, reason, { idempotencyKey: `cancel:${ride.id}` });
+        const next = await accountResult(scope, getRideService().cancelRide(ride.id, reason, { idempotencyKey: `cancel:${ride.id}` }));
         dispatch({ type: "ACTION_SUCCESS", action: "cancel", ride: next });
         trackRideEvent("ride_cancelled", { by: "passenger" });
       } catch (error) {
+        if (!scope.isCurrent()) return;
         dispatch({ type: "ACTION_FAILURE", action: "cancel", code: toRideError(error).code });
         void get().refreshCurrentRide();
       }
     },
 
     rateRide: async (input) => {
+      const scope = accountSession.capture();
+      if (accountSession.isBlocked()) return false;
       const ride = get().session.ride;
       if (!ride) return false;
       dispatch({ type: "ACTION_START", action: "rate" });
       try {
-        const next = await getRideService().rateRide({ ...input, rideId: ride.id }, { idempotencyKey: `rate:${ride.id}` });
+        const next = await accountResult(scope, getRideService().rateRide({ ...input, rideId: ride.id }, { idempotencyKey: `rate:${ride.id}` }));
         dispatch({ type: "ACTION_SUCCESS", action: "rate", ride: next });
         trackRideEvent("driver_rated", { stars: input.stars });
         return true;
       } catch (error) {
+        if (!scope.isCurrent()) return false;
         dispatch({ type: "ACTION_FAILURE", action: "rate", code: toRideError(error).code });
         return false;
       }
@@ -163,6 +179,8 @@ export const usePassengerStore = create<PassengerStore>()((set, get) => {
     },
 
     sendMessage: async (body) => {
+      const scope = accountSession.capture();
+      if (accountSession.isBlocked()) return;
       const ride = get().session.ride;
       const text = body.trim();
       if (!ride || !text) return;
@@ -172,26 +190,35 @@ export const usePassengerStore = create<PassengerStore>()((set, get) => {
         message: { id: clientId, clientId, rideId: ride.id, from: "me", body: text, sentAt: new Date().toISOString(), status: "sending" },
       });
       try {
-        const message = await getRideService().sendMessage({ rideId: ride.id, clientId, body: text }, { idempotencyKey: clientId });
+        const message = await accountResult(scope, getRideService().sendMessage({ rideId: ride.id, clientId, body: text }, { idempotencyKey: clientId }));
         dispatch({ type: "MESSAGE_CONFIRMED", clientId, message });
       } catch {
+        if (!scope.isCurrent()) return;
         dispatch({ type: "MESSAGE_FAILED", clientId });
       }
     },
 
     retryMessage: async (message) => {
+      const scope = accountSession.capture();
+      if (accountSession.isBlocked()) return;
       const ride = get().session.ride;
       if (!ride || !message.clientId) return;
       dispatch({ type: "MESSAGE_OPTIMISTIC", message: { ...message, status: "sending" } });
       try {
-        const confirmed = await getRideService().sendMessage(
+        const confirmed = await accountResult(scope, getRideService().sendMessage(
           { rideId: ride.id, clientId: message.clientId, body: message.body },
           { idempotencyKey: message.clientId },
-        );
+        ));
         dispatch({ type: "MESSAGE_CONFIRMED", clientId: message.clientId, message: confirmed });
       } catch {
+        if (!scope.isCurrent()) return;
         dispatch({ type: "MESSAGE_FAILED", clientId: message.clientId });
       }
     },
   };
+});
+
+accountSession.subscribe(() => {
+  refreshInFlight = null;
+  usePassengerStore.setState({ session: initialRideSession, draft: { ...emptyDraft }, requestKey: newIdempotencyKey() });
 });

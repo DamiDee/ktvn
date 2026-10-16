@@ -41,7 +41,7 @@ export class RideServiceError extends Error {
 
 export function toRideError(error: unknown): RideServiceError {
   if (error instanceof RideServiceError) return error;
-  if (error instanceof DOMException && error.name === "AbortError") return new RideServiceError("timeout", { cause: error });
+  if (error instanceof DOMException && (error.name === "AbortError" || error.name === "TimeoutError")) return new RideServiceError("timeout", { cause: error });
   if (error instanceof TypeError) return new RideServiceError("network", { cause: error });
   return new RideServiceError("unknown", { cause: error });
 }
@@ -61,7 +61,7 @@ export function errorCodeForStatus(status: number): RideErrorCode {
 }
 
 export const ERROR_COPY: Record<RideErrorCode, { title: string; body: string }> = {
-  network: { title: "You're offline", body: "Check your connection and try again. Nothing was sent." },
+  network: { title: "Connection interrupted", body: "We couldn't confirm the response. Check your current ride before trying again." },
   timeout: { title: "That took too long", body: "The service didn't answer in time. Try again." },
   unauthorized: { title: "Please sign in again", body: "Your session has ended." },
   forbidden: { title: "Not available on your account", body: "This part of Paid Rides isn't open to your role." },

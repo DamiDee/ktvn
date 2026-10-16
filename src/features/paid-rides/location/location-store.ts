@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { accountSession } from "@/lib/account-session";
 import { PAID_RIDES_CONFIG } from "../config";
 import type { GeoPoint } from "../domain/types";
 
@@ -62,6 +63,8 @@ export const useLocationStore = create<LocationState>()((set, get) => ({
 
   request: () =>
     new Promise((resolve) => {
+      const scope = accountSession.capture();
+      if (accountSession.isBlocked()) return resolve(null);
       if (!supported()) {
         set({ status: "unsupported" });
         return resolve(null);
@@ -69,20 +72,24 @@ export const useLocationStore = create<LocationState>()((set, get) => ({
       if (!get().fix) set({ status: "requesting" });
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          if (!scope.isCurrent()) return resolve(null);
           const fix = toFix(position);
           set({ status: "granted", fix });
           resolve(fix);
         },
         (error) => {
+          if (!scope.isCurrent()) return resolve(null);
           // Keep an older fix on screen; only the status changes.
           set({ status: statusForError(error) });
           resolve(null);
         },
-        { enableHighAccuracy: true, timeout: PAID_RIDES_CONFIG.location.acquireTimeoutMs, maximumAge: 15_000 },
+        { enableHighAccuracy: true, timeout: PAID_RIDES_CONFIG.location.acquireTimeoutMs, maximumAge: 0 },
       );
     }),
 
   watch: () => {
+    const scope = accountSession.capture();
+    if (accountSession.isBlocked()) return () => undefined;
     if (!supported()) {
       set({ status: "unsupported" });
       return () => undefined;
@@ -90,8 +97,8 @@ export const useLocationStore = create<LocationState>()((set, get) => ({
     set((state) => ({ watchers: state.watchers + 1 }));
     if (watchId === null) {
       watchId = navigator.geolocation.watchPosition(
-        (position) => set({ status: "granted", fix: toFix(position) }),
-        (error) => set({ status: statusForError(error) }),
+        (position) => { if (scope.isCurrent()) set({ status: "granted", fix: toFix(position) }); },
+        (error) => { if (scope.isCurrent()) set({ status: statusForError(error) }); },
         { enableHighAccuracy: true, timeout: PAID_RIDES_CONFIG.location.acquireTimeoutMs, maximumAge: 5_000 },
       );
     }
@@ -99,6 +106,7 @@ export const useLocationStore = create<LocationState>()((set, get) => ({
     return () => {
       if (released) return;
       released = true;
+      if (!scope.isCurrent()) return;
       const watchers = Math.max(0, get().watchers - 1);
       set({ watchers });
       // High-frequency tracking stops the moment nobody needs it.
@@ -109,6 +117,12 @@ export const useLocationStore = create<LocationState>()((set, get) => ({
     };
   },
 }));
+
+accountSession.subscribe(() => {
+  if (watchId !== null && supported()) navigator.geolocation.clearWatch(watchId);
+  watchId = null;
+  useLocationStore.setState({ status: "idle", fix: null, watchers: 0 });
+});
 
 /**
  * Ask quietly on load only when permission is already granted; otherwise the

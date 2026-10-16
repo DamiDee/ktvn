@@ -1,4 +1,5 @@
-import { createSessionTransport } from "@/lib/session-transport";
+import { getSessionClient } from "@/services/session-client";
+import { accountSession } from "@/lib/account-session";
 import { PAID_RIDES_CONFIG, PAID_RIDES_FEATURES } from "../config";
 import { RideServiceError, errorCodeForStatus, toRideError, type RideErrorCode } from "../domain/errors";
 import type { AcceptOutcome, RideMessage, RideOffer } from "../domain/types";
@@ -92,12 +93,10 @@ function baseUrl(): string {
 
 // Paths are passed without a leading slash so the transport can recognise
 // `auth/*` and never try to refresh a refresh.
-const transport = createSessionTransport(
-  (path, init) => fetch(`${baseUrl()}/${path}`, { ...init, credentials: "include", cache: "no-store" }),
-  () => undefined,
-);
+const transport = getSessionClient(baseUrl());
 
 async function request<T = unknown>(path: string, options: RequestOptions = {}): Promise<T> {
+  const scope = accountSession.capture();
   if (!PAID_RIDES_CONFIG.apiBaseUrl) throw new RideServiceError("not_supported");
 
   const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
@@ -124,6 +123,7 @@ async function request<T = unknown>(path: string, options: RequestOptions = {}):
 
   if (response.status === 204) return undefined as T;
   const data: unknown = await response.json().catch(() => null);
+  scope.assertCurrent();
   if (!response.ok) {
     const fallback = response.status === 400 && options.on400 ? (typeof options.on400 === "function" ? options.on400() : options.on400) : null;
     throw new RideServiceError(bodyCode(data) ?? fallback ?? errorCodeForStatus(response.status), { status: response.status });
