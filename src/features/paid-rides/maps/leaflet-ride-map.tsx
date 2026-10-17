@@ -8,7 +8,7 @@ import { useReducedMotionSafe } from "@/hooks/use-reduced-motion-safe";
 import { PAID_RIDES_CONFIG } from "../config";
 import type { GeoPoint, RouteGeometry, VehicleClass } from "../domain/types";
 import type { RideMapHandle } from "./map-provider";
-import { LIGHT_TILE_ATTRIBUTION, LIGHT_TILE_SUBDOMAINS, LIGHT_TILE_URL, OSM_TILE_ATTRIBUTION, OSM_TILE_URL } from "@/lib/map-tiles";
+import { mapTileSource } from "@/lib/map-tiles";
 import {
   MARKER_SIZES,
   destinationMarkerHtml,
@@ -290,16 +290,16 @@ export const LeafletRideMap = forwardRef<RideMapHandle, RideMapProps>(function L
     if (!ready || !instance || !leaflet) return;
     const dark = resolvedTheme === "dark";
     const custom = dark ? PAID_RIDES_CONFIG.tiles.dark : PAID_RIDES_CONFIG.tiles.light;
-    // Light theme: the white Positron basemap. Dark theme: stock OSM, darkened by CSS.
-    const url = custom || (dark ? OSM_TILE_URL : LIGHT_TILE_URL);
+    const source = mapTileSource({ dark, customUrl: custom });
+    const { url } = source;
     if (tiles.current && (tiles.current as Leaflet.TileLayer & { _url?: string })._url === url) return;
     tiles.current?.remove();
     tiles.current = leaflet
       .tileLayer(url, {
         maxZoom: 19,
-        attribution: custom || dark ? OSM_TILE_ATTRIBUTION : LIGHT_TILE_ATTRIBUTION,
-        ...(!custom && !dark ? { subdomains: LIGHT_TILE_SUBDOMAINS } : {}),
-        className: custom ? "ride-tiles-custom" : dark ? "ride-tiles-default" : "ride-tiles-light",
+        attribution: source.attribution,
+        subdomains: source.subdomains,
+        className: source.provider === "custom" ? "ride-tiles-custom" : source.provider === "carto" ? "ride-tiles-light" : "ride-tiles-default",
         detectRetina: false,
       })
       .addTo(instance);
