@@ -308,6 +308,14 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
             "h-11 cursor-pointer appearance-none pr-10",
             className,
           )}
+          // With a disabled placeholder and no initial value, the browser
+          // silently selects the first real option — the field then looks
+          // answered while form state disagrees. Start on the placeholder.
+          defaultValue={
+            placeholder && props.value === undefined && props.defaultValue === undefined
+              ? ""
+              : undefined
+          }
           {...props}
         >
           {placeholder ? (
