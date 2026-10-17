@@ -13,19 +13,21 @@
  *   sent (see `driver-registration.ts`).
  */
 
-/** Largest document we will store after processing (PDF, or a compressed photo). */
-export const MAX_DOCUMENT_BYTES = 2 * 1024 * 1024;
+/**
+ * App-side budget, not a claim about the API's limit. Configure this below the
+ * smallest API/proxy body limit and rebuild the app when changing it.
+ */
+const configuredBudget = Number(process.env.NEXT_PUBLIC_MAX_APPLICATION_BYTES);
+export const MAX_APPLICATION_BYTES =
+  Number.isSafeInteger(configuredBudget) && configuredBudget > 0 ? configuredBudget : 2 * 1024 * 1024;
+// Reserve room for the DTO fields; a non-worker application has eight files.
+const documentBudget = Math.max(1, MAX_APPLICATION_BYTES - 64 * 1024);
+/** Largest PDF, allowing for Base64 expansion inside the JSON request. */
+export const MAX_DOCUMENT_BYTES = Math.min(1024 * 1024, Math.floor(documentBudget * 3 / 4));
 /** Largest original photo we accept — it is compressed before it's stored. */
 export const MAX_SOURCE_IMAGE_BYTES = 25 * 1024 * 1024;
-/** Photos above this are resized/re-encoded until they fit. */
-export const IMAGE_TARGET_BYTES = 400 * 1024;
-/**
- * Ceiling for the complete registration request body. Must stay below the
- * API's request-body limit; override with NEXT_PUBLIC_MAX_APPLICATION_BYTES
- * once the server's exact limit is confirmed.
- */
-export const MAX_APPLICATION_BYTES =
-  Number(process.env.NEXT_PUBLIC_MAX_APPLICATION_BYTES) || 5 * 1024 * 1024;
+/** Eight photos plus Base64 overhead must fit the complete request budget. */
+export const IMAGE_TARGET_BYTES = Math.max(1, Math.min(400 * 1024, Math.floor(documentBudget * 3 / 4 / 8)));
 
 export const ACCEPTED_DOCUMENT_EXTENSIONS = ".pdf,.jpg,.jpeg,.png";
 
@@ -42,11 +44,26 @@ export function formatMegabytes(bytes: number): string {
   return `${Number.isInteger(mb) ? mb : mb.toFixed(1)} MB`;
 }
 
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
+  return formatMegabytes(bytes);
+}
+
+/** Check the UTF-8 JSON body, including Base64 expansion and personal details. */
+export function getApplicationSizeError(body: string): string | null {
+  const bytes = new TextEncoder().encode(body).length;
+  return bytes > MAX_APPLICATION_BYTES
+    ? `Your application is ${formatFileSize(bytes)}. The limit is ${formatFileSize(MAX_APPLICATION_BYTES)}. Use smaller PDFs or replace them with photos, then try again.`
+    : null;
+}
+
 export interface EncodedDocument {
   base64: string;
   mimeType: string;
   /** Size of the bytes actually sent, after any compression. */
   sizeBytes: number;
+  originalSizeBytes: number;
 }
 
 /** Read the actual bytes; never send filenames, blob URLs or data-URL prefixes. */
@@ -63,7 +80,7 @@ export async function encodeDocumentFile(file: File): Promise<EncodedDocument> {
         `PDFs can be up to ${formatMegabytes(MAX_DOCUMENT_BYTES)}. Upload a photo of the document instead, or a smaller PDF.`,
       );
     }
-    return { base64: await toBase64(file), mimeType, sizeBytes: file.size };
+    return { base64: await toBase64(file), mimeType, sizeBytes: file.size, originalSizeBytes: file.size };
   }
 
   if (file.size > MAX_SOURCE_IMAGE_BYTES) {
@@ -71,11 +88,11 @@ export async function encodeDocumentFile(file: File): Promise<EncodedDocument> {
   }
   // Small photos go as they are: no quality loss, no work.
   if (file.size <= IMAGE_TARGET_BYTES) {
-    return { base64: await toBase64(file), mimeType, sizeBytes: file.size };
+    return { base64: await toBase64(file), mimeType, sizeBytes: file.size, originalSizeBytes: file.size };
   }
 
   const compressed = await compressImage(file);
-  return { base64: await toBase64(compressed), mimeType: "image/jpeg", sizeBytes: compressed.size };
+  return { base64: await toBase64(compressed), mimeType: compressed.type, sizeBytes: compressed.size, originalSizeBytes: file.size };
 }
 
 /**
@@ -85,7 +102,7 @@ export async function encodeDocumentFile(file: File): Promise<EncodedDocument> {
  */
 async function compressImage(file: File): Promise<Blob> {
   if (typeof createImageBitmap !== "function" || typeof document === "undefined") {
-    throw new Error("This browser can't prepare large photos. Choose a photo under 400 KB.");
+    throw new Error(`This browser can't prepare large photos. Choose a photo under ${formatFileSize(IMAGE_TARGET_BYTES)}.`);
   }
 
   let bitmap: ImageBitmap;
@@ -95,8 +112,8 @@ async function compressImage(file: File): Promise<Blob> {
     throw new Error("We couldn't read that photo. Try another JPG or PNG.");
   }
 
+  const canvas = document.createElement("canvas");
   try {
-    const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
     if (!context) throw new Error("We couldn't prepare that photo. Please try again.");
 
@@ -113,12 +130,17 @@ async function compressImage(file: File): Promise<Blob> {
         const blob = await new Promise<Blob | null>((resolve) =>
           canvas.toBlob(resolve, "image/jpeg", quality),
         );
-        if (blob && blob.size <= IMAGE_TARGET_BYTES) return blob;
+        if (!blob?.size || blob.type !== "image/jpeg") {
+          throw new Error("We couldn't prepare that photo. Please try another JPG or PNG.");
+        }
+        if (blob.size <= IMAGE_TARGET_BYTES) return blob;
       }
     }
     throw new Error("That photo is too detailed to send. Try a closer, well-lit photo of just the document.");
   } finally {
     bitmap.close();
+    canvas.width = 0;
+    canvas.height = 0;
   }
 }
 

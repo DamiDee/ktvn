@@ -172,6 +172,7 @@ export interface VerificationDocument {
   mimeType?: string;
   fileType?: string;
   sizeBytes?: number;
+  originalSizeBytes?: number;
   uploadedAt?: string;
   expiresAt?: string;
   /** Reviewer feedback when status is NEEDS_ATTENTION. */

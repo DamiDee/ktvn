@@ -1,6 +1,7 @@
 import type { ApiUser, ApiRegistration } from "@/types/freebus-api";
 import { getSessionClient, withSessionLock } from "./session-client.ts";
 import { accountSession, changeAccountSession } from "../lib/account-session.ts";
+import { getApplicationSizeError } from "../lib/document-file.ts";
 
 /**
  * Direct browser access to the Free Buses API.
@@ -113,8 +114,12 @@ export const liveAuth = {
     });
   },
 
-  register: (payload: ApiRegistration) =>
-    freebusRequest<ApiUser>("users", { method: "POST", body: JSON.stringify(payload) }),
+  async register(payload: ApiRegistration) {
+    const body = JSON.stringify(payload);
+    const sizeError = getApplicationSizeError(body);
+    if (sizeError) throw new FreebusError(sizeError, 413);
+    return freebusRequest<ApiUser>("users", { method: "POST", body });
+  },
 
   /**
    * Who the API says we are. The cookie is the credential; the stored id only says which

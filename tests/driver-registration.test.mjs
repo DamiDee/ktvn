@@ -150,6 +150,22 @@ test("registration surfaces backend errors without retrying account creation", a
   assert.equal(calls, 1);
 });
 
+test("registration blocks oversized bodies even if the application builder is bypassed", async (t) => {
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async () => { calls++; return Response.json({}); });
+  const payload = buildDriverRegistration(application(), credentials);
+  payload.driver_details.nin_slip = "a".repeat(MAX_APPLICATION_BYTES);
+  await assert.rejects(liveAuth.register(payload), (error) => error instanceof FreebusError && error.status === 413 && /limit/.test(error.message));
+  assert.equal(calls, 0);
+});
+
+test("a proxy's non-JSON 413 is preserved without retrying registration", async (t) => {
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async () => { calls++; return new Response("<html>Request Entity Too Large</html>", { status: 413 }); });
+  await assert.rejects(liveAuth.register(buildDriverRegistration(application(), credentials)), (error) => error instanceof FreebusError && error.status === 413);
+  assert.equal(calls, 1);
+});
+
 test("DriverView vehicle capacity survives mapping and nullable vehicle is supported", () => {
   assert.equal(mapVehicle({ make: "Toyota", model: "Corolla", color: "Silver", plate: "ABC-123-XY", vehicleClass: "sedan", capacity: 7 }).capacity, 7);
   assert.equal(mapVehicle(null), undefined);

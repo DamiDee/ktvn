@@ -23,15 +23,11 @@ import type { VerificationDocument } from "@/types/models";
 import {
   ACCEPTED_DOCUMENT_EXTENSIONS,
   MAX_DOCUMENT_BYTES,
+  MAX_SOURCE_IMAGE_BYTES,
   encodeDocumentFile,
+  formatFileSize,
   formatMegabytes,
 } from "@/lib/document-file";
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 /**
  * Drag-and-drop document upload.
@@ -202,8 +198,9 @@ export function DocumentUpload({
                   browse
                 </span>
                 <span className="block text-[0.75rem]">
-                  JPG or PNG photo, or PDF up to {formatMegabytes(MAX_DOCUMENT_BYTES)}
+                  JPG or PNG up to {formatMegabytes(MAX_SOURCE_IMAGE_BYTES)} · PDF up to {formatMegabytes(MAX_DOCUMENT_BYTES)}
                 </span>
+                <span className="block text-[0.75rem]">Large photos are automatically resized and compressed.</span>
               </span>
             </motion.label>
           ) : null}
@@ -279,9 +276,14 @@ export function DocumentUpload({
                     {document.fileName}
                     {document.fileType ? ` · ${document.fileType}` : ""}
                     {document.sizeBytes
-                      ? ` · ${formatBytes(document.sizeBytes)}`
+                      ? ` · ${formatFileSize(document.sizeBytes)}`
                       : ""}
                   </p>
+                  {document.originalSizeBytes && document.sizeBytes && document.originalSizeBytes > document.sizeBytes ? (
+                    <p className="type-meta mt-0.5 text-ink-muted" role="status">
+                      Compressed from {formatFileSize(document.originalSizeBytes)} to {formatFileSize(document.sizeBytes)}. Preview to check readability.
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="flex shrink-0 items-center gap-1">

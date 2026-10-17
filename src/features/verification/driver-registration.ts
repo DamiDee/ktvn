@@ -3,7 +3,7 @@ import { DocumentType } from "../../types/enums.ts";
 import type { DriverTrack } from "../../types/enums.ts";
 import type { CreateUserDto } from "../../types/driver-api.ts";
 import type { VerificationDocument } from "../../types/models.ts";
-import { MAX_APPLICATION_BYTES, MAX_DOCUMENT_BYTES, formatMegabytes } from "../../lib/document-file.ts";
+import { MAX_DOCUMENT_BYTES, formatMegabytes, getApplicationSizeError } from "../../lib/document-file.ts";
 import {
   accountCredentialsSchema,
   identitySchema,
@@ -18,7 +18,9 @@ import {
 export const documentContentSchema = z.string().min(1, "Choose a document file")
   .max(Math.ceil(MAX_DOCUMENT_BYTES / 3) * 4, `The file limit is ${formatMegabytes(MAX_DOCUMENT_BYTES)}`)
   .regex(/^[A-Za-z0-9+/]*={0,2}$/, "Choose a valid document file")
-  .refine((value) => value.length % 4 === 0, "Choose a valid document file");
+  .refine((value) => value.length % 4 === 0, "Choose a valid document file")
+  .refine((value) => value.length / 4 * 3 - (value.endsWith("==") ? 2 : value.endsWith("=") ? 1 : 0) <= MAX_DOCUMENT_BYTES,
+    `The file limit is ${formatMegabytes(MAX_DOCUMENT_BYTES)}`);
 
 export interface DriverApplicationDraft {
   identity: Partial<IdentityValues>;
@@ -100,16 +102,8 @@ export function buildDriverRegistration(draft: DriverApplicationDraft, credentia
     },
   };
 
-  // Everything travels in one JSON body. Refuse here, with a useful message,
-  // rather than let the API answer 413 (which the browser reports as a
-  // network failure with no readable reason).
-  const bodyBytes = new TextEncoder().encode(JSON.stringify(payload)).length;
-  if (bodyBytes > MAX_APPLICATION_BYTES) {
-    throw new DriverApplicationError(
-      `Your documents add up to ${formatMegabytes(bodyBytes)}, over the ${formatMegabytes(MAX_APPLICATION_BYTES)} limit. Replace any PDFs with photos of the documents, then submit again.`,
-      3,
-    );
-  }
+  const sizeError = getApplicationSizeError(JSON.stringify(payload));
+  if (sizeError) throw new DriverApplicationError(sizeError, 3);
 
   return payload;
 }
