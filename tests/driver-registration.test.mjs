@@ -4,7 +4,7 @@ import { buildDriverRegistration, DriverApplicationError, documentContentSchema 
 import { DocumentType, DriverTrack } from "../src/types/enums.ts";
 import { accountSession } from "../src/lib/account-session.ts";
 import { FreebusError, liveAuth } from "../src/services/freebus-api.ts";
-import { encodeDocumentFile, MAX_DOCUMENT_BYTES } from "../src/lib/document-file.ts";
+import { encodeDocumentFile, MAX_APPLICATION_BYTES, MAX_DOCUMENT_BYTES } from "../src/lib/document-file.ts";
 import { mapVehicle } from "../src/features/paid-rides/services/api-mappers.ts";
 
 const credentials = { password: "TestPassword123", confirmPassword: "TestPassword123", acceptedTerms: true };
@@ -75,12 +75,20 @@ test("non-workers send guarantor details and clear stale department", () => {
   assert.throws(() => buildDriverRegistration(draft, credentials), (error) => error instanceof DriverApplicationError && error.stepIndex === 0);
 });
 
-test("optional city and vehicle photo are nullable", () => {
-  const draft = application(); draft.identity.city = "  ";
-  delete draft.documents[DocumentType.VEHICLE_PHOTO];
-  const payload = buildDriverRegistration(draft, credentials);
-  assert.equal(payload.city, null);
-  assert.equal(payload.driver_details.vehicle_photo, null);
+test("city and vehicle photo are required", () => {
+  const blankCity = application(); blankCity.identity.city = "  ";
+  assert.throws(() => buildDriverRegistration(blankCity, credentials), (error) => error instanceof DriverApplicationError && error.stepIndex === 0);
+  const noPhoto = application(); delete noPhoto.documents[DocumentType.VEHICLE_PHOTO];
+  assert.throws(() => buildDriverRegistration(noPhoto, credentials), (error) => error instanceof DriverApplicationError && error.stepIndex === 2);
+});
+
+test("an application larger than the request budget is refused before sending", () => {
+  const draft = application();
+  // Each document just under the per-file cap; together they exceed the budget.
+  const big = Buffer.alloc(MAX_DOCUMENT_BYTES - 1024).toString("base64");
+  for (const doc of Object.values(draft.documents)) doc.base64 = big;
+  assert.ok(big.length * 7 > MAX_APPLICATION_BYTES);
+  assert.throws(() => buildDriverRegistration(draft, credentials), (error) => error instanceof DriverApplicationError && error.stepIndex === 3 && /limit/.test(error.message));
 });
 
 test("revalidation rejects incomplete and invalid drafts at the relevant step", () => {

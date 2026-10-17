@@ -20,7 +20,12 @@ import { DocumentStatus, type DocumentType } from "@/types/enums";
 import { formatDate } from "@/lib/format";
 import { transitions } from "@/lib/motion";
 import type { VerificationDocument } from "@/types/models";
-import { ACCEPTED_DOCUMENT_EXTENSIONS, encodeDocumentFile } from "@/lib/document-file";
+import {
+  ACCEPTED_DOCUMENT_EXTENSIONS,
+  MAX_DOCUMENT_BYTES,
+  encodeDocumentFile,
+  formatMegabytes,
+} from "@/lib/document-file";
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -93,8 +98,8 @@ export function DocumentUpload({
           label,
           status: DocumentStatus.UPLOADED,
           fileName: file.name,
-          fileType: (file.name.split(".").pop() ?? "FILE").toUpperCase(),
-          sizeBytes: file.size,
+          // Large photos are re-encoded as JPEG, so describe what is stored.
+          fileType: encoded.mimeType === "image/jpeg" ? "JPG" : encoded.mimeType === "image/png" ? "PNG" : "PDF",
           uploadedAt: new Date().toISOString(),
           ...encoded,
         });
@@ -197,7 +202,7 @@ export function DocumentUpload({
                   browse
                 </span>
                 <span className="block text-[0.75rem]">
-                  PDF, JPG or PNG · up to 8 MB
+                  JPG or PNG photo, or PDF up to {formatMegabytes(MAX_DOCUMENT_BYTES)}
                 </span>
               </span>
             </motion.label>

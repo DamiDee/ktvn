@@ -30,7 +30,11 @@ export const identitySchema = z
     email: z.string().trim().min(1, "Enter your email").email("Enter a valid email"),
     username: z.string().trim().min(3, "Use at least 3 characters for your username"),
     country: z.string().trim().min(2, "Enter your country"),
-    city: z.string().trim().max(100, "Use a shorter city or area name").optional(),
+    city: z
+      .string()
+      .trim()
+      .min(2, "Enter your city or area")
+      .max(100, "Use a shorter city or area name"),
     phone: z
       .string()
       .trim()

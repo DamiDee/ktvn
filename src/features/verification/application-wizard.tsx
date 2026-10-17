@@ -106,6 +106,12 @@ export function ApplicationWizard() {
         setDirection(-1);
         setStepIndex(error.stepIndex);
       }
+      if (error instanceof FreebusError && error.status === 413) {
+        setDirection(-1);
+        setStepIndex(3);
+        setFormError("Your documents are too large to send together. Replace any PDFs with photos of the documents, then submit again.");
+        return;
+      }
       setFormError(error instanceof FreebusError || error instanceof DriverApplicationError ? error.message : "We couldn't submit your application. Please try again.");
     } finally {
       submissionLock.current = false;
@@ -346,7 +352,7 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2">
-          <Input label="City / area (optional)" autoComplete="address-level2" icon={MapPin} error={errors.city?.message} {...register("city")} />
+          <Input label="City / area" autoComplete="address-level2" icon={MapPin} error={errors.city?.message} required {...register("city")} />
           <Input label="Country" autoComplete="country-name" icon={Globe2} error={errors.country?.message} required {...register("country")} />
         </div>
 
@@ -593,11 +599,18 @@ function VehicleStep({
   });
 
   const live = useWatch({ control });
+  const [showMissing, setShowMissing] = useState(false);
+  const vehiclePhoto = documents[DocumentType.VEHICLE_PHOTO];
+  const photoUploading = vehiclePhoto?.status === DocumentStatus.UPLOADING;
 
   return (
     <form
       onSubmit={handleSubmit((values) => {
-        if (documents[DocumentType.VEHICLE_PHOTO]?.status === DocumentStatus.UPLOADING) return;
+        if (photoUploading) return;
+        if (!vehiclePhoto?.base64) {
+          setShowMissing(true);
+          return;
+        }
         setVehicle(values);
         onNext();
       })}
@@ -696,16 +709,18 @@ function VehicleStep({
 
         <DocumentUpload
           type={DocumentType.VEHICLE_PHOTO}
-          required={false}
           label="Vehicle photo"
           hint="A clear photo of the car, showing the plate"
-          document={documents[DocumentType.VEHICLE_PHOTO]}
+          document={vehiclePhoto}
           onUploaded={(doc) => setDocument(DocumentType.VEHICLE_PHOTO, doc)}
           onRemoved={() => setDocument(DocumentType.VEHICLE_PHOTO, null)}
+          missingError={
+            showMissing ? "Upload a photo of your vehicle to continue" : undefined
+          }
         />
       </div>
 
-      <StepActions onBack={onBack} disabled={documents[DocumentType.VEHICLE_PHOTO]?.status === DocumentStatus.UPLOADING} />
+      <StepActions onBack={onBack} disabled={photoUploading} />
     </form>
   );
 }
