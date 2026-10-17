@@ -1,6 +1,6 @@
 import type { ApiUser, ApiRegistration } from "@/types/freebus-api";
-import { getSessionClient, withSessionLock } from "./session-client";
-import { accountSession, changeAccountSession } from "@/lib/account-session";
+import { getSessionClient, withSessionLock } from "./session-client.ts";
+import { accountSession, changeAccountSession } from "../lib/account-session.ts";
 
 /**
  * Direct browser access to the Free Buses API.
@@ -50,12 +50,15 @@ export function signedInUserId(): string | null {
 }
 
 export class FreebusError extends Error {
+  status: number;
+
   constructor(
     message: string,
-    public status: number,
+    status: number,
   ) {
     super(message);
     this.name = "FreebusError";
+    this.status = status;
   }
 }
 

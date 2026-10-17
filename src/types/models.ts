@@ -167,6 +167,9 @@ export interface VerificationDocument {
   label: string;
   status: DocumentStatus;
   fileName?: string;
+  /** Raw Base64 file contents sent in the driver's registration DTO. */
+  base64?: string;
+  mimeType?: string;
   fileType?: string;
   sizeBytes?: number;
   uploadedAt?: string;

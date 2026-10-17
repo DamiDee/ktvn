@@ -132,6 +132,9 @@ export type PaymentStatus = "not_required" | "pending" | "authorized" | "paid" |
 // ─── People and vehicles ──────────────────────────────────────────────────────
 
 export interface Vehicle {
+  capacity?: number;
+  year?: number;
+  verified?: boolean;
   make: string;
   model: string;
   color: string;
@@ -192,6 +195,43 @@ export interface Viewer {
   roles: Array<"passenger" | "driver">;
   /** The driver's own approved vehicle, when the viewer drives. */
   vehicle?: Vehicle;
+  account?: RideAccountProfile;
+}
+
+export interface AccountDocument {
+  label: string;
+  provided: boolean;
+  source?: string;
+}
+
+export interface RideAccountProfile {
+  id: string;
+  firstName: string;
+  lastName: string;
+  username: string;
+  email: string;
+  phone: string;
+  address: string;
+  city?: string;
+  country: string;
+  joinedAt: string;
+  identityVerified: boolean;
+  maskedNin?: string;
+  vehicleId?: string;
+  vehicleLoadFailed: boolean;
+  documents: AccountDocument[];
+  driver?: {
+    status: string;
+    track: string;
+    licenceNumber: string;
+    licenceClass: string;
+    licenceExpiryDate: string;
+    isKoinoniaWorker: boolean;
+    department?: string;
+    guarantorName?: string;
+    guarantorPhone?: string;
+    guarantorRelationship?: string;
+  };
 }
 
 // ─── Ride lifecycle ───────────────────────────────────────────────────────────

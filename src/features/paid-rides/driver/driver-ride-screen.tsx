@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Crosshair } from "lucide-react";
 import { useIsDesktop } from "@/hooks/use-media-query";
 import { PAID_RIDES_CONFIG } from "../config";
@@ -10,7 +9,7 @@ import { useLocationStore } from "../location/location-store";
 import { useWakeLock } from "../hooks/use-wake-lock";
 import { useDriverStore } from "../state/driver-store";
 import { useHideRideNav, useRideShell } from "../shell/ride-module-shell";
-import { getRideService } from "../services";
+import { useRideViewer } from "../hooks/use-ride-viewer";
 import { RideMap } from "../components/ride-map";
 import { RideSheet } from "../components/ride-sheet";
 import { DriverCardSkeleton } from "../components/ride-ui";
@@ -48,7 +47,7 @@ export function DriverRideScreen() {
   const [cover, setCover] = useState({ bottom: 0, left: 0 });
   const [exploring, setExploring] = useState(false);
   const [recenterToken, setRecenterToken] = useState(0);
-  const viewer = useQuery({ queryKey: ["paid-rides", "viewer"], queryFn: ({ signal }) => getRideService().getViewer(signal), staleTime: 5 * 60_000 });
+  const viewer = useRideViewer();
 
   useWakeLock(phase === "EN_ROUTE_TO_PICKUP" || phase === "ARRIVED_AT_PICKUP" || phase === "TRIP_ACTIVE");
 
@@ -140,6 +139,7 @@ export function DriverRideScreen() {
         ride ? <DriverSummaryPanel ride={ride} {...sheetProps} /> : null
       ) : (
         <AvailabilityPanel
+          viewer={viewer.data}
           online={phase === "ONLINE_WAITING" || phase === "GOING_OFFLINE"}
           transitioning={phase === "GOING_ONLINE" || phase === "GOING_OFFLINE"}
           {...sheetProps}

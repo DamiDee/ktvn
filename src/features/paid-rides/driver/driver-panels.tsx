@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import Image from "next/image";
+import Link from "next/link";
 import { Brand } from "@/components/layout/brand";
 import { FluidAccent } from "@/components/ui/fluid-accent";
 import { MessageCircle, Navigation, Phone, Power, ShieldCheck } from "lucide-react";
@@ -12,7 +13,8 @@ import { ConfirmDialog, Modal } from "@/components/ui/modal";
 import { PAID_RIDES_CONFIG, PAID_RIDES_FEATURES } from "../config";
 import { ERROR_COPY } from "../domain/errors";
 import { firstName, formatArrivalClock, formatDistance, formatDuration, formatMoney } from "../domain/format";
-import type { GeoPoint, Ride } from "../domain/types";
+import type { GeoPoint, Ride, Viewer } from "../domain/types";
+import { driverOnlineEligibility } from "../domain/account-profile";
 import { ActionTile } from "../components/action-tile";
 import { PinCharacter } from "../components/characters";
 import { RideSheet } from "../components/ride-sheet";
@@ -32,9 +34,10 @@ function navigationHref(point: GeoPoint): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${point.lat},${point.lng}&travelmode=driving`;
 }
 
-export function AvailabilityPanel({ online, transitioning, onCoverChange, bottomOffset }: CoverProps & { online: boolean; transitioning: boolean }) {
+export function AvailabilityPanel({ online, transitioning, onCoverChange, bottomOffset, viewer }: CoverProps & { online: boolean; transitioning: boolean; viewer?: Viewer }) {
   const setOnline = useDriverStore((store) => store.setOnline);
   const error = useDriverStore((store) => store.state.availabilityError);
+  const eligibility = driverOnlineEligibility(viewer);
 
   return (
     <RideSheet
@@ -48,6 +51,10 @@ export function AvailabilityPanel({ online, transitioning, onCoverChange, bottom
         <FluidAccent className="opacity-60" />
         <div className="relative">
         <div className="mb-6 hidden items-center justify-between lg:flex"><Brand /><span className="ride-caption">Driver workspace</span></div>
+        {viewer ? <Link href="/rides/driver/account" className="mb-4 flex items-center gap-3">
+          <PersonAvatar name={viewer.displayName} src={viewer.avatarUrl} size={44} />
+          <div className="min-w-0"><p className="ride-body font-semibold">Hello, {firstName(viewer.displayName)}.</p><p className="ride-caption">{viewer.vehicle ? `${viewer.vehicle.make} ${viewer.vehicle.model} · ${viewer.vehicle.plate}` : "View your driver profile"}</p></div>
+        </Link> : null}
         <div className="flex items-center gap-4 pt-1">
           <span className="relative flex size-12 shrink-0 items-center justify-center">
             {online ? <span className="ride-pulse-ring absolute inset-0 rounded-full bg-[var(--ride-success)] opacity-30" /> : null}
@@ -65,6 +72,7 @@ export function AvailabilityPanel({ online, transitioning, onCoverChange, bottom
       }
       footer={
         <div className="space-y-2">
+          {!online && !eligibility.allowed ? <p role="status" className="ride-body-sm text-[var(--text-secondary)]">{eligibility.message} <Link href="/rides/driver/account" className="font-semibold underline">View account</Link></p> : null}
           {error ? (
             <p role="alert" className="ride-body-sm text-[var(--ride-danger)]">
               {ERROR_COPY[error].title}. {ERROR_COPY[error].body}
@@ -75,7 +83,7 @@ export function AvailabilityPanel({ online, transitioning, onCoverChange, bottom
               Go offline
             </Button>
           ) : (
-            <Button size="xl" block pill icon={Power} loading={transitioning} loadingLabel="Going online" onClick={() => void setOnline(true)}>
+            <Button size="xl" block pill icon={Power} disabled={!eligibility.allowed} loading={transitioning} loadingLabel="Going online" onClick={() => { if (eligibility.allowed) void setOnline(true); }}>
               Go online
             </Button>
           )}

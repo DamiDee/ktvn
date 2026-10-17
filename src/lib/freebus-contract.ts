@@ -25,4 +25,9 @@ export function queryString(filters: Record<string, string | number | boolean | 
 export function canAdminister(role: string) { return isOversight(role); }
 export function canBook(role: string) { return role === "User"; }
 export function canBoard(role: string) { return isOversight(role) || role === "RouteCoordinator"; }
-export function liveHome(role: string) { return role === "RouteCoordinator" ? "/admin/free-buses/boarding" : isOversight(role) ? "/admin/free-buses" : "/passenger/free-buses"; }
+export function liveHome(role: string) { return role === "Driver" ? "/rides/driver" : role === "RouteCoordinator" ? "/admin/free-buses/boarding" : isOversight(role) ? "/admin/free-buses" : "/passenger/free-buses"; }
+
+export function loginDestination(role: string, paidRidesMode: "api" | "mock" | "off") {
+  if (role === "Driver") return paidRidesMode === "off" ? "/driver" : "/rides/driver";
+  return role === "User" && paidRidesMode === "api" ? "/rides" : liveHome(role);
+}

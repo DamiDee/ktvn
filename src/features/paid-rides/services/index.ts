@@ -4,6 +4,7 @@ import type { MapProvider } from "../maps/map-provider";
 import { createApiRideService } from "./ride-api-service";
 import { createMockRideService } from "./ride-mock-service";
 import type { RideService } from "./ride-service";
+import { RideServiceError } from "../domain/errors";
 
 /**
  * The single switch between the real backend and the simulation. Nothing
@@ -13,6 +14,7 @@ import type { RideService } from "./ride-service";
 let service: RideService | null = null;
 
 export function getRideService(): RideService {
+  if (PAID_RIDES_MODE === "off") throw new RideServiceError("not_supported");
   service ??= PAID_RIDES_MODE === "api" ? createApiRideService() : createMockRideService();
   return service;
 }

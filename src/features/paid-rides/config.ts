@@ -1,35 +1,37 @@
+import { resolvePaidRidesConnection } from "./domain/configuration.ts";
+export type { PaidRidesMode } from "./domain/configuration.ts";
+
 /**
  * Paid Rides configuration.
  *
  * `NEXT_PUBLIC_PAID_RIDES` is the feature flag and the data-source switch in
  * one: `off` hides the module (routes 404), `mock` runs the isolated
- * simulation, `api` talks to the real backend. It defaults to `mock` in
- * development and `off` in production, so the module can never reach
- * production users by accident.
+ * simulation, `api` talks to the real backend. Live deployments use the API
+ * by default; the explicit demo setting keeps the isolated simulation.
  *
  * Every tunable here is a client-side *default*. Where the server supplies a
  * value (an offer's expiry, a location interval) the server wins.
  */
 
-export type PaidRidesMode = "off" | "mock" | "api";
+const connection = resolvePaidRidesConnection({
+  mode: process.env.NEXT_PUBLIC_PAID_RIDES,
+  freeBusesMode: process.env.NEXT_PUBLIC_FREE_BUSES_MODE,
+  apiBaseUrl: process.env.NEXT_PUBLIC_PAID_RIDES_API_BASE_URL,
+  freeBusApiBaseUrl: process.env.NEXT_PUBLIC_FREEBUS_API_BASE_URL,
+  realtimeUrl: process.env.NEXT_PUBLIC_PAID_RIDES_REALTIME_URL,
+});
 
-function readMode(): PaidRidesMode {
-  const raw = process.env.NEXT_PUBLIC_PAID_RIDES;
-  if (raw === "off" || raw === "mock" || raw === "api") return raw;
-  return process.env.NODE_ENV === "production" ? "off" : "mock";
-}
-
-export const PAID_RIDES_MODE: PaidRidesMode = readMode();
+export const PAID_RIDES_MODE = connection.mode;
 export const PAID_RIDES_ENABLED = PAID_RIDES_MODE !== "off";
 
 export const PAID_RIDES_CONFIG = {
   /** REST base for `api` mode; the backend serves under /api/v1, e.g. https://api.example.com/api/v1 */
-  apiBaseUrl: process.env.NEXT_PUBLIC_PAID_RIDES_API_BASE_URL ?? "",
+  apiBaseUrl: connection.apiBaseUrl,
   /**
    * WebSocket endpoint for `api` mode, e.g. wss://api.example.com/api/v1/rides/ws.
    * All roles use this URL. The backend identifies drivers from the session cookie.
    */
-  realtimeUrl: process.env.NEXT_PUBLIC_PAID_RIDES_REALTIME_URL ?? "",
+  realtimeUrl: connection.realtimeUrl,
 
   /**
    * Whether the socket's `seq` may be trusted for de-duplication and gap

@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeftRight, Bell, ChevronRight, Inbox, MapPinned, PictureInPicture2, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { ArrowLeftRight, Bell, ChevronRight, Inbox, LogOut, MapPinned, PictureInPicture2, Trash2 } from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { AppearanceSettings } from "@/components/layout/appearance-settings";
 import { EmptyState } from "@/components/ui/states";
@@ -13,7 +14,9 @@ import { PAID_RIDES_MODE } from "../config";
 import { firstName, formatDistance, formatMoney } from "../domain/format";
 import { requestRideNotifications, rideNotificationPermission } from "../notifications/ride-notifications";
 import { pipStrategy } from "../pip/use-picture-in-picture";
-import { getRideService } from "../services";
+import { liveAuth } from "@/services/freebus-api";
+import { useRideViewer } from "../hooks/use-ride-viewer";
+import { AccountDetails } from "./account-details";
 import { useDriverStore } from "../state/driver-store";
 import { usePassengerStore } from "../state/passenger-store";
 import { usePreferencesStore } from "../state/preferences-store";
@@ -57,7 +60,10 @@ function Row({ icon: Icon, title, detail, action }: { icon: typeof Bell; title: 
  */
 export function AccountPage({ role }: { role: "passenger" | "driver" }) {
   const mounted = useMounted();
-  const viewer = useQuery({ queryKey: ["paid-rides", "viewer"], queryFn: ({ signal }) => getRideService().getViewer(signal), staleTime: 5 * 60_000 });
+  const viewer = useRideViewer();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [signingOut, setSigningOut] = useState(false);
   const recentPlaces = usePreferencesStore((state) => state.recentPlaces);
   const clearRecent = usePreferencesStore((state) => state.clearRecentPlaces);
   const [requested, setPermission] = useState<ReturnType<typeof rideNotificationPermission> | null>(null);
@@ -65,6 +71,14 @@ export function AccountPage({ role }: { role: "passenger" | "driver" }) {
   const capabilities = mounted ? getRideCapabilities() : null;
   const strategy = mounted ? pipStrategy() : "none";
   const canDrive = viewer.data?.roles.includes("driver");
+
+  async function signOut() {
+    if (signingOut) return;
+    setSigningOut(true);
+    try { await liveAuth.logout(); }
+    catch { /* Logout has already blocked this device's account session. */ }
+    finally { queryClient.clear(); router.replace("/login"); }
+  }
 
   return (
     <RidePage title="Account">
@@ -81,6 +95,8 @@ export function AccountPage({ role }: { role: "passenger" | "driver" }) {
           </div>
         </div>
       </PageSection>
+
+      {viewer.data ? <AccountDetails viewer={viewer.data} onRefresh={() => void viewer.refetch()} refreshing={viewer.isFetching} /> : null}
 
       {canDrive ? (
         <PageSection title="Mode">
@@ -157,6 +173,7 @@ export function AccountPage({ role }: { role: "passenger" | "driver" }) {
       </PageSection>
 
       <PageSection>
+        {PAID_RIDES_MODE === "api" ? <Button variant="outline" block pill size="lg" icon={LogOut} loading={signingOut} loadingLabel="Signing out" onClick={() => void signOut()} className="mb-3">Sign out</Button> : null}
         <ButtonLink href="/" variant="subtle" block pill size="lg">
           Back to K-Rides
         </ButtonLink>

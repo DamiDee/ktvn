@@ -1,7 +1,7 @@
 "use client";
 
 import { liveAuth } from "@/services/freebus-api";
-import { liveHome } from "@/lib/freebus-contract";
+import { loginDestination } from "@/lib/freebus-contract";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -93,13 +93,13 @@ export function LoginForm() {
   });
 
   async function signIn(identifier: string, password: string) {
-    const user = await userService.signIn({ identifier, password });
     if (LIVE_FREE_BUSES) {
-      const account = await liveAuth.session();
+      const account = await liveAuth.login(identifier, password);
       queryClient.clear();
-      router.push(PAID_RIDES_MODE === "api" && account.role === "User" ? "/rides" : PAID_RIDES_MODE === "api" && account.role === "Driver" ? "/rides/driver" : liveHome(account.role));
+      router.replace(loginDestination(account.role, PAID_RIDES_MODE));
       return;
     }
+    const user = await userService.signIn({ identifier, password });
 
     // Remember which driver signed in, so the driver screens show that
     // person's track rather than a fixed demo account.

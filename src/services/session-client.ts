@@ -26,7 +26,8 @@ export function getSessionClient(apiBase: string) {
   const transport = createSessionTransport(async (path, options) => {
     const scope = accountSession.capture();
     const auth = path.startsWith("auth/");
-    if (accountSession.isBlocked() && (!auth || path === "auth/refresh")) throw new DOMException("Session changing", "AbortError");
+    const registration = path === "users" && options.method === "POST";
+    if (accountSession.isBlocked() && !registration && (!auth || path === "auth/refresh")) throw new DOMException("Session changing", "AbortError");
     const send = async () => {
       scope.assertCurrent();
       // Let an already-sent refresh settle before the auth lock is released.

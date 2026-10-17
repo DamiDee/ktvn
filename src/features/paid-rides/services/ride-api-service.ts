@@ -1,5 +1,7 @@
 import { getSessionClient } from "@/services/session-client";
 import { accountSession } from "@/lib/account-session";
+import { signedInUserId } from "@/services/freebus-api";
+import { loadAccountViewer } from "./account-service";
 import { PAID_RIDES_CONFIG, PAID_RIDES_FEATURES } from "../config";
 import { RideServiceError, errorCodeForStatus, toRideError, type RideErrorCode } from "../domain/errors";
 import type { AcceptOutcome, RideMessage, RideOffer } from "../domain/types";
@@ -9,7 +11,6 @@ import {
   mapHistoryPage,
   mapRide,
   mapRideEnvelope,
-  mapViewer,
   placeToWire,
 } from "./api-mappers";
 import type { RideService } from "./ride-service";
@@ -160,7 +161,7 @@ export function createApiRideService(): RideService {
     mode: "api",
 
     // ─── Passenger ──────────────────────────────────────────────────────
-    getViewer: async (signal) => mapViewer(await request("/rides/me", { signal })),
+    getViewer: (signal) => loadAccountViewer(request, signedInUserId(), signal),
     getCurrentRide: async (signal) => mapRideEnvelope(await request("/rides/current", { signal })),
     getRide: async (rideId, signal) => mapRide(await request(`/rides/${id(rideId)}`, { signal })),
     estimateRide: async ({ pickup, destination }, signal) =>

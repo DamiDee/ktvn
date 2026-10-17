@@ -9,10 +9,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowLeft,
   ArrowRight,
+  AtSign,
   Car,
   Check,
   ChevronDown,
   IdCard,
+  Globe2,
+  LockKeyhole,
   Mail,
   MapPin,
   Phone,
@@ -23,25 +26,29 @@ import {
 import { cn } from "@/lib/cn";
 import { Card, NestedTile } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
+import { Checkbox, Input, PasswordInput, Select } from "@/components/ui/input";
 import { StepIndicator } from "@/components/ui/progress";
 import { SafetyNote } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { DocumentUpload } from "@/components/verification/document-upload";
 import { useApplicationStore } from "@/stores/application-store";
 import { APPLICATION_STEPS, REQUIRED_DOCUMENTS } from "@/mocks/verification";
-import { DocumentType } from "@/types/enums";
+import { DocumentStatus, DocumentType, DriverTrack } from "@/types/enums";
+import { LIVE_FREE_BUSES } from "@/lib/freebus-config";
+import { FreebusError, liveAuth } from "@/services/freebus-api";
+import { buildDriverRegistration, DriverApplicationError } from "./driver-registration";
 import { transitions } from "@/lib/motion";
 import {
   identitySchema,
   licenceSchema,
   vehicleSchema,
+  accountCredentialsSchema,
   LICENCE_CLASSES,
-  SEAT_OPTIONS,
   KOINONIA_DEPARTMENTS,
   type IdentityValues,
   type LicenceValues,
   type VehicleValues,
+  type AccountCredentials,
 } from "./application-schemas";
 
 /**
@@ -61,7 +68,10 @@ export function ApplicationWizard() {
   const back = useApplicationStore((state) => state.back);
   const markSubmitted = useApplicationStore((state) => state.markSubmitted);
 
-  const [complete, setComplete] = useState(false);
+  const complete = useApplicationStore((state) => state.submitted);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const submissionLock = useRef(false);
   const stepContentRef = useRef<HTMLDivElement>(null);
   const [direction, setDirection] = useState(1);
 
@@ -78,10 +88,29 @@ export function ApplicationWizard() {
     back();
   }
 
-  function submit() {
-    markSubmitted();
-    setComplete(true);
-    toast({ title: "Application preview complete", description: "This preview has not created a driver account or sent your documents." });
+  async function submit(credentials: AccountCredentials) {
+    if (submissionLock.current) return;
+    submissionLock.current = true;
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      const payload = buildDriverRegistration(useApplicationStore.getState(), credentials);
+      if (LIVE_FREE_BUSES) {
+        const user = await liveAuth.register(payload);
+        if (!user?.id) throw new FreebusError("Registration did not return an account. Please contact support before trying again.", 502);
+      }
+      markSubmitted();
+      toast({ title: LIVE_FREE_BUSES ? "Driver account created" : "Application preview complete", description: LIVE_FREE_BUSES ? "Sign in with your email or username." : "Demo mode: no account was created or documents submitted.", tone: "success" });
+    } catch (error) {
+      if (error instanceof DriverApplicationError) {
+        setDirection(-1);
+        setStepIndex(error.stepIndex);
+      }
+      setFormError(error instanceof FreebusError || error instanceof DriverApplicationError ? error.message : "We couldn't submit your application. Please try again.");
+    } finally {
+      submissionLock.current = false;
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -98,23 +127,24 @@ export function ApplicationWizard() {
         </ol>
       </aside>
       <div className="min-w-0">
-      <div className="mb-6 rounded-2xl border border-line bg-surface px-4 py-3 text-xs leading-relaxed text-ink-secondary"><strong className="text-ink">Application preview.</strong> Driver registration is not connected yet. Use sample details only; documents are simulated, not submitted. This draft lasts only while the app stays open.</div>
+      {!LIVE_FREE_BUSES ? <div className="mb-6 rounded-2xl border border-line bg-surface px-4 py-3 text-xs leading-relaxed text-ink-secondary"><strong className="text-ink">Application preview.</strong> Demo mode does not create an account or submit documents.</div> : null}
+      {formError ? <p role="alert" className="mb-6 rounded-2xl border border-danger-500/25 bg-danger-50 px-4 py-3 text-sm text-danger-700 dark:bg-danger-500/10 dark:text-red-200">{formError}</p> : null}
       <div className="mb-6" role="status">
-        <div className="mb-3 flex items-center justify-between gap-3"><span className="text-sm font-semibold text-ink">{complete ? "Preview complete" : stepIndex >= 4 ? "You’re almost there" : stepIndex > 0 ? "Looking good. Keep going." : "Let’s get you started"}</span><span className="text-xs text-ink-secondary">Step {stepIndex + 1} of {steps.length}</span></div>
+        <div className="mb-3 flex items-center justify-between gap-3"><span className="text-sm font-semibold text-ink">{complete ? LIVE_FREE_BUSES ? "Application submitted" : "Preview complete" : stepIndex >= 4 ? "You’re almost there" : stepIndex > 0 ? "Looking good. Keep going." : "Let’s get you started"}</span><span className="text-xs text-ink-secondary">Step {stepIndex + 1} of {steps.length}</span></div>
         <div className="premium-progress" role="progressbar" aria-label="Completed application steps" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={complete ? steps.length : stepIndex}><span style={{ width: `${(complete ? 1 : stepIndex / steps.length) * 100}%` }} /></div>
       </div>
       <StepIndicator
         steps={steps}
         showProgress={false}
         currentIndex={stepIndex}
-        onStepClick={(index) => {
+        onStepClick={submitting || complete ? undefined : (index) => {
           setDirection(index > stepIndex ? 1 : -1);
           setStepIndex(index);
         }}
         className="mb-6"
       />
 
-      {complete ? <Card radius="xl"><span className="mb-5 grid size-14 place-items-center rounded-full bg-gold-100 text-gold-800"><Check className="size-7" aria-hidden /></span><h2 className="type-section-title text-ink">You’ve explored the full application.</h2><p className="mt-3 text-sm leading-relaxed text-ink-secondary">Your driver account has not been created. Live registration and document submission will be available once the driver service is connected.</p><Link href="/signup" className="mt-6 inline-flex min-h-11 items-center text-sm font-semibold text-gold-800 dark:text-gold-300">Back to member signup <ArrowRight className="ml-2 size-4" aria-hidden /></Link></Card> : <Card radius="xl">
+      {complete ? <Card radius="xl"><span className="mb-5 grid size-14 place-items-center rounded-full bg-gold-100 text-gold-800"><Check className="size-7" aria-hidden /></span><h2 className="type-section-title text-ink">{LIVE_FREE_BUSES ? "Your driver account is ready." : "You’ve explored the full application."}</h2><p className="mt-3 text-sm leading-relaxed text-ink-secondary">{LIVE_FREE_BUSES ? "Your application has been submitted. Sign in with your email or username to access your account. Your documents and vehicle still need approval before you can drive." : "Demo mode: your driver account has not been created and no documents were sent."}</p><Link href="/login" className="mt-6 inline-flex min-h-11 items-center text-sm font-semibold text-gold-800 dark:text-gold-300">Sign in <ArrowRight className="ml-2 size-4" aria-hidden /></Link></Card> : <Card radius="xl">
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             ref={stepContentRef}
@@ -144,8 +174,9 @@ export function ApplicationWizard() {
               <ReviewStep
                 onBack={goBack}
                 onSubmit={submit}
-                submitting={false}
+                submitting={submitting}
                 onEditStep={(index) => {
+                  if (submissionLock.current) return;
                   setDirection(-1);
                   setStepIndex(index);
                 }}
@@ -182,12 +213,14 @@ function StepActions({
   submitting = false,
   type = "submit",
   onNext,
+  disabled = false,
 }: {
   onBack?: () => void;
   nextLabel?: string;
   submitting?: boolean;
   type?: "submit" | "button";
   onNext?: () => void;
+  disabled?: boolean;
 }) {
   return (
     <div className="mt-7 flex flex-col-reverse gap-2.5 border-t border-line pt-6 sm:flex-row sm:justify-end">
@@ -202,6 +235,7 @@ function StepActions({
         size="lg"
         iconRight={ArrowRight}
         loading={submitting}
+        disabled={disabled}
         loadingLabel="Submitting"
         onClick={type === "button" ? onNext : undefined}
       >
@@ -231,6 +265,9 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
     defaultValues: {
       fullName: identity.fullName ?? "",
       email: identity.email ?? "",
+      username: identity.username ?? "",
+      country: identity.country ?? "Nigeria",
+      city: identity.city ?? "",
       phone: identity.phone ?? "",
       nin: identity.nin ?? "",
       address: identity.address ?? "",
@@ -244,9 +281,9 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
 
   const workerStatus = useWatch({ control, name: "workerStatus" });
   const missingUploads =
-    !documents[DocumentType.GOVERNMENT_ID] ||
-    !documents[DocumentType.PROFILE_PHOTO] ||
-    (workerStatus === "NO" && !documents[DocumentType.GUARANTOR_PHOTO]);
+    !documents[DocumentType.GOVERNMENT_ID]?.base64 ||
+    !documents[DocumentType.PROFILE_PHOTO]?.base64 ||
+    (workerStatus === "NO" && !documents[DocumentType.GUARANTOR_PHOTO]?.base64);
 
   return (
     <form
@@ -287,6 +324,7 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
           required
           {...register("email")}
         />
+        <Input label="Username" autoComplete="username" icon={AtSign} error={errors.username?.message} required {...register("username")} />
         <div className="grid gap-5 sm:grid-cols-2">
           <Input
             label="Phone"
@@ -305,6 +343,11 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
             required
             {...register("address")}
           />
+        </div>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Input label="City / area (optional)" autoComplete="address-level2" icon={MapPin} error={errors.city?.message} {...register("city")} />
+          <Input label="Country" autoComplete="country-name" icon={Globe2} error={errors.country?.message} required {...register("country")} />
         </div>
 
         <Input
@@ -439,7 +482,7 @@ function LicenceStep({
   const setDocument = useApplicationStore((state) => state.setDocument);
 
   const [showMissing, setShowMissing] = useState(false);
-  const missingLicence = !documents[DocumentType.DRIVERS_LICENCE];
+  const missingLicence = !documents[DocumentType.DRIVERS_LICENCE]?.base64;
 
   const {
     register,
@@ -449,7 +492,7 @@ function LicenceStep({
     resolver: zodResolver(licenceSchema),
     defaultValues: {
       licenceNumber: licence.licenceNumber ?? "",
-      licenceClass: licence.licenceClass ?? "",
+      licenceClass: licence.licenceClass,
       licenceExpiry: licence.licenceExpiry ?? "",
     },
   });
@@ -554,6 +597,7 @@ function VehicleStep({
   return (
     <form
       onSubmit={handleSubmit((values) => {
+        if (documents[DocumentType.VEHICLE_PHOTO]?.status === DocumentStatus.UPLOADING) return;
         setVehicle(values);
         onNext();
       })}
@@ -609,10 +653,12 @@ function VehicleStep({
             required
             {...register("plateNumber")}
           />
-          <Select
+          <Input
             label="Passenger seats"
-            placeholder="Select"
-            options={SEAT_OPTIONS}
+            type="number"
+            min={1}
+            step={1}
+            placeholder="4"
             error={errors.seats?.message}
             required
             {...register("seats")}
@@ -650,6 +696,7 @@ function VehicleStep({
 
         <DocumentUpload
           type={DocumentType.VEHICLE_PHOTO}
+          required={false}
           label="Vehicle photo"
           hint="A clear photo of the car, showing the plate"
           document={documents[DocumentType.VEHICLE_PHOTO]}
@@ -658,7 +705,7 @@ function VehicleStep({
         />
       </div>
 
-      <StepActions onBack={onBack} />
+      <StepActions onBack={onBack} disabled={documents[DocumentType.VEHICLE_PHOTO]?.status === DocumentStatus.UPLOADING} />
     </form>
   );
 }
@@ -686,13 +733,13 @@ function DocumentsStep({
   const setDocument = useApplicationStore((state) => state.setDocument);
 
   const [showMissing, setShowMissing] = useState(false);
-  const missing = VEHICLE_DOCUMENTS.filter((doc) => !documents[doc.type]);
+  const missing = VEHICLE_DOCUMENTS.filter((doc) => !documents[doc.type]?.base64);
 
   return (
     <div>
       <StepHeading
         title="Vehicle documents"
-        description="Add the vehicle documents needed for a professional driver application."
+        description="Upload your vehicle registration, insurance and roadworthiness certificate."
       />
 
       <div className="space-y-4">
@@ -721,7 +768,7 @@ function DocumentsStep({
               : "text-ink-muted",
           )}
         >
-          {missing.length} of {VEHICLE_DOCUMENTS.length} still to upload. All
+          {missing.length} of {VEHICLE_DOCUMENTS.length} still to add. All
           three are required before you can submit.
         </p>
       ) : null}
@@ -744,15 +791,17 @@ function DocumentsStep({
 /* --- 05 Track ------------------------------------------------------------- */
 
 function TrackStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
+  const tracks = useApplicationStore((state) => state.tracks);
+  const toggleTrack = useApplicationStore((state) => state.toggleTrack);
+  const [showMissing, setShowMissing] = useState(false);
   return <div>
-    <StepHeading title="Built for professional driving." description="A clear view of your requests, journeys and earnings, all in one place." />
-    <div className="rounded-2xl border border-line bg-surface-nested p-6">
-      <span className="mb-4 grid size-12 place-items-center rounded-2xl bg-forest-900 text-white"><Car className="size-6" aria-hidden /></span>
-      <h3 className="text-lg font-semibold tracking-tight text-ink">Paid rides</h3>
-      <p className="mt-2 text-sm leading-relaxed text-ink-secondary">Complete verification, go online when you’re ready, and manage your journeys from your driver dashboard.</p>
-      <p className="mt-5 flex items-center gap-2 text-sm font-medium text-gold-800 dark:text-gold-300"><Check className="size-4" aria-hidden />Professional driver application selected</p>
+    <StepHeading title="How would you like to drive?" description="Choose one or both tracks. Each requires the same documents and verification." />
+    <div className="space-y-4 rounded-2xl border border-line bg-surface-nested p-6">
+      <Checkbox label="Volunteer — offer free journeys to the community" checked={tracks.includes(DriverTrack.VOLUNTEER)} onChange={() => toggleTrack(DriverTrack.VOLUNTEER)} />
+      <Checkbox label="Professional — accept paid rides" checked={tracks.includes(DriverTrack.PROFESSIONAL)} onChange={() => toggleTrack(DriverTrack.PROFESSIONAL)} />
+      {showMissing && tracks.length === 0 ? <p role="alert" className="text-sm text-danger-600">Choose at least one driving track.</p> : null}
     </div>
-    <StepActions onBack={onBack} type="button" onNext={onNext} nextLabel="Review my details" />
+    <StepActions onBack={onBack} type="button" onNext={() => { if (!tracks.length) { setShowMissing(true); return; } onNext(); }} nextLabel="Review my details" />
   </div>;
 }
 
@@ -765,16 +814,20 @@ function ReviewStep({
   onEditStep,
 }: {
   onBack: () => void;
-  onSubmit: () => void;
+  onSubmit: (credentials: AccountCredentials) => Promise<void>;
   submitting: boolean;
   onEditStep: (index: number) => void;
 }) {
-  const { identity, licence, vehicle, documents } = useApplicationStore();
+  const { identity, licence, vehicle, documents, tracks } = useApplicationStore();
+  const { register, handleSubmit, formState: { errors } } = useForm<AccountCredentials>({
+    resolver: zodResolver(accountCredentialsSchema),
+    defaultValues: { password: "", confirmPassword: "" },
+  });
 
   const uploaded = Object.keys(documents).length;
 
   return (
-    <div>
+    <form onSubmit={handleSubmit(onSubmit)} noValidate>
       <StepHeading
         title="Review your application"
         description="One last look. Your details have stayed with you as you moved through these steps."
@@ -788,9 +841,12 @@ function ReviewStep({
           rows={[
             ["Full name", identity.fullName],
             ["Email", identity.email],
+            ["Username", identity.username],
             ["Phone", identity.phone],
             ["NIN", identity.nin ? `•••••••${identity.nin.slice(-4)}` : undefined],
             ["Address", identity.address],
+            ["City / area", identity.city],
+            ["Country", identity.country],
             [
               "Community eligibility",
               identity.workerStatus === "YES"
@@ -839,22 +895,30 @@ function ReviewStep({
           icon={ShieldCheck}
           onEdit={() => onEditStep(3)}
           rows={[
-            ["Uploaded", `${uploaded} document${uploaded === 1 ? "" : "s"}`],
+            ["Added", `${uploaded} document${uploaded === 1 ? "" : "s"}`],
             ...Object.values(documents).map(
               (doc) => [doc.label, doc.fileName] as [string, string | undefined],
             ),
           ]}
         />
 
-        <ReviewSection title="Professional driving" icon={Wallet} onEdit={() => onEditStep(4)} rows={[["Service", "Paid rides"], ["Next step", "Document review and vehicle inspection when registration opens"]]} />
+        <ReviewSection title="Driving tracks" icon={Wallet} onEdit={() => onEditStep(4)} rows={[["Selected", tracks.map((track) => track === DriverTrack.VOLUNTEER ? "Volunteer" : "Professional").join(" and ")], ["Next step", "Document review and vehicle inspection"]]} />
       </div>
 
+      <fieldset disabled={submitting} className="mt-6 min-w-0 space-y-5">
+        <legend className="mb-4 text-base font-semibold text-ink">Secure your account</legend>
+        <PasswordInput label="Password" icon={LockKeyhole} autoComplete="new-password" required error={errors.password?.message} {...register("password")} />
+        <PasswordInput label="Confirm password" icon={ShieldCheck} autoComplete="new-password" required error={errors.confirmPassword?.message} {...register("confirmPassword")} />
+        <Checkbox label={<>I accept the <Link href="/#terms" className="underline">terms of use</Link> and <Link href="/#privacy" className="underline">privacy notice</Link>.</>} error={errors.acceptedTerms?.message} {...register("acceptedTerms")} />
+      </fieldset>
+
       <SafetyNote className="mt-5">
-        This is a preview only. No documents will be sent and no driver account will be created. Live onboarding will require document review and a physical vehicle inspection.
+        {LIVE_FREE_BUSES ? "Submitting creates your driver account and sends your application for review. Document review and a physical vehicle inspection are required before you can drive." : "Demo mode: no documents will be sent and no driver account will be created."}
       </SafetyNote>
 
       <div className="mt-7 flex flex-col-reverse gap-2.5 border-t border-line pt-6 sm:flex-row sm:justify-end">
         <Button
+          type="button"
           variant="ghost"
           size="lg"
           icon={ArrowLeft}
@@ -864,17 +928,17 @@ function ReviewStep({
           Back
         </Button>
         <Button
+          type="submit"
           variant="primary"
           size="lg"
           iconRight={ArrowRight}
           loading={submitting}
           loadingLabel="Submitting"
-          onClick={onSubmit}
         >
-          Complete application preview
+          {LIVE_FREE_BUSES ? "Create driver account" : "Complete application preview"}
         </Button>
       </div>
-    </div>
+    </form>
   );
 }
 

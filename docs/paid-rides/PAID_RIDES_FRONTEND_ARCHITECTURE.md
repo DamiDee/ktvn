@@ -7,7 +7,7 @@ Paid Rides adds on-demand, paid ride-hailing to K-Rides: a rider books a verifie
 | | |
 | --- | --- |
 | Routes | `/rides/*` (rider) and `/rides/driver/*` (driver), outside the existing passenger/driver shells |
-| Flag | `NEXT_PUBLIC_PAID_RIDES=off \| mock \| api` (default: `mock` in development, `off` in production) |
+| Flag | `NEXT_PUBLIC_PAID_RIDES=off \| mock \| api` (default: `api` with live authentication; explicit Free Buses demo mode defaults to `mock`) |
 | Data | `api` → HTTP + WebSocket backend; `mock` → in-browser simulation, isolated under `services/mock/` |
 | Maps | Leaflet + OpenStreetMap tiles; Nominatim search and OSRM routing through `/api/rides/geo/*` |
 | State | Zustand stores guarded by pure reducers; TanStack Query for request/response data |
@@ -16,10 +16,13 @@ Paid Rides adds on-demand, paid ride-hailing to K-Rides: a rider books a verifie
 Running it:
 
 ```bash
-npm run dev                      # http://localhost:4000/rides  (mock mode by default)
+npm run dev                      # http://localhost:3000/rides (live API by default)
+NEXT_PUBLIC_PAID_RIDES=mock npm run dev # Isolated simulation
 # Simulation controls: "Simulation" pill, top-right, in mock mode only
 NEXT_PUBLIC_PAID_RIDES=api NEXT_PUBLIC_PAID_RIDES_API_BASE_URL=… NEXT_PUBLIC_PAID_RIDES_REALTIME_URL=… npm run dev
 ```
+
+The REST and socket overrides are optional when using the shared Free Buses backend. Live drivers sign in directly to `/rides/driver`; their profile comes from the authenticated user and linked-car endpoints. See [Driver account integration](./DRIVER_ACCOUNT_INTEGRATION.md) for the current mapping, approval behavior and deployment settings.
 
 ## 2. Frontend architecture
 

@@ -564,11 +564,13 @@ export function LiveFreeBusShell({
       title="This page isn't available for your role"
       description={
         user.role === "Driver"
-          ? "Free Buses booking is reserved for members, excluding drivers."
+          ? "Free Buses booking is available to member accounts. Return to your driver view to manage paid rides."
           : "Use the Free Buses page for your account."
       }
       action={
-        canBoard(user.role) || user.role === "User" ? (
+        user.role === "Driver" ? (
+          <ButtonLink href={home}>Back to driver view</ButtonLink>
+        ) : canBoard(user.role) || user.role === "User" ? (
           <ButtonLink href={home}>Open Free Buses</ButtonLink>
         ) : undefined
       }

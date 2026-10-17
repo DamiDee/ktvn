@@ -151,6 +151,7 @@ export function mapVehicle(value: unknown): Vehicle | undefined {
   const raw = obj(value);
   if (!raw) return undefined;
   return {
+    capacity: num(raw.capacity),
     make: str(raw.make) ?? "",
     model: str(raw.model) ?? "",
     color: str(raw.color) ?? "",

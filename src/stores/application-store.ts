@@ -75,6 +75,6 @@ export const useApplicationStore = create<ApplicationState>((set) => ({
       return { documents };
     }),
 
-  markSubmitted: () => set({ submitted: true }),
+  markSubmitted: () => set({ submitted: true, identity: {}, licence: {}, vehicle: {}, documents: {} }),
   reset: () => set({ ...INITIAL, identity: {}, licence: {}, vehicle: {}, documents: {} }),
 }));

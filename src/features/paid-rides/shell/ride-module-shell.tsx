@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
 import { CarFront, History, Inbox, LifeBuoy, MapPinned, MessageCircle, UserRound } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useIsDesktop } from "@/hooks/use-media-query";
@@ -12,7 +11,7 @@ import { PAID_RIDES_FEATURES, PAID_RIDES_MODE } from "../config";
 import { trackRideEvent } from "../analytics";
 import { ERROR_COPY, toRideError } from "../domain/errors";
 import { BubbleNav, type BubbleNavItem } from "../components/bubble-nav";
-import { getRideService } from "../services";
+import { useRideViewer } from "../hooks/use-ride-viewer";
 import { useDriverStore } from "../state/driver-store";
 import { usePassengerStore } from "../state/passenger-store";
 import { usePreferencesStore } from "../state/preferences-store";
@@ -93,12 +92,7 @@ export function RideModuleShell({ children }: { children: ReactNode }) {
     trackRideEvent("paid_ride_opened", { role });
   }, [role]);
 
-  const viewer = useQuery({
-    queryKey: ["paid-rides", "viewer"],
-    queryFn: ({ signal }) => getRideService().getViewer(signal),
-    staleTime: 5 * 60_000,
-    retry: false,
-  });
+  const viewer = useRideViewer();
 
   const navItems: BubbleNavItem[] = useMemo(
     () =>

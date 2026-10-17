@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   AlertTriangle,
@@ -20,9 +20,7 @@ import { DocumentStatus, type DocumentType } from "@/types/enums";
 import { formatDate } from "@/lib/format";
 import { transitions } from "@/lib/motion";
 import type { VerificationDocument } from "@/types/models";
-
-const ACCEPTED = ".pdf,.jpg,.jpeg,.png";
-const MAX_BYTES = 8 * 1024 * 1024;
+import { ACCEPTED_DOCUMENT_EXTENSIONS, encodeDocumentFile } from "@/lib/document-file";
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -33,8 +31,7 @@ function formatBytes(bytes: number): string {
 /**
  * Drag-and-drop document upload.
  *
- * The upload itself is simulated, but every state the real flow will have is
- * reachable: missing, uploading, uploaded, needs attention, expired, verified.
+ * Files are read into Base64 in memory and sent with the application on submit.
  * A reviewer's note is shown inline when there's something to fix, so the
  * driver never sees a bare "Pending".
  */
@@ -47,6 +44,7 @@ export function DocumentUpload({
   onRemoved,
   /** Shows the missing-file message once the step has been submitted. */
   missingError,
+  required = true,
   className,
 }: {
   type: DocumentType;
@@ -56,9 +54,16 @@ export function DocumentUpload({
   onUploaded?: (doc: VerificationDocument) => void;
   onRemoved?: () => void;
   missingError?: string;
+  required?: boolean;
   className?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const readVersion = useRef(0);
+  const cancelPending = useRef<(() => void) | undefined>(undefined);
+  useEffect(() => () => {
+    readVersion.current += 1;
+    cancelPending.current?.();
+  }, []);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -69,45 +74,43 @@ export function DocumentUpload({
     : (document?.status ?? DocumentStatus.MISSING);
 
   const handleFile = useCallback(
-    (file: File) => {
+    async (file: File) => {
+      const version = ++readVersion.current;
       setError(null);
-
-      if (file.size > MAX_BYTES) {
-        setError(`That file is ${formatBytes(file.size)}. The limit is 8 MB.`);
-        return;
-      }
-
       setUploading(true);
       setProgress(0);
-
-      // Simulated progress; the real upload will report actual bytes.
-      const started = performance.now();
-      const duration = 1100;
-
-      function tick(now: number) {
-        const next = Math.min(1, (now - started) / duration);
-        setProgress(next);
-
-        if (next >= 1) {
-          setUploading(false);
-          onUploaded?.({
-            id: `doc-${type.toLowerCase()}`,
-            type,
-            label,
-            status: DocumentStatus.UPLOADED,
-            fileName: file.name,
-            fileType: (file.name.split(".").pop() ?? "FILE").toUpperCase(),
-            sizeBytes: file.size,
-            uploadedAt: new Date().toISOString(),
-          });
-          return;
+      // A replacement invalidates the previous value until the new file is ready.
+      onRemoved?.();
+      cancelPending.current = onRemoved;
+      onUploaded?.({ id: `doc-${type.toLowerCase()}`, type, label, fileName: file.name, status: DocumentStatus.UPLOADING });
+      try {
+        const encoded = await encodeDocumentFile(file);
+        if (version !== readVersion.current) return;
+        setProgress(1);
+        onUploaded?.({
+          id: `doc-${type.toLowerCase()}`,
+          type,
+          label,
+          status: DocumentStatus.UPLOADED,
+          fileName: file.name,
+          fileType: (file.name.split(".").pop() ?? "FILE").toUpperCase(),
+          sizeBytes: file.size,
+          uploadedAt: new Date().toISOString(),
+          ...encoded,
+        });
+      } catch (error) {
+        if (version === readVersion.current) {
+          onRemoved?.();
+          setError(error instanceof Error ? error.message : "We couldn't read that file. Please try again.");
         }
-        requestAnimationFrame(tick);
+      } finally {
+        if (version === readVersion.current) {
+          cancelPending.current = undefined;
+          setUploading(false);
+        }
       }
-
-      requestAnimationFrame(tick);
     },
-    [type, label, onUploaded],
+    [type, label, onUploaded, onRemoved],
   );
 
   const empty =
@@ -147,7 +150,8 @@ export function DocumentUpload({
         <input
           ref={inputRef}
           type="file"
-          accept={ACCEPTED}
+          accept={ACCEPTED_DOCUMENT_EXTENSIONS}
+          aria-label={label}
           className="sr-only"
           id={`upload-${type}`}
           onChange={(event) => {
@@ -174,12 +178,12 @@ export function DocumentUpload({
               <span>
                 <span className="type-body block font-medium text-ink">
                   {label}
-                  <span
+                  {required ? <span
                     className="ml-1 text-danger-500"
                     aria-label="required"
                   >
                     *
-                  </span>
+                  </span> : <span className="ml-1 text-ink-muted">(optional)</span>}
                 </span>
                 {hint ? (
                   <span className="type-meta mt-0.5 block text-ink-muted">
@@ -218,7 +222,7 @@ export function DocumentUpload({
 
               <div className="min-w-0 flex-1">
                 <p className="type-body font-medium text-ink">{label}</p>
-                <p className="type-meta mt-0.5 text-ink-muted">Uploading…</p>
+                <p className="type-meta mt-0.5 text-ink-muted">Preparing file…</p>
                 <div className="mt-2 h-1 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--kx-text)_10%,transparent)]">
                   <motion.div
                     className="h-full rounded-full bg-gold-500"
@@ -281,6 +285,14 @@ export function DocumentUpload({
                     label={`Preview ${label}`}
                     size="sm"
                     variant="ghost"
+                    disabled={!document.base64 || !document.mimeType}
+                    onClick={() => {
+                      if (!document.base64 || !document.mimeType) return;
+                      const bytes = Uint8Array.from(atob(document.base64), (char) => char.charCodeAt(0));
+                      const url = URL.createObjectURL(new Blob([bytes], { type: document.mimeType }));
+                      window.open(url, "_blank", "noopener,noreferrer");
+                      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                    }}
                   />
                   <IconButton
                     icon={RefreshCw}

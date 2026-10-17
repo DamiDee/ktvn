@@ -1,3 +1,5 @@
+import type { CreateUserDto, DriverProfileDto } from "./driver-api";
+
 export type ApiRole = "Root" | "Admin" | "RouteCoordinator" | "User" | "Driver";
 export type ApiRideType = "Pickup" | "Dropoff" | "RoundTrip";
 export type ApiBusState = "Transit" | "Arrived" | "Stationary" | "Boarding";
@@ -5,6 +7,8 @@ export interface ApiUser {
   id: string; first_name: string; last_name: string; email: string; username: string;
   phone: string; address: string; country: string; role: ApiRole; is_active: boolean;
   city?: string | null;
+  car?: string | null;
+  driver_profile?: DriverProfileDto | null;
   is_identity_verified: boolean; created_at: string;
   identity_type?: string | null;
   identity_number?: string | null;
@@ -56,10 +60,7 @@ export interface ApiSeats {
   bus_id: string; capacity: number; current_passenger_count: number;
   booked_seats: number[]; available_seats: number[];
 }
-export interface ApiRegistration {
-  first_name: string; last_name: string; email: string; username: string;
-  phone: string; address: string; country: string; city: string; password: string;
-}
+export type ApiRegistration = CreateUserDto;
 export interface ApiRideRequest {
   id: string;
   route_id: string;
