@@ -123,6 +123,14 @@ test("document fields require raw Base64 rather than filenames or local preview 
   }
 });
 
+test("the file limit checks decoded bytes even when Base64 lengths are equal", () => {
+  const boundary = Buffer.alloc(MAX_DOCUMENT_BYTES).toString("base64");
+  const oversized = Buffer.alloc(MAX_DOCUMENT_BYTES + 1).toString("base64");
+  assert.equal(boundary.length, oversized.length);
+  assert.equal(documentContentSchema.safeParse(boundary).success, true);
+  assert.equal(documentContentSchema.safeParse(oversized).success, false);
+});
+
 test("POST /users sends the nested DTO and retains DriverProfileDto in the response, including after logout", async (t) => {
   const payload = buildDriverRegistration(application(), credentials);
   const user = { id: "test-driver-id", role: "Driver", car: "test-car-id", driver_profile: { id: "test-profile-id", profile_photo: payload.driver_details.profile_photo, track: "Both", status: "Pending" } };

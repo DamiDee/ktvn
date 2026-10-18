@@ -53,7 +53,8 @@ test("large camera photos are resized, compressed and sent as raw JPEG Base64", 
     { type: "image/jpeg" },
   ));
   const original = photo(3 * 1024 * 1024);
-  const encoded = await encodeDocumentFile(original);
+  const stages = [];
+  const encoded = await encodeDocumentFile(original, (event) => stages.push(event));
   assert.equal(encoded.mimeType, "image/jpeg");
   assert.equal(encoded.originalSizeBytes, original.size);
   assert.equal(encoded.sizeBytes, bytes.length);
@@ -64,6 +65,10 @@ test("large camera photos are resized, compressed and sent as raw JPEG Base64", 
   assert.equal(browser.white(), true);
   assert.equal(browser.closed(), true);
   assert.equal(browser.canvas.width, 0);
+  for (const phase of ["checking", "reading", "resizing", "compressing", "encoding"]) assert.ok(stages.some((event) => event.phase === phase));
+  const encodedProgress = stages.filter((event) => event.phase === "encoding");
+  assert.equal(encodedProgress.at(-1).processedBytes, encoded.sizeBytes);
+  assert.equal(encodedProgress.at(-1).totalBytes, encoded.sizeBytes);
 });
 
 test("compression does not enlarge small-dimension images", async (t) => {

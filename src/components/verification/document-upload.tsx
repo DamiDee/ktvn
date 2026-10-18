@@ -27,6 +27,7 @@ import {
   encodeDocumentFile,
   formatFileSize,
   formatMegabytes,
+  type DocumentPreparationProgress,
 } from "@/lib/document-file";
 
 /**
@@ -67,7 +68,7 @@ export function DocumentUpload({
   }, []);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [preparation, setPreparation] = useState<DocumentPreparationProgress>({ phase: "checking" });
   const [error, setError] = useState<string | null>(null);
 
   const status = uploading
@@ -79,15 +80,16 @@ export function DocumentUpload({
       const version = ++readVersion.current;
       setError(null);
       setUploading(true);
-      setProgress(0);
+      setPreparation({ phase: "checking" });
       // A replacement invalidates the previous value until the new file is ready.
       onRemoved?.();
       cancelPending.current = onRemoved;
       onUploaded?.({ id: `doc-${type.toLowerCase()}`, type, label, fileName: file.name, status: DocumentStatus.UPLOADING });
       try {
-        const encoded = await encodeDocumentFile(file);
+        const encoded = await encodeDocumentFile(file, (progress) => {
+          if (version === readVersion.current) setPreparation(progress);
+        });
         if (version !== readVersion.current) return;
-        setProgress(1);
         onUploaded?.({
           id: `doc-${type.toLowerCase()}`,
           type,
@@ -224,12 +226,13 @@ export function DocumentUpload({
 
               <div className="min-w-0 flex-1">
                 <p className="type-body font-medium text-ink">{label}</p>
-                <p className="type-meta mt-0.5 text-ink-muted">Preparing file…</p>
-                <div className="mt-2 h-1 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--kx-text)_10%,transparent)]">
+                <p role="status" className="type-meta mt-0.5 text-ink-muted">{{ checking: "Checking file size and type…", reading: "Reading file…", resizing: "Resizing photo…", compressing: "Compressing photo…", encoding: "Preparing file for submission…" }[preparation.phase]}</p>
+                <p className="type-meta mt-0.5 text-ink-muted">Your file will be sent when you submit the application.</p>
+                <div role="progressbar" aria-label={`Preparing ${label}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={preparation.phase === "encoding" && preparation.totalBytes ? Math.round((preparation.processedBytes ?? 0) / preparation.totalBytes * 100) : undefined} className="mt-2 h-1 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--kx-text)_10%,transparent)]">
                   <motion.div
                     className="h-full rounded-full bg-gold-500"
-                    animate={{ width: `${progress * 100}%` }}
-                    transition={{ duration: 0.08, ease: "linear" }}
+                    animate={preparation.phase === "encoding" && preparation.totalBytes ? { width: `${(preparation.processedBytes ?? 0) / preparation.totalBytes * 100}%`, x: 0 } : { width: "35%", x: ["-100%", "300%"] }}
+                    transition={preparation.phase === "encoding" ? { duration: 0.08 } : { duration: 1.3, repeat: Infinity, ease: "linear" }}
                   />
                 </div>
               </div>
@@ -322,7 +325,7 @@ export function DocumentUpload({
 
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <StatusBadge
-                  presentation={DOCUMENT_STATUS_PRESENTATION[status]}
+                  presentation={status === DocumentStatus.UPLOADED && document.base64 ? { ...DOCUMENT_STATUS_PRESENTATION[status], label: "Ready to send" } : DOCUMENT_STATUS_PRESENTATION[status]}
                 />
                 {document.expiresAt ? (
                   <span className="type-meta text-ink-muted">

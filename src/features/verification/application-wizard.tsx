@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
@@ -31,6 +31,7 @@ import { StepIndicator } from "@/components/ui/progress";
 import { SafetyNote } from "@/components/ui/states";
 import { useToast } from "@/components/ui/toast";
 import { DocumentUpload } from "@/components/verification/document-upload";
+import { ApplicationUploadProgress, type ApplicationUploadState } from "@/components/verification/application-upload-progress";
 import { useApplicationStore } from "@/stores/application-store";
 import { APPLICATION_STEPS, REQUIRED_DOCUMENTS } from "@/mocks/verification";
 import { DocumentStatus, DocumentType, DriverTrack } from "@/types/enums";
@@ -72,6 +73,9 @@ export function ApplicationWizard() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const submissionLock = useRef(false);
+  const uploadController = useRef<AbortController | null>(null);
+  const [uploadState, setUploadState] = useState<ApplicationUploadState | null>(null);
+  useEffect(() => () => uploadController.current?.abort(), []);
   const stepContentRef = useRef<HTMLDivElement>(null);
   const [direction, setDirection] = useState(1);
 
@@ -93,27 +97,47 @@ export function ApplicationWizard() {
     submissionLock.current = true;
     setSubmitting(true);
     setFormError(null);
+    const draft = useApplicationStore.getState();
+    const files = Object.values(draft.documents)
+      .filter((doc) => doc.base64 && (doc.type !== DocumentType.GUARANTOR_PHOTO || draft.identity.workerStatus === "NO"))
+      .map((doc) => ({ label: doc.label, sizeBytes: doc.sizeBytes ?? 0, originalSizeBytes: doc.originalSizeBytes ?? doc.sizeBytes ?? 0 }));
+    setUploadState(LIVE_FREE_BUSES ? { phase: "checking", loadedBytes: 0, totalBytes: 0, deltaBytes: 0, files } : null);
+    const controller = new AbortController();
+    uploadController.current = controller;
     try {
-      const payload = buildDriverRegistration(useApplicationStore.getState(), credentials);
+      // Yield so the progress screen can paint before validating/serializing files.
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      if (controller.signal.aborted) return;
+      const payload = buildDriverRegistration(draft, credentials);
       if (LIVE_FREE_BUSES) {
-        const user = await liveAuth.register(payload);
+        const totalBytes = new TextEncoder().encode(JSON.stringify(payload)).length;
+        setUploadState({ phase: "uploading", loadedBytes: 0, totalBytes, deltaBytes: 0, files });
+        const user = await liveAuth.register(payload, {
+          signal: controller.signal,
+          onProgress: (progress) => setUploadState((state) => state && ({ ...state, ...progress })),
+        });
         if (!user?.id) throw new FreebusError("Registration did not return an account. Please contact support before trying again.", 502);
+        setUploadState((state) => state && ({ ...state, phase: "success", loadedBytes: state.totalBytes }));
       }
       markSubmitted();
       toast({ title: LIVE_FREE_BUSES ? "Driver account created" : "Application preview complete", description: LIVE_FREE_BUSES ? "Sign in with your email or username." : "Demo mode: no account was created or documents submitted.", tone: "success" });
     } catch (error) {
+      if (controller.signal.aborted) return;
       if (error instanceof DriverApplicationError) {
         setDirection(-1);
         setStepIndex(error.stepIndex);
       }
+      const message = error instanceof FreebusError && error.status === 413
+        ? "The server rejected the application because it is too large. Replace large PDFs with smaller files or photos. If this continues, contact support."
+        : error instanceof FreebusError || error instanceof DriverApplicationError ? error.message : "We couldn't submit your application. Please try again.";
       if (error instanceof FreebusError && error.status === 413) {
         setDirection(-1);
         setStepIndex(3);
-        setFormError("Your documents are too large to send together. Replace any PDFs with photos of the documents, then submit again.");
-        return;
       }
-      setFormError(error instanceof FreebusError || error instanceof DriverApplicationError ? error.message : "We couldn't submit your application. Please try again.");
+      setFormError(message);
+      setUploadState((state) => state && ({ ...state, phase: "error", failedAt: state.phase === "checking" ? "checking" : state.phase === "confirming" ? "confirming" : "uploading", error: message, status: error instanceof FreebusError ? error.status : undefined }));
     } finally {
+      uploadController.current = null;
       submissionLock.current = false;
       setSubmitting(false);
     }
@@ -121,6 +145,7 @@ export function ApplicationWizard() {
 
   return (
     <div className="premium-driver-layout">
+      <ApplicationUploadProgress state={uploadState} onClose={() => { if (!submissionLock.current) setUploadState(null); }} />
       <aside className="premium-driver-story">
         <p className="mb-4 text-xs font-semibold tracking-[.18em] text-ink-muted uppercase">K-Rides / Drive with us</p>
         <h1 className="text-4xl font-medium leading-[1.08] tracking-[-.055em] text-ink sm:text-5xl">Your next chapter.<br /><span className="text-gold-800 dark:text-gold-300">Behind the wheel.</span></h1>

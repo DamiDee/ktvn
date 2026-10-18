@@ -22,10 +22,10 @@ function loadStore(name, service) {
     "./dismissed-rides": { withoutDismissed: (ride) => ride, dismissRideLocally() {} },
     "./preferences-store": { rememberRecentPlace() {} },
   };
-  const module = new Module(file.pathname);
-  module.require = (specifier) => { if (!(specifier in dependencies)) throw new Error(`Unexpected dependency: ${specifier}`); return dependencies[specifier]; };
-  module._compile(compiled, file.pathname);
-  return module.exports[name === "passenger" ? "usePassengerStore" : "useDriverStore"];
+  const storeModule = new Module(file.pathname);
+  storeModule.require = (specifier) => { if (!(specifier in dependencies)) throw new Error(`Unexpected dependency: ${specifier}`); return dependencies[specifier]; };
+  storeModule._compile(compiled, file.pathname);
+  return storeModule.exports[name === "passenger" ? "usePassengerStore" : "useDriverStore"];
 }
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; };
 

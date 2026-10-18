@@ -66,8 +66,17 @@ export interface EncodedDocument {
   originalSizeBytes: number;
 }
 
+export interface DocumentPreparationProgress {
+  phase: "checking" | "reading" | "resizing" | "compressing" | "encoding";
+  processedBytes?: number;
+  totalBytes?: number;
+}
+
+type PreparationListener = (progress: DocumentPreparationProgress) => void;
+
 /** Read the actual bytes; never send filenames, blob URLs or data-URL prefixes. */
-export async function encodeDocumentFile(file: File): Promise<EncodedDocument> {
+export async function encodeDocumentFile(file: File, onProgress?: PreparationListener): Promise<EncodedDocument> {
+  onProgress?.({ phase: "checking" });
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
   const mimeType = MIME_TYPES[extension];
   if (!mimeType || (file.type && file.type !== mimeType)) throw new Error("Choose a PDF, JPG or PNG file.");
@@ -80,7 +89,7 @@ export async function encodeDocumentFile(file: File): Promise<EncodedDocument> {
         `PDFs can be up to ${formatMegabytes(MAX_DOCUMENT_BYTES)}. Upload a photo of the document instead, or a smaller PDF.`,
       );
     }
-    return { base64: await toBase64(file), mimeType, sizeBytes: file.size, originalSizeBytes: file.size };
+    return { base64: await toBase64(file, onProgress), mimeType, sizeBytes: file.size, originalSizeBytes: file.size };
   }
 
   if (file.size > MAX_SOURCE_IMAGE_BYTES) {
@@ -88,11 +97,11 @@ export async function encodeDocumentFile(file: File): Promise<EncodedDocument> {
   }
   // Small photos go as they are: no quality loss, no work.
   if (file.size <= IMAGE_TARGET_BYTES) {
-    return { base64: await toBase64(file), mimeType, sizeBytes: file.size, originalSizeBytes: file.size };
+    return { base64: await toBase64(file, onProgress), mimeType, sizeBytes: file.size, originalSizeBytes: file.size };
   }
 
-  const compressed = await compressImage(file);
-  return { base64: await toBase64(compressed), mimeType: compressed.type, sizeBytes: compressed.size, originalSizeBytes: file.size };
+  const compressed = await compressImage(file, onProgress);
+  return { base64: await toBase64(compressed, onProgress), mimeType: compressed.type, sizeBytes: compressed.size, originalSizeBytes: file.size };
 }
 
 /**
@@ -100,13 +109,14 @@ export async function encodeDocumentFile(file: File): Promise<EncodedDocument> {
  * Orientation from the camera's EXIF data is applied, and transparency (PNG)
  * is flattened onto white so documents stay readable.
  */
-async function compressImage(file: File): Promise<Blob> {
+async function compressImage(file: File, onProgress?: PreparationListener): Promise<Blob> {
   if (typeof createImageBitmap !== "function" || typeof document === "undefined") {
     throw new Error(`This browser can't prepare large photos. Choose a photo under ${formatFileSize(IMAGE_TARGET_BYTES)}.`);
   }
 
   let bitmap: ImageBitmap;
   try {
+    onProgress?.({ phase: "reading" });
     bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
   } catch {
     throw new Error("We couldn't read that photo. Try another JPG or PNG.");
@@ -118,6 +128,7 @@ async function compressImage(file: File): Promise<Blob> {
     if (!context) throw new Error("We couldn't prepare that photo. Please try again.");
 
     for (const edge of IMAGE_EDGES) {
+      onProgress?.({ phase: "resizing" });
       const scale = Math.min(1, edge / Math.max(bitmap.width, bitmap.height));
       canvas.width = Math.max(1, Math.round(bitmap.width * scale));
       canvas.height = Math.max(1, Math.round(bitmap.height * scale));
@@ -127,6 +138,7 @@ async function compressImage(file: File): Promise<Blob> {
       context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
 
       for (const quality of JPEG_QUALITIES) {
+        onProgress?.({ phase: "compressing" });
         const blob = await new Promise<Blob | null>((resolve) =>
           canvas.toBlob(resolve, "image/jpeg", quality),
         );
@@ -144,12 +156,14 @@ async function compressImage(file: File): Promise<Blob> {
   }
 }
 
-async function toBase64(blob: Blob): Promise<string> {
+async function toBase64(blob: Blob, onProgress?: PreparationListener): Promise<string> {
+  onProgress?.({ phase: "reading" });
   const bytes = new Uint8Array(await blob.arrayBuffer());
   const chunks: string[] = [];
   // Limit each call's argument count for large documents on mobile browsers.
   for (let offset = 0; offset < bytes.length; offset += 0x8000) {
     chunks.push(String.fromCharCode(...bytes.subarray(offset, offset + 0x8000)));
+    onProgress?.({ phase: "encoding", processedBytes: Math.min(offset + 0x8000, bytes.length), totalBytes: bytes.length });
   }
   return btoa(chunks.join(""));
 }

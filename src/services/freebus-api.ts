@@ -1,7 +1,8 @@
 import type { ApiUser, ApiRegistration } from "@/types/freebus-api";
 import { getSessionClient, withSessionLock } from "./session-client.ts";
-import { accountSession, changeAccountSession } from "../lib/account-session.ts";
+import { accountSession, changeAccountSession, combineSignals } from "../lib/account-session.ts";
 import { getApplicationSizeError } from "../lib/document-file.ts";
+import { uploadJson, UploadRequestError, type UploadRequestOptions } from "../lib/upload-request.ts";
 
 /**
  * Direct browser access to the Free Buses API.
@@ -65,17 +66,23 @@ export class FreebusError extends Error {
 
 const transport = getSessionClient(BASE);
 
-export async function freebusRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function freebusRequest<T>(path: string, options: RequestInit = {}, upload?: UploadRequestOptions): Promise<T> {
   const scope = accountSession.capture();
+  const merged = combineSignals([options.signal, upload?.signal, scope.signal]);
   let response: Response;
   try {
-    response = await transport.request(path, options);
-  } catch {
+    scope.assertCurrent();
+    response = upload && path === "users" && options.method === "POST" && typeof options.body === "string"
+      ? await uploadJson(`${BASE}/${path}`, options.body, { ...upload, signal: merged.signal })
+      : await transport.request(path, { ...options, signal: merged.signal });
+  } catch (error) {
     // A blocked cross-site cookie or a CORS refusal also lands here, with no status.
     throw new FreebusError(
-      "We couldn't reach the Free Buses service. Check your connection and try again.",
+      error instanceof UploadRequestError ? error.message : "We couldn't reach the Free Buses service. Check your connection and try again.",
       0,
     );
+  } finally {
+    merged.dispose();
   }
 
   const body = await response.json().catch(() => null);
@@ -114,11 +121,11 @@ export const liveAuth = {
     });
   },
 
-  async register(payload: ApiRegistration) {
+  async register(payload: ApiRegistration, upload?: UploadRequestOptions) {
     const body = JSON.stringify(payload);
     const sizeError = getApplicationSizeError(body);
     if (sizeError) throw new FreebusError(sizeError, 413);
-    return freebusRequest<ApiUser>("users", { method: "POST", body });
+    return freebusRequest<ApiUser>("users", { method: "POST", body }, upload);
   },
 
   /**
