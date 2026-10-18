@@ -22,7 +22,7 @@ import { transitions } from "@/lib/motion";
 import type { VerificationDocument } from "@/types/models";
 import {
   ACCEPTED_DOCUMENT_EXTENSIONS,
-  MAX_DOCUMENT_BYTES,
+  MAX_SOURCE_PDF_BYTES,
   MAX_SOURCE_IMAGE_BYTES,
   encodeDocumentFile,
   formatFileSize,
@@ -200,9 +200,9 @@ export function DocumentUpload({
                   browse
                 </span>
                 <span className="block text-[0.75rem]">
-                  JPG or PNG up to {formatMegabytes(MAX_SOURCE_IMAGE_BYTES)} · PDF up to {formatMegabytes(MAX_DOCUMENT_BYTES)}
+                  JPG or PNG up to {formatMegabytes(MAX_SOURCE_IMAGE_BYTES)} · PDF up to {formatMegabytes(MAX_SOURCE_PDF_BYTES)}
                 </span>
-                <span className="block text-[0.75rem]">Large photos are automatically resized and compressed.</span>
+                <span className="block text-[0.75rem]">Large files are automatically reduced for you.</span>
               </span>
             </motion.label>
           ) : null}
@@ -226,7 +226,8 @@ export function DocumentUpload({
 
               <div className="min-w-0 flex-1">
                 <p className="type-body font-medium text-ink">{label}</p>
-                <p role="status" className="type-meta mt-0.5 text-ink-muted">{{ checking: "Checking file size and type…", reading: "Reading file…", resizing: "Resizing photo…", compressing: "Compressing photo…", encoding: "Preparing file for submission…" }[preparation.phase]}</p>
+                <p role="status" className="type-meta mt-0.5 text-ink-muted">{preparation.page ? "Reducing PDF…" : { checking: "Checking file size and type…", reading: "Reading file…", resizing: "Resizing photo…", compressing: "Compressing photo…", encoding: "Preparing file for submission…" }[preparation.phase]}</p>
+                {preparation.page ? <p className="type-meta text-ink-muted">Preparing PDF page {preparation.page} of {preparation.pages}</p> : null}
                 <p className="type-meta mt-0.5 text-ink-muted">Your file will be sent when you submit the application.</p>
                 <div role="progressbar" aria-label={`Preparing ${label}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={preparation.phase === "encoding" && preparation.totalBytes ? Math.round((preparation.processedBytes ?? 0) / preparation.totalBytes * 100) : undefined} className="mt-2 h-1 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--kx-text)_10%,transparent)]">
                   <motion.div

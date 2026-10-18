@@ -8,9 +8,8 @@
  *
  * - Photos (JPG/PNG) are resized and re-encoded as JPEG in the browser until
  *   they fit `IMAGE_TARGET_BYTES`. Already-small photos are sent untouched.
- * - PDFs can't be safely recompressed client-side, so they have a firm cap.
- * - The whole request is checked against `MAX_APPLICATION_BYTES` before it is
- *   sent (see `driver-registration.ts`).
+ * - Large PDFs are rebuilt from rendered pages, preserving every page.
+ * - A final pass reduces the complete request before it is sent.
  */
 
 /**
@@ -20,12 +19,15 @@
 const configuredBudget = Number(process.env.NEXT_PUBLIC_MAX_APPLICATION_BYTES);
 export const MAX_APPLICATION_BYTES =
   Number.isSafeInteger(configuredBudget) && configuredBudget > 0 ? configuredBudget : 2 * 1024 * 1024;
+/** Leave headroom below the hard request limit, including decimal 2 MB proxies. */
+export const APPLICATION_TARGET_BYTES = Math.floor(MAX_APPLICATION_BYTES * 0.9);
 // Reserve room for the DTO fields; a non-worker application has eight files.
 const documentBudget = Math.max(1, MAX_APPLICATION_BYTES - 64 * 1024);
 /** Largest PDF, allowing for Base64 expansion inside the JSON request. */
 export const MAX_DOCUMENT_BYTES = Math.min(1024 * 1024, Math.floor(documentBudget * 3 / 4));
 /** Largest original photo we accept — it is compressed before it's stored. */
 export const MAX_SOURCE_IMAGE_BYTES = 25 * 1024 * 1024;
+export const MAX_SOURCE_PDF_BYTES = 10 * 1024 * 1024;
 /** Eight photos plus Base64 overhead must fit the complete request budget. */
 export const IMAGE_TARGET_BYTES = Math.max(1, Math.min(400 * 1024, Math.floor(documentBudget * 3 / 4 / 8)));
 
@@ -70,6 +72,8 @@ export interface DocumentPreparationProgress {
   phase: "checking" | "reading" | "resizing" | "compressing" | "encoding";
   processedBytes?: number;
   totalBytes?: number;
+  page?: number;
+  pages?: number;
 }
 
 type PreparationListener = (progress: DocumentPreparationProgress) => void;
@@ -84,12 +88,11 @@ export async function encodeDocumentFile(file: File, onProgress?: PreparationLis
 
   const isImage = mimeType !== "application/pdf";
   if (!isImage) {
-    if (file.size > MAX_DOCUMENT_BYTES) {
-      throw new Error(
-        `PDFs can be up to ${formatMegabytes(MAX_DOCUMENT_BYTES)}. Upload a photo of the document instead, or a smaller PDF.`,
-      );
-    }
-    return { base64: await toBase64(file, onProgress), mimeType, sizeBytes: file.size, originalSizeBytes: file.size };
+    if (file.size > MAX_SOURCE_PDF_BYTES) throw new Error(`PDFs can be up to ${formatMegabytes(MAX_SOURCE_PDF_BYTES)}.`);
+    const prepared = file.size > MAX_DOCUMENT_BYTES
+      ? await compressDocumentBlob(new Blob([file], { type: mimeType }), MAX_DOCUMENT_BYTES, { onProgress })
+      : file;
+    return { base64: await toBase64(prepared, onProgress), mimeType, sizeBytes: prepared.size, originalSizeBytes: file.size };
   }
 
   if (file.size > MAX_SOURCE_IMAGE_BYTES) {
@@ -100,8 +103,36 @@ export async function encodeDocumentFile(file: File, onProgress?: PreparationLis
     return { base64: await toBase64(file, onProgress), mimeType, sizeBytes: file.size, originalSizeBytes: file.size };
   }
 
-  const compressed = await compressImage(file, onProgress);
+  const compressed = await compressImage(file, IMAGE_TARGET_BYTES, { onProgress });
   return { base64: await toBase64(compressed, onProgress), mimeType: compressed.type, sizeBytes: compressed.size, originalSizeBytes: file.size };
+}
+
+export interface DocumentCompressionOptions {
+  onProgress?: PreparationListener;
+  signal?: AbortSignal;
+}
+
+export function checkDocumentAbort(signal?: AbortSignal) {
+  if (signal?.aborted) throw new DOMException("Preparation interrupted", "AbortError");
+}
+
+/** Recompress an existing selection without requiring another file upload. */
+export async function compressDocumentContent(base64: string, mimeType: string, targetBytes: number, options: DocumentCompressionOptions = {}): Promise<EncodedDocument> {
+  checkDocumentAbort(options.signal);
+  const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+  const original = new Blob([bytes], { type: mimeType });
+  const compressed = await compressDocumentBlob(original, targetBytes, options);
+  checkDocumentAbort(options.signal);
+  return { base64: await toBase64(compressed, options.onProgress), mimeType: compressed.type, sizeBytes: compressed.size, originalSizeBytes: original.size };
+}
+
+async function compressDocumentBlob(blob: Blob, targetBytes: number, options: DocumentCompressionOptions): Promise<Blob> {
+  if (blob.type === "application/pdf") {
+    const { compressPdf } = await import("./pdf-compression.ts");
+    return compressPdf(blob, targetBytes, options);
+  }
+  if (blob.type !== "image/jpeg" && blob.type !== "image/png") throw new Error("This document format cannot be prepared automatically.");
+  return compressImage(blob, targetBytes, options);
 }
 
 /**
@@ -109,7 +140,7 @@ export async function encodeDocumentFile(file: File, onProgress?: PreparationLis
  * Orientation from the camera's EXIF data is applied, and transparency (PNG)
  * is flattened onto white so documents stay readable.
  */
-async function compressImage(file: File, onProgress?: PreparationListener): Promise<Blob> {
+async function compressImage(file: Blob, targetBytes: number, { onProgress, signal }: DocumentCompressionOptions): Promise<Blob> {
   if (typeof createImageBitmap !== "function" || typeof document === "undefined") {
     throw new Error(`This browser can't prepare large photos. Choose a photo under ${formatFileSize(IMAGE_TARGET_BYTES)}.`);
   }
@@ -128,6 +159,7 @@ async function compressImage(file: File, onProgress?: PreparationListener): Prom
     if (!context) throw new Error("We couldn't prepare that photo. Please try again.");
 
     for (const edge of IMAGE_EDGES) {
+      checkDocumentAbort(signal);
       onProgress?.({ phase: "resizing" });
       const scale = Math.min(1, edge / Math.max(bitmap.width, bitmap.height));
       canvas.width = Math.max(1, Math.round(bitmap.width * scale));
@@ -138,6 +170,7 @@ async function compressImage(file: File, onProgress?: PreparationListener): Prom
       context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
 
       for (const quality of JPEG_QUALITIES) {
+        checkDocumentAbort(signal);
         onProgress?.({ phase: "compressing" });
         const blob = await new Promise<Blob | null>((resolve) =>
           canvas.toBlob(resolve, "image/jpeg", quality),
@@ -145,7 +178,7 @@ async function compressImage(file: File, onProgress?: PreparationListener): Prom
         if (!blob?.size || blob.type !== "image/jpeg") {
           throw new Error("We couldn't prepare that photo. Please try another JPG or PNG.");
         }
-        if (blob.size <= IMAGE_TARGET_BYTES) return blob;
+        if (blob.size <= targetBytes) return blob;
       }
     }
     throw new Error("That photo is too detailed to send. Try a closer, well-lit photo of just the document.");

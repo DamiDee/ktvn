@@ -13,14 +13,18 @@ export interface PreparedUpload {
 }
 
 export interface ApplicationUploadState {
-  phase: "checking" | "uploading" | "confirming" | "success" | "error";
+  phase: "checking" | "optimizing" | "uploading" | "confirming" | "success" | "error";
   loadedBytes: number;
   totalBytes: number;
   deltaBytes: number;
   files: PreparedUpload[];
+  originalBytes?: number;
+  optimizationLabel?: string;
+  optimizationPage?: number;
+  optimizationPages?: number;
   error?: string;
   status?: number;
-  failedAt?: "checking" | "uploading" | "confirming";
+  failedAt?: "checking" | "optimizing" | "uploading" | "confirming";
 }
 
 /** Transfer amounts come from browser upload events; success requires the API reply. */
@@ -33,11 +37,12 @@ export function ApplicationUploadProgress({ state, onClose }: {
   const terminal = phase === "error" || phase === "success";
   const percent = totalBytes ? Math.min(100, Math.floor(loadedBytes / totalBytes * 100)) : 0;
   const stage = phase === "error" ? state.failedAt ?? "uploading" : phase;
-  const current = stage === "checking" ? 0 : stage === "uploading" ? 1 : stage === "confirming" ? 2 : 3;
+  const preparing = phase === "checking" || phase === "optimizing";
+  const current = stage === "checking" || stage === "optimizing" ? 0 : stage === "uploading" ? 1 : stage === "confirming" ? 2 : 3;
   const savedBytes = files.reduce((sum, file) => sum + Math.max(0, file.originalSizeBytes - file.sizeBytes), 0);
-  const title = phase === "error" ? "Your application needs attention" : phase === "success" ? "Application received" : phase === "confirming" ? "Waiting for confirmation" : "Sending your application";
+  const title = phase === "error" ? "Your application needs attention" : phase === "success" ? "Application received" : phase === "confirming" ? "Waiting for confirmation" : preparing ? "Preparing your application" : "Sending your application";
   const steps = [
-    { label: "Check application", detail: "Validate your details and total file size", icon: ShieldCheck },
+    { label: "Prepare application", detail: "Check details and automatically reduce file sizes", icon: ShieldCheck },
     { label: "Send application", detail: "Transfer your details and prepared files", icon: Upload },
     { label: "Confirm account", detail: "Wait for the server to confirm receipt", icon: FileCheck2 },
   ];
@@ -49,17 +54,21 @@ export function ApplicationUploadProgress({ state, onClose }: {
       <div className="min-w-0 space-y-5">
         <div tabIndex={0} role="status" aria-live="polite" className="rounded-2xl border border-line bg-surface-nested p-4 outline-offset-4">
           <div className="flex items-center justify-between gap-3">
-            <span className="text-sm font-semibold text-ink">{phase === "checking" ? "Checking size…" : phase === "success" ? "Confirmed by server" : phase === "error" ? "Transfer stopped" : `${percent}% sent`}</span>
+            <span className="text-sm font-semibold text-ink">{phase === "checking" ? "Checking size…" : phase === "optimizing" ? "Making your files smaller…" : phase === "success" ? "Confirmed by server" : phase === "error" ? "Transfer stopped" : `${percent}% sent`}</span>
             {phase === "error" ? <CircleAlert className="size-5 shrink-0 text-danger-600" aria-hidden /> : phase === "success" ? <Check className="size-5 shrink-0 text-success-700" aria-hidden /> : <LoaderCircle className="size-5 shrink-0 animate-spin motion-reduce:animate-none text-gold-700" aria-hidden />}
           </div>
-          <div role="progressbar" aria-label="Application bytes sent" aria-valuemin={0} aria-valuemax={100} aria-valuenow={phase === "checking" ? undefined : percent}
+          <div role="progressbar" aria-label={preparing ? "Preparing application" : "Application bytes sent"} aria-valuemin={0} aria-valuemax={100} aria-valuenow={preparing ? undefined : percent}
             className="mt-3 h-2 overflow-hidden rounded-full bg-line">
             <div className={cn("h-full rounded-full transition-[width] duration-200 motion-reduce:transition-none", phase === "error" ? "bg-danger-500" : "bg-forest-600")} style={{ width: `${percent}%` }} />
           </div>
           <div className="mt-2 flex flex-wrap justify-between gap-x-3 gap-y-1 text-xs text-ink-secondary tabular-nums">
-            <span>{formatFileSize(loadedBytes)} of {totalBytes ? formatFileSize(totalBytes) : "size being checked"}</span>
+            <span>{preparing ? totalBytes ? `Application: ${formatFileSize(totalBytes)}` : "Calculating size" : `${formatFileSize(loadedBytes)} of ${totalBytes ? formatFileSize(totalBytes) : "size being checked"}`}</span>
             <span>{files.length} prepared files</span>
           </div>
+          {phase === "optimizing" ? <div className="mt-3 text-xs leading-relaxed text-ink-secondary">
+            <p className="break-words">{state.optimizationLabel ? `Reducing ${state.optimizationLabel.toLowerCase()}…` : "Adjusting the complete application to fit."}{state.optimizationPage ? ` Page ${state.optimizationPage} of ${state.optimizationPages}.` : ""}</p>
+            <p className="mt-1">We’ll send it automatically when it’s ready. You don’t need to upload your files again.</p>
+          </div> : null}
           {phase === "uploading" && state.deltaBytes > 0 ? <p className="mt-2 text-xs text-ink-muted">Latest transfer update: +{formatFileSize(state.deltaBytes)}</p> : null}
           {phase === "confirming" ? <p className="mt-3 text-xs leading-relaxed text-ink-secondary">All bytes have left your device. Your account is ready only after the server confirms it.</p> : null}
         </div>

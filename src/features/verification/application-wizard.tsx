@@ -37,7 +37,7 @@ import { APPLICATION_STEPS, REQUIRED_DOCUMENTS } from "@/mocks/verification";
 import { DocumentStatus, DocumentType, DriverTrack } from "@/types/enums";
 import { LIVE_FREE_BUSES } from "@/lib/freebus-config";
 import { FreebusError, liveAuth } from "@/services/freebus-api";
-import { buildDriverRegistration, DriverApplicationError } from "./driver-registration";
+import { prepareDriverRegistration, DriverApplicationError } from "./driver-registration";
 import { transitions } from "@/lib/motion";
 import {
   identitySchema,
@@ -108,10 +108,21 @@ export function ApplicationWizard() {
       // Yield so the progress screen can paint before validating/serializing files.
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
       if (controller.signal.aborted) return;
-      const payload = buildDriverRegistration(draft, credentials);
+      const prepared = await prepareDriverRegistration(draft, credentials, {
+        signal: controller.signal,
+        onProgress: (progress) => setUploadState((state) => state && ({ ...state, phase: progress.label ? "optimizing" : "checking", totalBytes: progress.totalBytes, originalBytes: progress.originalBytes, optimizationLabel: progress.label, optimizationPage: progress.page, optimizationPages: progress.pages })),
+      });
+      if (controller.signal.aborted) return;
+      const payload = prepared.payload;
+      for (const [type, doc] of Object.entries(prepared.documents)) {
+        if (doc && doc !== draft.documents[type as DocumentType]) draft.setDocument(type as DocumentType, doc);
+      }
+      const preparedFiles = Object.values(prepared.documents)
+        .filter((doc) => doc?.base64 && (doc.type !== DocumentType.GUARANTOR_PHOTO || draft.identity.workerStatus === "NO"))
+        .map((doc) => ({ label: doc!.label, sizeBytes: doc!.sizeBytes ?? 0, originalSizeBytes: doc!.originalSizeBytes ?? doc!.sizeBytes ?? 0 }));
       if (LIVE_FREE_BUSES) {
         const totalBytes = new TextEncoder().encode(JSON.stringify(payload)).length;
-        setUploadState({ phase: "uploading", loadedBytes: 0, totalBytes, deltaBytes: 0, files });
+        setUploadState({ phase: "uploading", loadedBytes: 0, totalBytes, deltaBytes: 0, files: preparedFiles });
         const user = await liveAuth.register(payload, {
           signal: controller.signal,
           onProgress: (progress) => setUploadState((state) => state && ({ ...state, ...progress })),
@@ -128,14 +139,14 @@ export function ApplicationWizard() {
         setStepIndex(error.stepIndex);
       }
       const message = error instanceof FreebusError && error.status === 413
-        ? "The server rejected the application because it is too large. Replace large PDFs with smaller files or photos. If this continues, contact support."
+        ? "The server couldn't accept the application even after automatic file preparation. Your files are still available. Contact support for help completing your application."
         : error instanceof FreebusError || error instanceof DriverApplicationError ? error.message : "We couldn't submit your application. Please try again.";
       if (error instanceof FreebusError && error.status === 413) {
         setDirection(-1);
         setStepIndex(3);
       }
       setFormError(message);
-      setUploadState((state) => state && ({ ...state, phase: "error", failedAt: state.phase === "checking" ? "checking" : state.phase === "confirming" ? "confirming" : "uploading", error: message, status: error instanceof FreebusError ? error.status : undefined }));
+      setUploadState((state) => state && ({ ...state, phase: "error", failedAt: state.phase === "checking" || state.phase === "optimizing" ? state.phase : state.phase === "confirming" ? "confirming" : "uploading", error: message, status: error instanceof FreebusError ? error.status : undefined }));
     } finally {
       uploadController.current = null;
       submissionLock.current = false;

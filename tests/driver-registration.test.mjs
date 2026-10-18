@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildDriverRegistration, DriverApplicationError, documentContentSchema } from "../src/features/verification/driver-registration.ts";
+import { buildDriverRegistration, prepareDriverRegistration, DriverApplicationError, documentContentSchema } from "../src/features/verification/driver-registration.ts";
 import { DocumentType, DriverTrack } from "../src/types/enums.ts";
 import { accountSession } from "../src/lib/account-session.ts";
 import { FreebusError, liveAuth } from "../src/services/freebus-api.ts";
-import { encodeDocumentFile, MAX_APPLICATION_BYTES, MAX_DOCUMENT_BYTES } from "../src/lib/document-file.ts";
+import { encodeDocumentFile, APPLICATION_TARGET_BYTES, MAX_APPLICATION_BYTES, MAX_DOCUMENT_BYTES } from "../src/lib/document-file.ts";
 import { mapVehicle } from "../src/features/paid-rides/services/api-mappers.ts";
 
 const credentials = { password: "TestPassword123", confirmPassword: "TestPassword123", acceptedTerms: true };
@@ -89,6 +89,36 @@ test("an application larger than the request budget is refused before sending", 
   for (const doc of Object.values(draft.documents)) doc.base64 = big;
   assert.ok(big.length * 7 > MAX_APPLICATION_BYTES);
   assert.throws(() => buildDriverRegistration(draft, credentials), (error) => error instanceof DriverApplicationError && error.stepIndex === 3 && /limit/.test(error.message));
+});
+
+test("final submission automatically shrinks real PDFs when their combined DTO exceeds 2 MB", async (t) => {
+  const { PDFDocument } = await import("pdf-lib");
+  const { createCanvas } = await import("@napi-rs/canvas");
+  const previous = Object.getOwnPropertyDescriptor(globalThis, "document");
+  Object.defineProperty(globalThis, "document", { configurable: true, value: { createElement: () => createCanvas(1, 1) } });
+  t.after(() => { if (previous) Object.defineProperty(globalThis, "document", previous); else delete globalThis.document; });
+  const pdf = await PDFDocument.create();
+  pdf.addPage([595, 842]); pdf.addPage([595, 842]);
+  pdf.context.register(pdf.context.stream(new Uint8Array(MAX_DOCUMENT_BYTES - 10_000).fill(42)));
+  const bytes = await pdf.save();
+  const draft = application();
+  const types = [DocumentType.VEHICLE_REGISTRATION, DocumentType.INSURANCE, DocumentType.ROADWORTHINESS];
+  for (const type of types) Object.assign(draft.documents[type], { base64: Buffer.from(bytes).toString("base64"), mimeType: "application/pdf", sizeBytes: bytes.length, originalSizeBytes: bytes.length });
+  assert.throws(() => buildDriverRegistration(draft, credentials), /limit/);
+  const original = structuredClone(draft);
+  const progress = [];
+  const result = await prepareDriverRegistration(draft, credentials, { onProgress: (event) => progress.push(event) });
+  assert.ok(new TextEncoder().encode(JSON.stringify(result.payload)).length <= APPLICATION_TARGET_BYTES);
+  assert.deepEqual(draft, original);
+  assert.equal(result.payload.password, credentials.password);
+  assert.equal(result.payload.driver_details.nin, original.identity.nin);
+  assert.ok(progress.some((event) => event.label));
+  for (const type of types) {
+    const document = result.documents[type];
+    const converted = await PDFDocument.load(Buffer.from(document.base64, "base64"));
+    assert.equal(converted.getPageCount(), 2);
+    assert.equal(document.mimeType, "application/pdf");
+  }
 });
 
 test("revalidation rejects incomplete and invalid drafts at the relevant step", () => {

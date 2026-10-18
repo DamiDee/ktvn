@@ -3,7 +3,8 @@ import { DocumentType } from "../../types/enums.ts";
 import type { DriverTrack } from "../../types/enums.ts";
 import type { CreateUserDto } from "../../types/driver-api.ts";
 import type { VerificationDocument } from "../../types/models.ts";
-import { MAX_DOCUMENT_BYTES, formatMegabytes, getApplicationSizeError } from "../../lib/document-file.ts";
+import { MAX_DOCUMENT_BYTES, compressDocumentContent, formatMegabytes, getApplicationSizeError } from "../../lib/document-file.ts";
+import { fitRegistration, type ApplicationOptimizationProgress } from "./fit-registration.ts";
 import {
   accountCredentialsSchema,
   identitySchema,
@@ -42,6 +43,10 @@ export class DriverApplicationError extends Error {
 
 /** Validate the entire draft again: editing earlier steps can invalidate later ones. */
 export function buildDriverRegistration(draft: DriverApplicationDraft, credentials: unknown): CreateUserDto {
+  return assembleDriverRegistration(draft, credentials, true);
+}
+
+function assembleDriverRegistration(draft: DriverApplicationDraft, credentials: unknown, enforceSize: boolean): CreateUserDto {
   const identity = identitySchema.safeParse(draft.identity);
   if (!identity.success) throw new DriverApplicationError(identity.error.issues[0].message, 0);
   const licence = licenceSchema.safeParse(draft.licence);
@@ -103,7 +108,49 @@ export function buildDriverRegistration(draft: DriverApplicationDraft, credentia
   };
 
   const sizeError = getApplicationSizeError(JSON.stringify(payload));
-  if (sizeError) throw new DriverApplicationError(sizeError, 3);
+  if (enforceSize && sizeError) throw new DriverApplicationError(sizeError, 3);
 
   return payload;
+}
+
+const DOCUMENT_FIELDS = [
+  [DocumentType.GOVERNMENT_ID, "nin_slip"], [DocumentType.PROFILE_PHOTO, "profile_photo"],
+  [DocumentType.DRIVERS_LICENCE, "licence_photo"], [DocumentType.VEHICLE_PHOTO, "vehicle_photo"],
+  [DocumentType.VEHICLE_REGISTRATION, "vehicle_registration"], [DocumentType.INSURANCE, "insurance_certificate"],
+  [DocumentType.ROADWORTHINESS, "roadworthiness_certificate"], [DocumentType.GUARANTOR_PHOTO, "guarantor_photo"],
+] as const;
+
+/** Build, automatically shrink, then revalidate the actual DTO before networking. */
+export async function prepareDriverRegistration(draft: DriverApplicationDraft, credentials: unknown, options: {
+  signal?: AbortSignal;
+  onProgress?: (progress: ApplicationOptimizationProgress) => void;
+} = {}) {
+  const payload = assembleDriverRegistration(draft, credentials, false);
+  const documents = DOCUMENT_FIELDS.filter(([, field]) => payload.driver_details![field]).map(([type, field]) => {
+    const doc = draft.documents[type]!;
+    const content = payload.driver_details![field]!;
+    // MIME metadata is retained for new selections; recognize older in-memory drafts too.
+    const mimeType = doc.mimeType ?? (content.startsWith("JVBER") ? "application/pdf" : content.startsWith("iVBOR") ? "image/png" : "image/jpeg");
+    return { field, label: doc.label, mimeType, originalSizeBytes: doc.originalSizeBytes ?? doc.sizeBytes ?? 0 };
+  });
+  try {
+    let latest: ApplicationOptimizationProgress = { totalBytes: 0, originalBytes: 0 };
+    const result = await fitRegistration(payload, documents, (content, mimeType, targetBytes, label) =>
+      compressDocumentContent(content, mimeType, targetBytes, {
+        signal: options.signal,
+        onProgress: (progress) => options.onProgress?.({ ...latest, label, page: progress.page, pages: progress.pages }),
+      }), { ...options, onProgress: (progress) => { latest = progress; options.onProgress?.(progress); } });
+    const updated = { ...draft.documents };
+    for (const [type, field] of DOCUMENT_FIELDS) {
+      const encoded = result.prepared.get(field);
+      const doc = updated[type];
+      if (encoded && doc) updated[type] = { ...doc, ...encoded, fileType: encoded.mimeType === "application/pdf" ? "PDF" : "JPG" };
+    }
+    // This enforces all field/per-file/aggregate checks after transformations.
+    const validated = buildDriverRegistration({ ...draft, documents: updated }, credentials);
+    return { ...result, payload: validated, documents: updated };
+  } catch (error) {
+    if (options.signal?.aborted) throw error;
+    throw new DriverApplicationError(error instanceof Error ? error.message : "We couldn't prepare your application. Contact support for help.", 3);
+  }
 }
