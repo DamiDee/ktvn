@@ -35,12 +35,12 @@ export function OptionsPanel({ estimate, onCoverChange, bottomOffset }: SheetHos
   const options = data?.options ?? [];
   const selected = options.find((option) => option.id === draft.optionId) ?? null;
 
-  // Default to the first available option once prices arrive.
+  // Default to the first option with drivers nearby once prices arrive.
   useEffect(() => {
     if (!data) return;
     trackRideEvent("fare_viewed", { options: data.options.length });
-    if (!draft.optionId || !data.options.some((option) => option.id === draft.optionId && option.available)) {
-      const first = data.options.find((option) => option.available);
+    if (!draft.optionId || !data.options.some((option) => option.id === draft.optionId && bookable(option))) {
+      const first = data.options.find((option) => option.available) ?? data.options.find(bookable);
       setDraft({ optionId: first?.id ?? null, paymentMethodId: draft.paymentMethodId ?? data.defaultPaymentMethodId });
     }
     // Only when a new estimate arrives.
@@ -95,7 +95,7 @@ export function OptionsPanel({ estimate, onCoverChange, bottomOffset }: SheetHos
             size="xl"
             block
             pill
-            disabled={!selected || !selected.available || !data}
+            disabled={!selected || !bookable(selected) || !data}
             loading={pending === "request"}
             loadingLabel="Requesting"
             onClick={() => data && void requestRide(data)}
@@ -164,6 +164,15 @@ export function OptionsPanel({ estimate, onCoverChange, bottomOffset }: SheetHos
   );
 }
 
+/**
+ * `available: false` with no reason is the backend's supply hint (no driver
+ * online nearby right now); the rider may still request. A stated reason
+ * means the product can't serve this trip at all.
+ */
+function bookable(option: RideOption): boolean {
+  return option.available || !option.unavailableReason;
+}
+
 function OptionCard({ option, selected, onSelect }: { option: RideOption; selected: boolean; onSelect: () => void }) {
   // One clear number per card; the range lives in the fare details.
   const price = formatMoney(option.fare.total);
@@ -173,12 +182,12 @@ function OptionCard({ option, selected, onSelect }: { option: RideOption; select
       type="button"
       role="radio"
       aria-checked={selected}
-      disabled={!option.available}
+      disabled={!bookable(option)}
       onClick={onSelect}
       className={cn(
         "ride-press relative flex w-full items-center gap-3.5 rounded-[var(--ride-radius-lg)] border p-3.5 text-left",
         selected ? "border-transparent" : "border-[var(--border-subtle)] hover:bg-[var(--surface-secondary)]",
-        !option.available && "opacity-55",
+        !bookable(option) && "opacity-55",
       )}
     >
       {selected ? (
@@ -202,9 +211,9 @@ function OptionCard({ option, selected, onSelect }: { option: RideOption; select
           </span>
         </span>
         <span className="ride-caption block truncate">
-          {!option.available ? (option.unavailableReason ?? "Unavailable right now") : eta ? `${eta} min away` : option.description}
+          {!option.available ? (option.unavailableReason ?? "No drivers nearby yet") : eta ? `${eta} min away` : option.description}
         </span>
-        {selected && option.available ? <span className="ride-caption block truncate text-[var(--text-secondary)]">{option.description}</span> : null}
+        {selected && bookable(option) ? <span className="ride-caption block truncate text-[var(--text-secondary)]">{option.description}</span> : null}
       </span>
       <span className="relative ride-num shrink-0 text-right text-[0.9375rem] font-semibold">{price}</span>
     </button>

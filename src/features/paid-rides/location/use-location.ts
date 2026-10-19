@@ -37,7 +37,9 @@ export function fixQuality(fix: DeviceFix | null, now: number): FixQuality | nul
  * only hears about meaningful movement (see `shouldTransmit`), plus a
  * heartbeat every `maxIntervalMs` while parked so the server's presence
  * index (15 s TTL) keeps the driver. Realtime is preferred; REST is the
- * fallback when the socket is down.
+ * fallback when the socket is down. Coarse fixes (Wi-Fi positioning on a
+ * laptop) are still sent with their accuracy: dropping them left the driver
+ * out of the presence index, so riders saw every option as unavailable.
  */
 export function useDriverLocationReporter(active: boolean): void {
   const fix = useLocationStore((state) => state.fix);
@@ -47,7 +49,7 @@ export function useDriverLocationReporter(active: boolean): void {
   useLocationWatch(active);
 
   useEffect(() => {
-    if (!active || !fix || classifyFix(fix, Date.now(), PAID_RIDES_CONFIG.location) !== "good") return;
+    if (!active || !fix || classifyFix(fix, Date.now(), PAID_RIDES_CONFIG.location) === "stale") return;
     const next = { point: fix.point, at: fix.timestamp };
     if (!shouldTransmit(lastSent.current, next, PAID_RIDES_CONFIG.location.transmit)) return;
     lastSent.current = next;
@@ -77,7 +79,7 @@ export function useDriverLocationReporter(active: boolean): void {
         }
         return;
       }
-      if (classifyFix(latest, Date.now(), PAID_RIDES_CONFIG.location) !== "good") return;
+      if (classifyFix(latest, Date.now(), PAID_RIDES_CONFIG.location) === "stale") return;
       lastSentAt.current = Date.now();
       transmit({
         point: latest.point,
