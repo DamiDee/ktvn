@@ -1,6 +1,6 @@
 # Paid Rides admin: live integration
 
-The Paid Rides admin workspace (`/admin`, except `/admin/free-buses`) reads and writes the backend admin API described in [PAID_RIDES_ADMIN.md](./PAID_RIDES_ADMIN.md) (copy of the backend's doc, 19 Oct 2026).
+The Paid Rides admin workspace (`/admin`, except `/admin/free-buses`) reads and writes the backend admin API described in [PAID_RIDES_ADMIN.md](./PAID_RIDES_ADMIN.md) (copy of the backend's doc, 19 Oct 2026) and the OpenAPI contract in [openapi.json](./openapi.json).
 
 ## How it is wired
 
@@ -16,7 +16,7 @@ Flag and clear flag, deactivate (with the reason the driver sees), reactivate (`
 
 ## Where the API doc and the screens don't line up
 
-1. **Response fields aren't specified.** The doc lists routes and rules but not response bodies. The mappers read the field names proposed in `docs/PAID_RIDES_ADMIN_ENDPOINTS.md` and tolerate common alternatives (`displayName`/`name`, `notes`/`adminNotes`, `{ message, data }` envelopes). An OpenAPI update for `/admin/*` would remove the guesswork.
+1. **Untyped parts of the spec.** `docs/paid-rides/openapi.json` (updated 19 Oct with the `/admin/*` routes) types the list pages, `AdminRideSummary`, `PersonSummary`, `ApplicationSummary`, `Application`, `ApplicationDocument`, `Incident`, `SosAlert`, `Overview`, `Metric` and `ReportSection`, and the mappers follow those names. These are still `{}` in the spec and are read defensively: the bodies of `GET /admin/rides/{id}`, `/admin/drivers/{id}`, `/admin/passengers/{id}` and `/admin/quality-flags`; the nested `driver`, `passengers[]`, `sos`, `pickup`/`destination`, `inspection`, `licence`, `affiliation`, `participants[]`, `timeline[]`, `adminNotes[]` and `comments[]`; the `counts` object; and the responses of notes, comments, calls, decision and inspection. `ReportSection` has no title or series item type, so titles come from the client. Typing those would remove the remaining guesswork.
 2. **Single-value filters.** "In review" spans three application states, "Inspection" two, and the incidents "High and critical" chip two severities. The client sends one request per value and merges them. Accepting comma-separated values would make this one request.
 3. **Only the first 100 rows.** Lists request `limit=100` and do not page further yet. Totals and chip counts come from the server. "Not yet approved" drivers and "Not yet confirmed" members are narrowed on the client within those rows.
 4. **Document type name.** The API's `ROADWORTHINESS_CERTIFICATE` is the screens' `ROADWORTHINESS`; mapped both ways.

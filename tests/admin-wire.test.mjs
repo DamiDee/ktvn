@@ -149,3 +149,28 @@ test("socket frames become refetch hints", () => {
   assert.equal(parseAdminFrame('{"type":"pong"}'), null);
   assert.equal(parseAdminFrame("not json"), null);
 });
+
+test("spec-shaped records (docs/paid-rides/openapi.json) map without guesses", () => {
+  const ride = mapAdminRide({
+    id: "r2", reference: "KR-2", status: "DRIVER_ARRIVING", rideType: "PRIVATE", track: "Volunteer", createdAt: "2026-10-19T10:00:00Z",
+    pickup: { name: "A", point: { lat: 9, lng: 7 } }, destination: { name: "B", point: { lat: 9.1, lng: 7.1 } },
+    passengers: [], sos: { status: "none" }, total: { amountMinor: 250000, currency: "NGN" },
+  });
+  assert.equal(ride.track, "VOLUNTEER");
+  assert.equal(ride.status, "DRIVER_APPROACHING");
+  assert.equal(ride.sosActive, false);
+
+  const page = mapPage({
+    items: [{ userId: "u1", applicantName: "Ada", track: "Professional", status: "FINAL_REVIEW", submittedAt: "2026-10-18T10:00:00Z", updatedAt: "2026-10-19T10:00:00Z", documentsReady: 7, documentsTotal: 8, vehicle: { make: "Kia", model: "Rio", color: "Red", plate: "XYZ", vehicleClass: "sedan", capacity: 4 } }],
+    nextCursor: null, total: 1,
+  }, mapApplication);
+  assert.equal(page.items[0].documentsReady, 7);
+  assert.equal(page.items[0].vehicle.plateNumber, "XYZ");
+
+  const doc = mapApplication({ userId: "u1", documents: [{ type: "INSURANCE", label: "Insurance", status: "UPLOADED", uploadedAt: "2026-10-18T10:00:00Z", mimeType: "image/png", sizeBytes: 68, base64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aG3sAAAAASUVORK5CYII=" }] }).documents[0];
+  assert.match(doc.source, /^data:image\/png;base64,/);
+
+  const person = mapPassenger({ userId: "p1", displayName: "M", email: "m@example.test", homeArea: "Wuse", verificationStatus: "APPROVED", membershipStatus: "VERIFIED", restricted: false, trustedContactCount: 0, completedRides: 3, availability: "OFFLINE", accountStatus: "ACTIVE", joinedAt: "2026-01-01T00:00:00Z", rating: null });
+  assert.equal(person.homeArea, "Wuse");
+  assert.equal(person.totalRides, 3);
+});

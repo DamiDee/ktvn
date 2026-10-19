@@ -37,14 +37,21 @@ import type {
 import { accountDocumentSource } from "../../paid-rides/domain/account-profile.ts";
 
 /**
- * Wire → view-model mapping for the Paid Rides admin API (`/api/v1/admin/*`,
- * docs: project file paid-rides/PAID_RIDES_ADMIN.md).
+ * Wire → view-model mapping for the Paid Rides admin API (`/api/v1/admin/*`).
+ * Contract: docs/paid-rides/openapi.json (`Page_*`, `AdminRideSummary`,
+ * `PersonSummary`, `ApplicationSummary`, `Application`, `ApplicationDocument`,
+ * `Incident`, `SosAlert`, `Overview`, `Metric`, `ReportSection`) and
+ * docs/paid-rides/PAID_RIDES_ADMIN.md for the rules.
  *
  * The admin screens were built against the view models in `types/models.ts`;
  * these functions translate the backend's camelCase JSON into them so the
- * screens don't change shape between demo and live data. The admin doc lists
- * routes and rules but not every response field, so each field is read
- * defensively: a missing value degrades the screen, it never crashes it.
+ * screens don't change shape between demo and live data. Several nested
+ * objects (`driver`, `passengers[]`, `sos`, `inspection`, `affiliation`,
+ * `participants[]`, `timeline[]`, `adminNotes[]`, `comments[]`) and the
+ * detail bodies of `/admin/rides/{id}`, `/admin/drivers/{id}`,
+ * `/admin/passengers/{id}` and `/admin/quality-flags` are untyped in the
+ * spec, so those are read defensively: a missing value degrades the screen,
+ * it never crashes it.
  *
  * Pure and dependency-free so `tests/admin-wire.test.mjs` can run it in Node.
  */
@@ -394,8 +401,7 @@ export function mapAdminRide(value: unknown): LiveRideSummary | null {
     driverTrips: num(driver?.completedRides) ?? 0,
     driverPhone: str(driver?.phone),
     vehicle: mapVehicle(driver?.vehicle ?? raw.vehicle),
-    // Paid rides are the professional track; there is no shared matching yet.
-    track: DriverTrack.PROFESSIONAL,
+    track: str(raw.track) ? mapTrack(raw.track) : DriverTrack.PROFESSIONAL,
     rideType: upper(raw.rideType) === RideType.SHARED ? RideType.SHARED : RideType.PRIVATE,
     originLabel: placeName(raw.pickup),
     destinationLabel: placeName(destination),
@@ -859,11 +865,11 @@ export function mapRideRow(value: unknown): AdminRideRow | null {
     id,
     reference: str(raw.reference) ?? id.slice(0, 8).toUpperCase(),
     destinationLabel: str(raw.destinationName) ?? placeName(raw.destination),
-    rideType: RideType.PRIVATE,
+    rideType: upper(raw.rideType) === RideType.SHARED ? RideType.SHARED : RideType.PRIVATE,
     requestedAt: str(raw.createdAt) ?? str(raw.requestedAt) ?? new Date(0).toISOString(),
     fare: mapAmount(raw.total ?? raw.fare),
     status: mapRideStatus(raw.status),
-    track: DriverTrack.PROFESSIONAL,
+    track: str(raw.track) ? mapTrack(raw.track) : DriverTrack.PROFESSIONAL,
   };
 }
 
