@@ -23,21 +23,22 @@ export const queryKeys = {
 
   admin: {
     root: ["admin"] as const,
-    overview: () => [...queryKeys.admin.root, "overview"] as const,
-    liveRides: () => [...queryKeys.admin.root, "live-rides"] as const,
+    overview: (period?: string) => [...queryKeys.admin.root, "overview", period ?? "default"] as const,
+    sos: () => [...queryKeys.admin.root, "sos"] as const,
+    liveRides: (filter?: string, q?: string) => [...queryKeys.admin.root, "live-rides", filter ?? "ALL", q ?? ""] as const,
     liveRide: (id: string) => [...queryKeys.admin.root, "live-ride", id] as const,
-    verifications: () => [...queryKeys.admin.root, "verifications"] as const,
+    verifications: (filter?: string, q?: string) => [...queryKeys.admin.root, "verifications", filter ?? "ALL", q ?? ""] as const,
     verification: (id: string) =>
       [...queryKeys.admin.root, "verification", id] as const,
-    drivers: () => [...queryKeys.admin.root, "drivers"] as const,
+    drivers: (filter?: string, q?: string) => [...queryKeys.admin.root, "drivers", filter ?? "ALL", q ?? ""] as const,
     driver: (id: string) => [...queryKeys.admin.root, "driver", id] as const,
-    passengers: () => [...queryKeys.admin.root, "passengers"] as const,
+    passengers: (filter?: string, q?: string) => [...queryKeys.admin.root, "passengers", filter ?? "ALL", q ?? ""] as const,
     passenger: (id: string) => [...queryKeys.admin.root, "passenger", id] as const,
-    incidents: (status?: string) =>
-      [...queryKeys.admin.root, "incidents", status ?? "all"] as const,
+    incidents: (filter?: string, q?: string) =>
+      [...queryKeys.admin.root, "incidents", filter ?? "ALL", q ?? ""] as const,
     incident: (id: string) => [...queryKeys.admin.root, "incident", id] as const,
     quality: () => [...queryKeys.admin.root, "quality"] as const,
-    reports: () => [...queryKeys.admin.root, "reports"] as const,
+    reports: (period?: string) => [...queryKeys.admin.root, "reports", period ?? "MONTH"] as const,
   },
 
   notifications: ["notifications"] as const,

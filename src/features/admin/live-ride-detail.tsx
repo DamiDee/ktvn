@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   ArrowRight,
@@ -21,7 +21,9 @@ import { ErrorState } from "@/components/ui/states";
 import { PageLoader } from "@/components/ui/route-loader";
 import { PageHeader } from "@/components/layout/app-shell";
 import { queryKeys } from "@/constants/query-keys";
-import { adminService } from "@/services";
+import { adminData, ADMIN_LIVE } from "./data/admin-data";
+import { ADMIN_POLL_MS, useAdminRideChannel } from "./data/use-admin-live";
+import { useToast } from "@/components/ui/toast";
 import { ACTIVE_SOS } from "@/mocks/admin";
 import {
   RIDE_STATUS_PRESENTATION,
@@ -30,7 +32,7 @@ import {
   TRACK_LABEL,
   TRACK_TONE,
 } from "@/constants/status-presentation";
-import { RidePassengerState, DriverTrack } from "@/types/enums";
+import { RidePassengerState, DriverTrack, RideStatus, SOSStatus } from "@/types/enums";
 import {
   formatEta,
   formatPlate,
@@ -62,9 +64,28 @@ const PASSENGER_STATE: Record<
  * moment they are needed.
  */
 export function LiveRideDetail({ rideId }: { rideId: string }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  useAdminRideChannel(rideId);
   const { data: ride, isLoading, isError, refetch } = useQuery({
     queryKey: queryKeys.admin.liveRide(rideId),
-    queryFn: () => adminService.getLiveRide(rideId),
+    queryFn: () => adminData.getRide(rideId),
+    refetchInterval: ADMIN_POLL_MS,
+  });
+
+  const sosAction = useMutation({
+    mutationFn: ({ alertId, action }: { alertId: string; action: "acknowledge" | "resolve" }) =>
+      action === "acknowledge" ? adminData.acknowledgeSos(alertId) : adminData.resolveSos(alertId),
+    onSuccess: (_alert, { action }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.liveRide(rideId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.sos() });
+      toast({
+        title: action === "acknowledge" ? "SOS acknowledged" : "SOS resolved",
+        description: action === "resolve" ? "The linked incident stays open until the safety desk closes it." : undefined,
+        tone: "success",
+      });
+    },
+    onError: (error) => toast({ title: "That didn't save.", description: error instanceof Error ? error.message : undefined, tone: "danger" }),
   });
 
   if (isLoading) return <PageLoader message="Loading the journey" />;
@@ -91,12 +112,18 @@ export function LiveRideDetail({ rideId }: { rideId: string }) {
     );
   }
 
-  const sos = ride.sosActive ? ACTIVE_SOS : null;
+  const sos = ride.sos ?? (ride.sosActive && !ADMIN_LIVE ? ACTIVE_SOS : null);
   const onBoard = ride.passengers.filter(
     (person) => person.state === RidePassengerState.PICKED_UP,
   ).length;
 
-  const timeline: TimelineItem[] = [
+  const timeline: TimelineItem[] = ride.events?.length ? ride.events.map((event, index, events) => ({
+    id: event.id,
+    label: event.label,
+    description: event.detail,
+    meta: formatRelativeTime(event.at),
+    state: index === events.length - 1 && ride.status !== RideStatus.COMPLETED && ride.status !== RideStatus.CANCELLED ? "ACTIVE" as const : "COMPLETE" as const,
+  })) : [
     {
       id: "requested",
       label: "Ride requested",
@@ -323,21 +350,39 @@ export function LiveRideDetail({ rideId }: { rideId: string }) {
               }
             />
             <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
+              {sos.status === SOSStatus.SENT ? (
+                <Button
+                  variant="danger"
+                  size="lg"
+                  className="sm:flex-1"
+                  loading={sosAction.isPending}
+                  onClick={() => sosAction.mutate({ alertId: sos.id, action: "acknowledge" })}
+                >
+                  Acknowledge SOS
+                </Button>
+              ) : sos.status !== SOSStatus.RESOLVED ? (
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  className="sm:flex-1"
+                  loading={sosAction.isPending}
+                  onClick={() => sosAction.mutate({ alertId: sos.id, action: "resolve" })}
+                >
+                  Resolve SOS
+                </Button>
+              ) : null}
               <ButtonLink
                 href="/admin/incidents"
-                variant="danger"
+                variant={sos.status === SOSStatus.SENT ? "secondary" : "danger"}
                 size="lg"
                 className="sm:flex-1"
               >
-                Open incident
+                Open incidents
               </ButtonLink>
-              <Button variant="secondary" size="lg" icon={Phone} className="sm:flex-1">
-                Contact the driver
-              </Button>
             </div>
             <p className="type-meta mt-3 text-ink-muted">
-              Opening an incident releases the phone numbers for everyone on
-              this journey.
+              Every SOS opens a critical incident. Phone numbers for everyone
+              on this journey are released while it is open.
             </p>
           </Card>
         ) : null}

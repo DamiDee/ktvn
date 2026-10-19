@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ShieldAlert } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -11,7 +11,8 @@ import { EmptyState, ErrorState } from "@/components/ui/states";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/app-shell";
 import { queryKeys } from "@/constants/query-keys";
-import { adminService } from "@/services";
+import { adminData, chipCount, type IncidentFilter } from "./data/admin-data";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
   INCIDENT_CATEGORY_LABEL,
   INCIDENT_SEVERITY_PRESENTATION,
@@ -21,62 +22,33 @@ import { IncidentSeverity, IncidentStatus } from "@/types/enums";
 import { formatRelativeTime, pluralise } from "@/lib/format";
 import type { Incident } from "@/types/models";
 
-type Filter = "ALL" | "OPEN" | "UNDER_REVIEW" | "RESOLVED" | "CRITICAL";
+type Filter = IncidentFilter;
 
 export function IncidentsList() {
   const [filter, setFilter] = useState<Filter>("ALL");
   const [search, setSearch] = useState("");
 
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: queryKeys.admin.incidents(),
-    queryFn: () => adminService.listIncidents(),
+  const query = useDebouncedValue(search.trim());
+
+  // Unfiltered, for chip counts and the header.
+  const { data: everything } = useQuery({
+    queryKey: queryKeys.admin.incidents("ALL"),
+    queryFn: () => adminData.listIncidents({ filter: "ALL" }),
   });
 
-  const all = useMemo(() => data ?? [], [data]);
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: queryKeys.admin.incidents(filter, query),
+    queryFn: () => adminData.listIncidents({ filter, q: query }),
+  });
 
-  const rows = useMemo(() => {
-    let list = all;
+  const all = everything?.items ?? [];
+  const total = everything ? chipCount(everything.counts, "all") ?? everything.total : 0;
+  const rows = data?.items ?? [];
 
-    switch (filter) {
-      case "OPEN":
-        list = list.filter(
-          (incident) => incident.status === IncidentStatus.OPEN,
-        );
-        break;
-      case "UNDER_REVIEW":
-        list = list.filter(
-          (incident) => incident.status === IncidentStatus.UNDER_REVIEW,
-        );
-        break;
-      case "RESOLVED":
-        list = list.filter(
-          (incident) => incident.status === IncidentStatus.RESOLVED,
-        );
-        break;
-      case "CRITICAL":
-        list = list.filter(
-          (incident) =>
-            incident.severity === IncidentSeverity.CRITICAL ||
-            incident.severity === IncidentSeverity.HIGH,
-        );
-        break;
-    }
-
-    const term = search.trim().toLowerCase();
-    if (term) {
-      list = list.filter(
-        (incident) =>
-          incident.title.toLowerCase().includes(term) ||
-          incident.reference.toLowerCase().includes(term),
-      );
-    }
-
-    return list;
-  }, [all, filter, search]);
-
-  const openCount = all.filter(
-    (incident) => incident.status !== IncidentStatus.RESOLVED,
-  ).length;
+  const serverOpen = everything ? chipCount(everything.counts, "open") : undefined;
+  const openCount = serverOpen !== undefined
+    ? serverOpen + (chipCount(everything?.counts ?? {}, "underReview") ?? 0)
+    : all.filter((incident) => incident.status !== IncidentStatus.RESOLVED).length;
 
   const columns: DataColumn<Incident>[] = [
     {
@@ -181,7 +153,7 @@ export function IncidentsList() {
             value={filter}
             onChange={setFilter}
             options={[
-              { value: "ALL", label: "All", count: all.length },
+              { value: "ALL", label: "All", count: total },
               { value: "OPEN", label: "Open" },
               { value: "UNDER_REVIEW", label: "Under review" },
               { value: "CRITICAL", label: "High and critical" },

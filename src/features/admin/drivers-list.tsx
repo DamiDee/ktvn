@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Car, Star } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -12,7 +12,8 @@ import { EmptyState, ErrorState } from "@/components/ui/states";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/app-shell";
 import { queryKeys } from "@/constants/query-keys";
-import { userService } from "@/services";
+import { adminData, chipCount, type DriverFilter } from "./data/admin-data";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
   DRIVER_AVAILABILITY_PRESENTATION,
   TRACK_LABEL,
@@ -20,21 +21,13 @@ import {
   VERIFICATION_PRESENTATION,
 } from "@/constants/status-presentation";
 import {
-  DriverAvailability,
   DriverAccountStatus,
-  DriverTrack,
   VerificationStatus,
 } from "@/types/enums";
 import { formatPlate, pluralise } from "@/lib/format";
 import type { Driver } from "@/types/models";
 
-type Filter =
-  | "ALL"
-  | "PROFESSIONAL"
-  | "ONLINE"
-  | "PENDING"
-  | "FLAGGED"
-  | "DEACTIVATED";
+type Filter = DriverFilter;
 
 /**
  * Everyone approved to drive.
@@ -46,53 +39,22 @@ export function DriversList() {
   const [filter, setFilter] = useState<Filter>("ALL");
   const [search, setSearch] = useState("");
 
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: queryKeys.admin.drivers(),
-    queryFn: () => userService.listDrivers(),
+  const query = useDebouncedValue(search.trim());
+
+  // Unfiltered, for chip counts and the header.
+  const { data: everything } = useQuery({
+    queryKey: queryKeys.admin.drivers("ALL"),
+    queryFn: () => adminData.listDrivers({ filter: "ALL" }),
   });
 
-  const all = useMemo(() => (data ?? []).filter((item) => item.track === DriverTrack.PROFESSIONAL), [data]);
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: queryKeys.admin.drivers(filter, query),
+    queryFn: () => adminData.listDrivers({ filter, q: query }),
+  });
 
-  const rows = useMemo(() => {
-    let list = all;
-
-    switch (filter) {
-      case "PROFESSIONAL":
-        list = list.filter(
-          (driver) => driver.track === DriverTrack.PROFESSIONAL,
-        );
-        break;
-      case "ONLINE":
-        list = list.filter(
-          (driver) => driver.availability !== DriverAvailability.OFFLINE,
-        );
-        break;
-      case "PENDING":
-        list = list.filter(
-          (driver) => driver.verificationStatus !== VerificationStatus.APPROVED,
-        );
-        break;
-      case "FLAGGED":
-        list = list.filter((driver) => driver.flagged);
-        break;
-      case "DEACTIVATED":
-        list = list.filter(
-          (driver) => driver.accountStatus === DriverAccountStatus.DEACTIVATED,
-        );
-        break;
-    }
-
-    const term = search.trim().toLowerCase();
-    if (term) {
-      list = list.filter(
-        (driver) =>
-          driver.fullName.toLowerCase().includes(term) ||
-          driver.vehicle.plateNumber.toLowerCase().includes(term),
-      );
-    }
-
-    return list;
-  }, [all, filter, search]);
+  const all = everything?.items ?? [];
+  const total = everything ? chipCount(everything.counts, "all") ?? everything.total : 0;
+  const rows = data?.items ?? [];
 
   const columns: DataColumn<Driver>[] = [
     {
@@ -200,7 +162,7 @@ export function DriversList() {
         description="Everyone approved to carry members, on either track."
         action={
           <StatusChip tone="neutral" size="md">
-            {all.length} {pluralise(all.length, "driver")}
+            {total} {pluralise(total, "driver")}
           </StatusChip>
         }
       />
@@ -221,21 +183,21 @@ export function DriversList() {
             value={filter}
             onChange={setFilter}
             options={[
-              { value: "ALL", label: "All", count: all.length },
+              { value: "ALL", label: "All", count: total },
               { value: "ONLINE", label: "Online" },
               { value: "PENDING", label: "Not yet approved" },
               {
                 value: "FLAGGED",
                 label: "Flagged",
-                count: all.filter((driver) => driver.flagged).length,
+                count: everything ? chipCount(everything.counts, "flagged") ?? all.filter((driver) => driver.flagged).length : undefined,
               },
               {
                 value: "DEACTIVATED",
                 label: "Deactivated",
-                count: all.filter(
-                  (driver) =>
-                    driver.accountStatus === DriverAccountStatus.DEACTIVATED,
-                ).length,
+                count: everything
+                  ? chipCount(everything.counts, "deactivated") ??
+                    all.filter((driver) => driver.accountStatus === DriverAccountStatus.DEACTIVATED).length
+                  : undefined,
               },
             ]}
           />

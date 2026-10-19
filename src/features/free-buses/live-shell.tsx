@@ -35,6 +35,8 @@ import { TransportModeSwitch } from "@/components/layout/transport-mode-switch";
 import { MemberGuide } from "./member-guide";
 import { Brand as ProductBrand } from "@/components/layout/brand";
 import { AdminWorkspaceSwitch } from "@/components/layout/admin-workspace-switch";
+import { AdminLiveLayer } from "@/features/admin/admin-live-layer";
+import { ADMIN_LIVE } from "@/features/admin/data/admin-data";
 import { ADMIN_NAV as LEGACY_ADMIN_NAV } from "@/constants/navigation";
 
 const PAID_ADMIN_NAV = LEGACY_ADMIN_NAV.filter((item) => item.href !== "/admin/free-buses");
@@ -615,7 +617,8 @@ export function LiveFreeBusShell({
             )}
           >
             {admin && isOversight(user.role) ? <div className="mx-auto mb-6 flex max-w-7xl flex-wrap items-center justify-between gap-3"><p className="text-xs font-medium tracking-[.14em] text-ink-muted uppercase">Operations / {paidAdmin ? "Paid rides" : "Free buses"}</p><div className="w-full sm:w-64"><AdminWorkspaceSwitch /></div></div> : null}
-            {paidAdmin && allowed ? <p role="status" className="mx-auto mb-6 max-w-7xl rounded-xl border border-line bg-surface px-4 py-3 text-xs leading-relaxed text-ink-secondary"><strong className="font-semibold text-ink">Paid-rides admin preview.</strong> These records and actions use demo data. Free Buses remains connected to the live service.</p> : null}
+            {paidAdmin && allowed && !ADMIN_LIVE ? <p role="status" className="mx-auto mb-6 max-w-7xl rounded-xl border border-line bg-surface px-4 py-3 text-xs leading-relaxed text-ink-secondary"><strong className="font-semibold text-ink">Paid-rides admin preview.</strong> These records and actions use demo data. Free Buses remains connected to the live service.</p> : null}
+            {paidAdmin && allowed && connectedPage ? <div className="mx-auto max-w-7xl"><AdminLiveLayer /></div> : null}
             {logoutError ? (
               <p role="alert" className="mb-4 text-danger-600">
                 {logoutError}

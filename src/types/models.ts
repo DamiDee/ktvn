@@ -88,6 +88,10 @@ export interface Passenger extends User {
   totalRides: number;
   trustedContacts: TrustedContact[];
   homeArea?: string;
+  /** Roster rows carry only the count; the record carries the contacts. */
+  trustedContactCount?: number;
+  /** New ride requests are blocked by the oversight team. */
+  restricted?: boolean;
 }
 
 export interface Vehicle {
@@ -177,6 +181,8 @@ export interface VerificationDocument {
   expiresAt?: string;
   /** Reviewer feedback when status is NEEDS_ATTENTION. */
   note?: string;
+  /** Displayable file (https URL or data URL) when the server sends one. */
+  source?: string;
 }
 
 export interface VerificationStep {
@@ -233,6 +239,9 @@ export interface DriverVerification {
   changesRequested?: string[];
   reviewerNote?: string;
   comments?: ReviewComment[];
+  /** Server-computed counts; list rows carry these instead of documents. */
+  documentsReady?: number;
+  documentsTotal?: number;
 }
 
 /* ---------------------------------------------------------------------------
@@ -453,7 +462,7 @@ export interface Incident {
   updatedAt: string;
   resolvedAt?: string;
   assignedTo?: string;
-  participants: { id: string; name: string; role: UserRole }[];
+  participants: { id: string; name: string; role: UserRole; phone?: string }[];
   timeline: RideEvent[];
   adminNotes: { id: string; author: string; note: string; at: string }[];
 }
@@ -548,6 +557,10 @@ export interface LiveRideSummary {
   position: Coordinates;
   heading: number;
   route?: RoutePath;
+  /** Durable event log, when the server provides one (detail only). */
+  events?: RideEvent[];
+  /** The alert behind `sosActive`, when known (detail only). */
+  sos?: SOSAlert;
 }
 
 export interface QualityFlag {

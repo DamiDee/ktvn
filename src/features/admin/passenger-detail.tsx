@@ -23,7 +23,7 @@ import { useToast } from "@/components/ui/toast";
 import { PageLoader } from "@/components/ui/route-loader";
 import { PageHeader } from "@/components/layout/app-shell";
 import { queryKeys } from "@/constants/query-keys";
-import { rideService, userService } from "@/services";
+import { adminData } from "./data/admin-data";
 import {
   MEMBERSHIP_PRESENTATION,
   RIDE_STATUS_PRESENTATION,
@@ -38,18 +38,34 @@ import { formatDate, pluralise } from "@/lib/format";
 export function PassengerDetail({ passengerId }: { passengerId: string }) {
   const { toast } = useToast();
   const [restricting, setRestricting] = useState(false);
-  const [restricted, setRestricted] = useState(false);
+  const [restrictedOverride, setRestricted] = useState<boolean | null>(null);
+  const [acting, setActing] = useState(false);
 
   const { data: passenger, isLoading, isError, refetch } = useQuery({
     queryKey: queryKeys.admin.passenger(passengerId),
-    queryFn: () => userService.getPassenger(passengerId),
+    queryFn: () => adminData.getPassenger(passengerId),
   });
 
   const { data: rides } = useQuery({
     queryKey: [...queryKeys.admin.passenger(passengerId), "rides"],
-    queryFn: () => rideService.listRides(),
+    queryFn: () => adminData.listPassengerRides(passengerId),
     enabled: Boolean(passenger),
   });
+
+  const restricted = restrictedOverride ?? passenger?.restricted ?? false;
+
+  async function act(work: () => Promise<unknown>, onDone: () => void) {
+    setActing(true);
+    try {
+      await work();
+      onDone();
+      await refetch();
+    } catch (error) {
+      toast({ title: "That didn't save.", description: error instanceof Error ? error.message : undefined, tone: "danger" });
+    } finally {
+      setActing(false);
+    }
+  }
 
   if (isLoading) return <PageLoader message="Loading the member record" />;
 
@@ -156,7 +172,7 @@ export function PassengerDetail({ passengerId }: { passengerId: string }) {
                   aria-hidden
                 />
                 <p className="type-numeric mt-2 text-[1.125rem] leading-none font-semibold text-ink">
-                  <CountUp value={passenger.trustedContacts.length} />
+                  <CountUp value={passenger.trustedContactCount ?? passenger.trustedContacts.length} />
                 </p>
                 <p className="type-micro mt-1.5 text-ink-muted">Contacts</p>
               </NestedTile>
@@ -230,7 +246,7 @@ export function PassengerDetail({ passengerId }: { passengerId: string }) {
                       <NestedTile className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div className="min-w-0">
                           <p className="type-body truncate font-medium text-ink">
-                            {ride.destination.label}
+                            {ride.destinationLabel}
                           </p>
                           <p className="type-meta truncate text-ink-muted">
                             <span className="type-numeric">
@@ -287,12 +303,15 @@ export function PassengerDetail({ passengerId }: { passengerId: string }) {
                 size="lg"
                 icon={ShieldCheck}
                 className="w-full"
+                disabled={acting}
                 onClick={() =>
-                  toast({
-                    title: "Membership re-check requested",
-                    description:
-                      "The membership team will confirm this record again.",
-                  })
+                  act(() => adminData.requestMembershipCheck(passenger.id), () =>
+                    toast({
+                      title: "Membership re-check requested",
+                      description:
+                        "The record is marked as being checked.",
+                    }),
+                  )
                 }
               >
                 Re-check membership
@@ -302,10 +321,17 @@ export function PassengerDetail({ passengerId }: { passengerId: string }) {
                 variant="ghost"
                 size="lg"
                 className="w-full text-danger-600 dark:text-red-300"
-                disabled={restricted}
-                onClick={() => setRestricting(true)}
+                disabled={acting}
+                onClick={() =>
+                  restricted
+                    ? act(() => adminData.liftRestriction(passenger.id), () => {
+                        setRestricted(false);
+                        toast({ title: "Restriction lifted", description: `${passenger.fullName} can request rides again.` });
+                      })
+                    : setRestricting(true)
+                }
               >
-                {restricted ? "Restricted" : "Restrict ride requests"}
+                {restricted ? "Lift ride restriction" : "Restrict ride requests"}
               </Button>
             </div>
           </Card>
@@ -316,12 +342,14 @@ export function PassengerDetail({ passengerId }: { passengerId: string }) {
         open={restricting}
         onClose={() => setRestricting(false)}
         onConfirm={() => {
-          setRestricted(true);
           setRestricting(false);
-          toast({
-            title: `${passenger.fullName} restricted`,
-            description: "They can no longer request new rides.",
-            tone: "danger",
+          void act(() => adminData.restrictPassenger(passenger.id, "Ride requests restricted by the oversight team."), () => {
+            setRestricted(true);
+            toast({
+              title: `${passenger.fullName} restricted`,
+              description: "They can no longer request new rides.",
+              tone: "danger",
+            });
           });
         }}
         title="Restrict ride requests?"

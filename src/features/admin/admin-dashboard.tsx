@@ -21,7 +21,8 @@ import { StatsCardSkeleton, TableSkeleton } from "@/components/ui/skeleton";
 import { DriverTrack } from "@/types/enums";
 import { ButtonLink } from "@/components/ui/button";
 import { queryKeys } from "@/constants/query-keys";
-import { adminService } from "@/services";
+import { adminData } from "./data/admin-data";
+import { ADMIN_POLL_MS } from "./data/use-admin-live";
 import {
   RIDE_STATUS_PRESENTATION,
   RIDE_TYPE_LABEL,
@@ -105,14 +106,17 @@ const LIVE_COLUMNS: DataColumn<LiveRideSummary>[] = [
 
 export function AdminDashboard() {
   const { data: overview, isLoading } = useQuery({
-    queryKey: queryKeys.admin.overview(),
-    queryFn: () => adminService.getOverview(),
+    queryKey: queryKeys.admin.overview("WEEK"),
+    queryFn: () => adminData.getOverview("WEEK"),
+    refetchInterval: ADMIN_POLL_MS,
   });
 
-  const { data: liveRides, isLoading: loadingRides } = useQuery({
-    queryKey: queryKeys.admin.liveRides(),
-    queryFn: () => adminService.listLiveRides(),
+  const { data: livePage, isLoading: loadingRides } = useQuery({
+    queryKey: queryKeys.admin.liveRides("ALL"),
+    queryFn: () => adminData.listRides({ filter: "ALL" }),
+    refetchInterval: ADMIN_POLL_MS,
   });
+  const liveRides = livePage?.items;
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -135,8 +139,8 @@ export function AdminDashboard() {
                 value={metric.display ?? metric.value}
                 numericValue={metric.display ? undefined : metric.value}
                 deltaPercent={metric.deltaPercent}
-                icon={METRIC_ICONS[index]}
-                accent={METRIC_ACCENTS[index]}
+                icon={METRIC_ICONS[index] ?? Car}
+                accent={METRIC_ACCENTS[index] ?? "neutral"}
                 sparkline={metric.series}
               />
             ))}

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -12,7 +12,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { Card, CardHeader, DataPoint, NestedTile } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { StatusBadge, StatusChip } from "@/components/ui/badge";
 import { Timeline, type TimelineItem } from "@/components/ui/timeline";
@@ -23,7 +23,7 @@ import { useToast } from "@/components/ui/toast";
 import { PageLoader } from "@/components/ui/route-loader";
 import { PageHeader } from "@/components/layout/app-shell";
 import { queryKeys } from "@/constants/query-keys";
-import { adminService } from "@/services";
+import { adminData } from "./data/admin-data";
 import {
   INCIDENT_CATEGORY_LABEL,
   INCIDENT_SEVERITY_PRESENTATION,
@@ -42,14 +42,17 @@ interface Note {
 /** One incident: what happened, who was involved, and what was done about it. */
 export function IncidentDetail({ incidentId }: { incidentId: string }) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [phones, setPhones] = useState<Record<string, string>>({});
   const [extraNotes, setExtraNotes] = useState<Note[]>([]);
   const [resolving, setResolving] = useState(false);
   const [status, setStatus] = useState<IncidentStatus | null>(null);
 
   const { data: incident, isLoading, isError, refetch } = useQuery({
     queryKey: queryKeys.admin.incident(incidentId),
-    queryFn: () => adminService.getIncident(incidentId),
+    queryFn: () => adminData.getIncident(incidentId),
   });
 
   if (isLoading) return <PageLoader message="Loading the incident" />;
@@ -94,22 +97,53 @@ export function IncidentDetail({ incidentId }: { incidentId: string }) {
       : []),
   ];
 
+  function refresh() {
+    queryClient.invalidateQueries({ queryKey: [queryKeys.admin.root[0], "incidents"] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.admin.incident(incidentId) });
+  }
+
+  async function run(work: () => Promise<unknown>, success: () => void) {
+    setSaving(true);
+    try {
+      await work();
+      success();
+      refresh();
+    } catch (error) {
+      toast({ title: "That didn't save.", description: error instanceof Error ? error.message : undefined, tone: "danger" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function addNote() {
     const text = draft.trim();
     if (!text) return;
-
-    setExtraNotes((current) => [
-      ...current,
-      {
-        id: `note-${current.length + 1}`,
-        author: "You",
-        note: text,
-        at: new Date().toISOString(),
-      },
-    ]);
-    setDraft("");
-    toast({ title: "Note added to the incident" });
+    void run(async () => {
+      const note = await adminData.addIncidentNote(incidentId, text);
+      setExtraNotes((current) => [...current, note]);
+    }, () => {
+      setDraft("");
+      toast({ title: "Note added to the incident" });
+    });
   }
+
+  function moveTo(next: IncidentStatus, title: string, description?: string) {
+    void run(() => adminData.updateIncidentStatus(incidentId, next), () => {
+      setStatus(next);
+      toast({ title, description, tone: next === IncidentStatus.RESOLVED ? "success" : undefined });
+    });
+  }
+
+  function call(person: { id: string; name: string; phone?: string }) {
+    void run(async () => {
+      const result = await adminData.callParticipant(incidentId, person.id);
+      const phone = result.phone ?? person.phone;
+      if (phone) setPhones((current) => ({ ...current, [person.id]: phone }));
+      const href = result.callHref ?? (phone ? `tel:${phone.replace(/\s+/g, "")}` : undefined);
+      if (href) window.location.href = href;
+    }, () => toast({ title: `Calling ${person.name}`, description: "The call is logged against this incident." }));
+  }
+
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -196,6 +230,9 @@ export function IncidentDetail({ incidentId }: { incidentId: string }) {
                             : person.role === UserRole.PASSENGER
                               ? "Passenger"
                               : "Oversight"}
+                          {!resolved && (phones[person.id] ?? person.phone) ? (
+                            <span className="type-numeric"> · {phones[person.id] ?? person.phone}</span>
+                          ) : null}
                         </p>
                       </div>
                     </div>
@@ -205,25 +242,21 @@ export function IncidentDetail({ incidentId }: { incidentId: string }) {
                         variant="secondary"
                         size="sm"
                         icon={Phone}
-                        onClick={() =>
-                          toast({
-                            title: `Calling ${person.name}`,
-                            description: "The call is logged against this incident.",
-                          })
-                        }
+                        disabled={resolved || saving}
+                        onClick={() => call(person)}
                       >
                         Call
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        icon={UserRound}
-                        onClick={() =>
-                          toast({ title: `Opening ${person.name}'s record` })
-                        }
-                      >
-                        Record
-                      </Button>
+                      {person.role !== UserRole.ADMIN && person.id ? (
+                        <ButtonLink
+                          variant="ghost"
+                          size="sm"
+                          icon={UserRound}
+                          href={person.role === UserRole.DRIVER ? `/admin/drivers/${person.id}` : `/admin/passengers/${person.id}`}
+                        >
+                          Record
+                        </ButtonLink>
+                      ) : null}
                     </div>
                   </NestedTile>
                 </li>
@@ -281,7 +314,7 @@ export function IncidentDetail({ incidentId }: { incidentId: string }) {
                 size="lg"
                 icon={MessageSquare}
                 className="w-full sm:w-auto"
-                disabled={!draft.trim()}
+                disabled={!draft.trim() || saving}
                 onClick={addNote}
               >
                 Add note
@@ -314,9 +347,20 @@ export function IncidentDetail({ incidentId }: { incidentId: string }) {
                   {incident.resolvedAt
                     ? formatRelativeTime(incident.resolvedAt)
                     : "just now"}
-                  . Reopen it from the incident list if anything changes.
+                  . Reopen it if anything changes.
                 </p>
               </NestedTile>
+            ) : null}
+            {resolved ? (
+              <Button
+                variant="secondary"
+                size="lg"
+                className="mt-3 w-full"
+                loading={saving}
+                onClick={() => moveTo(IncidentStatus.OPEN, "Incident reopened")}
+              >
+                Reopen incident
+              </Button>
             ) : (
               <div className="mt-5 space-y-2.5">
                 {currentStatus === IncidentStatus.OPEN ? (
@@ -324,13 +368,8 @@ export function IncidentDetail({ incidentId }: { incidentId: string }) {
                     variant="primary"
                     size="lg"
                     className="w-full"
-                    onClick={() => {
-                      setStatus(IncidentStatus.UNDER_REVIEW);
-                      toast({
-                        title: "Incident moved to review",
-                        description: "The safety desk has picked this up.",
-                      });
-                    }}
+                    loading={saving}
+                    onClick={() => moveTo(IncidentStatus.UNDER_REVIEW, "Incident moved to review", "The safety desk has picked this up.")}
                   >
                     Start review
                   </Button>
@@ -366,13 +405,8 @@ export function IncidentDetail({ incidentId }: { incidentId: string }) {
         open={resolving}
         onClose={() => setResolving(false)}
         onConfirm={() => {
-          setStatus(IncidentStatus.RESOLVED);
           setResolving(false);
-          toast({
-            title: "Incident resolved",
-            description: "Everyone involved has been told it is closed.",
-            tone: "success",
-          });
+          moveTo(IncidentStatus.RESOLVED, "Incident resolved", "Everyone involved has been told it is closed.");
         }}
         title="Mark this incident resolved?"
         description="Close it only once the people involved have been contacted and the outcome is recorded in the notes."

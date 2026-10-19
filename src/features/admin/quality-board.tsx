@@ -15,7 +15,7 @@ import { ConfirmDialog } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { PageHeader } from "@/components/layout/app-shell";
 import { queryKeys } from "@/constants/query-keys";
-import { adminService } from "@/services";
+import { adminData, ADMIN_LIVE } from "./data/admin-data";
 import { TRACK_LABEL, TRACK_TONE } from "@/constants/status-presentation";
 import { UserRole, DriverTrack } from "@/types/enums";
 import { formatRelativeTime, pluralise } from "@/lib/format";
@@ -35,7 +35,7 @@ export function QualityBoard() {
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: queryKeys.admin.quality(),
-    queryFn: () => adminService.listQualityFlags(),
+    queryFn: () => adminData.listQualityFlags(),
   });
 
   const flags = (data ?? []).filter((flag) => !cleared.includes(flag.id));
@@ -157,7 +157,8 @@ export function QualityBoard() {
                 </div>
 
                 <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
-                  <Button
+                  {/* No conversation channel exists on the live backend yet. */}
+                  {ADMIN_LIVE ? null : <Button
                     variant="secondary"
                     size="lg"
                     icon={MessageSquare}
@@ -171,7 +172,7 @@ export function QualityBoard() {
                     }
                   >
                     Open conversation
-                  </Button>
+                  </Button>}
 
                   <ButtonLink
                     href={
@@ -211,15 +212,21 @@ export function QualityBoard() {
       <ConfirmDialog
         open={reviewing !== null}
         onClose={() => setReviewing(null)}
-        onConfirm={() => {
-          if (reviewing) {
-            setCleared((current) => [...current, reviewing.id]);
-            toast({
-              title: `Flag cleared for ${reviewing.subjectName}`,
-              tone: "success",
-            });
-          }
+        onConfirm={async () => {
+          const flag = reviewing;
           setReviewing(null);
+          if (!flag) return;
+          try {
+            await adminData.clearQualityFlag(flag.id);
+          } catch (error) {
+            toast({ title: "The flag wasn't cleared.", description: error instanceof Error ? error.message : undefined, tone: "danger" });
+            return;
+          }
+          setCleared((current) => [...current, flag.id]);
+          toast({
+            title: `Flag cleared for ${flag.subjectName}`,
+            tone: "success",
+          });
         }}
         title="Clear this flag?"
         description="Clear it once the conversation has happened and the team is satisfied. The ratings themselves stay on the record."

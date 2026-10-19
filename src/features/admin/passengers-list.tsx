@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Star, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -12,59 +12,34 @@ import { EmptyState, ErrorState } from "@/components/ui/states";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/app-shell";
 import { queryKeys } from "@/constants/query-keys";
-import { userService } from "@/services";
+import { adminData, chipCount, type PassengerFilter } from "./data/admin-data";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { MEMBERSHIP_PRESENTATION } from "@/constants/status-presentation";
 import { MembershipStatus } from "@/types/enums";
 import { formatDate, pluralise } from "@/lib/format";
 import type { Passenger } from "@/types/models";
 
-type Filter = "ALL" | "VERIFIED" | "PENDING" | "NO_CONTACTS";
+type Filter = PassengerFilter;
 
 export function PassengersList() {
   const [filter, setFilter] = useState<Filter>("ALL");
   const [search, setSearch] = useState("");
 
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: queryKeys.admin.passengers(),
-    queryFn: () => userService.listPassengers(),
+  const query = useDebouncedValue(search.trim());
+
+  // Unfiltered, for chip counts and the header.
+  const { data: everything } = useQuery({
+    queryKey: queryKeys.admin.passengers("ALL"),
+    queryFn: () => adminData.listPassengers({ filter: "ALL" }),
   });
 
-  const all = useMemo(() => data ?? [], [data]);
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: queryKeys.admin.passengers(filter, query),
+    queryFn: () => adminData.listPassengers({ filter, q: query }),
+  });
 
-  const rows = useMemo(() => {
-    let list = all;
-
-    switch (filter) {
-      case "VERIFIED":
-        list = list.filter(
-          (passenger) =>
-            passenger.membershipStatus === MembershipStatus.VERIFIED,
-        );
-        break;
-      case "PENDING":
-        list = list.filter(
-          (passenger) =>
-            passenger.membershipStatus !== MembershipStatus.VERIFIED,
-        );
-        break;
-      case "NO_CONTACTS":
-        list = list.filter(
-          (passenger) => passenger.trustedContacts.length === 0,
-        );
-        break;
-    }
-
-    const term = search.trim().toLowerCase();
-    if (term) {
-      list = list.filter(
-        (passenger) =>
-          passenger.fullName.toLowerCase().includes(term) ||
-          passenger.email.toLowerCase().includes(term),
-      );
-    }
-
-    return list;
-  }, [all, filter, search]);
+  const total = everything ? chipCount(everything.counts, "all") ?? everything.total : 0;
+  const rows = data?.items ?? [];
 
   const columns: DataColumn<Passenger>[] = [
     {
@@ -136,7 +111,7 @@ export function PassengersList() {
       hideBelow: "xl",
       cell: (passenger) => (
         <span className="type-numeric type-meta text-ink-secondary">
-          {passenger.trustedContacts.length}
+          {passenger.trustedContactCount ?? passenger.trustedContacts.length}
         </span>
       ),
     },
@@ -171,7 +146,7 @@ export function PassengersList() {
         description="Members who can request a ride on the network."
         action={
           <StatusChip tone="neutral" size="md">
-            {all.length} {pluralise(all.length, "member")}
+            {total} {pluralise(total, "member")}
           </StatusChip>
         }
       />
@@ -192,7 +167,7 @@ export function PassengersList() {
             value={filter}
             onChange={setFilter}
             options={[
-              { value: "ALL", label: "All", count: all.length },
+              { value: "ALL", label: "All", count: total },
               { value: "VERIFIED", label: "Verified" },
               { value: "PENDING", label: "Not yet confirmed" },
               { value: "NO_CONTACTS", label: "No trusted contact" },

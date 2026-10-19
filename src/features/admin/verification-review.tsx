@@ -38,7 +38,7 @@ import { useToast } from "@/components/ui/toast";
 import { PageLoader } from "@/components/ui/route-loader";
 import { PageHeader } from "@/components/layout/app-shell";
 import { queryKeys } from "@/constants/query-keys";
-import { verificationService } from "@/services";
+import { adminData, ADMIN_LIVE } from "./data/admin-data";
 import {
   DOCUMENT_STATUS_PRESENTATION,
   TRACK_DESCRIPTION,
@@ -115,6 +115,7 @@ export function VerificationReview({ id }: { id: string }) {
   const [changesOpen, setChangesOpen] = useState(false);
   const [note, setNote] = useState("");
   const [checked, setChecked] = useState<string[]>([]);
+  const [rejectReason, setRejectReason] = useState("");
   const [decided, setDecided] = useState<VerificationStatus | null>(null);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleDate, setScheduleDate] = useState("");
@@ -136,16 +137,26 @@ export function VerificationReview({ id }: { id: string }) {
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: queryKeys.admin.verification(id),
-    queryFn: () => verificationService.getVerification(id),
+    queryFn: () => adminData.getApplication(id),
   });
 
   const decide = useMutation({
-    mutationFn: (decision: Decision) => verificationService.decide(id, decision),
+    mutationFn: (decision: Decision) =>
+      adminData.decide(
+        id,
+        decision,
+        decision === "REQUEST_CHANGES"
+          ? { reason: note.trim(), changesRequested: checked }
+          : decision === "REJECT"
+            ? { reason: rejectReason.trim() }
+            : {},
+      ),
     onSuccess: (status, decision) => {
       setDecided(status);
       setConfirming(null);
       setChangesOpen(false);
-      queryClient.invalidateQueries({ queryKey: queryKeys.admin.verifications() });
+      queryClient.invalidateQueries({ queryKey: [queryKeys.admin.root[0], "verifications"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.verification(id) });
       toast({
         title:
           decision === "APPROVE"
@@ -160,10 +171,10 @@ export function VerificationReview({ id }: { id: string }) {
         tone: decision === "REJECT" ? "danger" : "success",
       });
     },
-    onError: () => {
+    onError: (error) => {
       toast({
         title: "That decision didn't save.",
-        description: "Nothing has changed. Try again in a moment.",
+        description: error instanceof Error && error.message ? error.message : "Nothing has changed. Try again in a moment.",
         tone: "danger",
       });
     },
@@ -214,23 +225,30 @@ export function VerificationReview({ id }: { id: string }) {
     );
   }
 
+  function failed(error: unknown) {
+    toast({ title: "That didn't save.", description: error instanceof Error ? error.message : undefined, tone: "danger" });
+  }
+
   async function verifyDocument(document: VerificationDocument) {
-    const updated = await verificationService.setDocumentStatus(
-      id,
-      document.id,
-      DocumentStatus.VERIFIED,
-    );
+    let updated: VerificationDocument;
+    try {
+      updated = await adminData.setDocumentStatus(id, document.id, DocumentStatus.VERIFIED);
+    } catch (error) {
+      failed(error);
+      return;
+    }
     applyDocument({ ...updated, note: undefined });
     toast({ title: `${document.label} verified`, tone: "success" });
   }
 
   async function flagDocument(document: VerificationDocument, reason: string) {
-    const updated = await verificationService.setDocumentStatus(
-      id,
-      document.id,
-      DocumentStatus.NEEDS_ATTENTION,
-      reason,
-    );
+    let updated: VerificationDocument;
+    try {
+      updated = await adminData.setDocumentStatus(id, document.id, DocumentStatus.NEEDS_ATTENTION, reason);
+    } catch (error) {
+      failed(error);
+      return;
+    }
     applyDocument(updated);
     toast({
       title: `${document.label} flagged`,
@@ -244,11 +262,13 @@ export function VerificationReview({ id }: { id: string }) {
     visibility: ReviewComment["visibility"],
     documentId?: string,
   ) {
-    const comment = await verificationService.addComment(id, {
-      body,
-      visibility,
-      documentId,
-    });
+    let comment: ReviewComment;
+    try {
+      comment = await adminData.addReviewComment(id, { body, visibility, documentId });
+    } catch (error) {
+      failed(error);
+      return;
+    }
     setAddedComments((current) => [...current, comment]);
     toast({
       title:
@@ -854,7 +874,19 @@ export function VerificationReview({ id }: { id: string }) {
         }
       >
         <div className="space-y-4">
-          <div className="flex aspect-[4/3] w-full items-center justify-center rounded-[var(--kx-radius-md)] border border-line bg-surface-nested">
+          {preview?.source ? (
+            <div className="overflow-hidden rounded-[var(--kx-radius-md)] border border-line bg-surface-nested">
+              {preview.source.startsWith("data:application/pdf") || preview.mimeType === "application/pdf" ? (
+                <object data={preview.source} type="application/pdf" className="aspect-[3/4] w-full" aria-label={preview.label}>
+                  <p className="type-meta p-4 text-ink-muted">This browser can&rsquo;t show the PDF inline.</p>
+                </object>
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element -- data URLs and signed links, not optimisable assets
+                <img src={preview.source} alt={preview.label} className="max-h-[60vh] w-full object-contain" />
+              )}
+            </div>
+          ) : null}
+          <div className={cn("flex aspect-[4/3] w-full items-center justify-center rounded-[var(--kx-radius-md)] border border-line bg-surface-nested", preview?.source && "hidden")}>
             <div className="px-6 text-center">
               <IdCard
                 className="mx-auto size-8 text-ink-muted"
@@ -871,7 +903,7 @@ export function VerificationReview({ id }: { id: string }) {
                   : ""}
               </p>
               <p className="type-meta mt-3 text-ink-muted">
-                The uploaded file opens here once storage is connected.
+                {ADMIN_LIVE ? "No file was uploaded for this document." : "The uploaded file opens here once storage is connected."}
               </p>
             </div>
           </div>
@@ -929,11 +961,17 @@ export function VerificationReview({ id }: { id: string }) {
               variant="primary"
               disabled={!scheduleDate || !scheduleLocation.trim()}
               onClick={async () => {
-                const updated = await verificationService.scheduleInspection(id, {
-                  scheduledAt: new Date(scheduleDate).toISOString(),
-                  location: scheduleLocation,
-                  note: scheduleNote || undefined,
-                });
+                let updated: PhysicalInspection;
+                try {
+                  updated = await adminData.scheduleApplicationInspection(id, {
+                    scheduledAt: new Date(scheduleDate).toISOString(),
+                    location: scheduleLocation,
+                    note: scheduleNote || undefined,
+                  });
+                } catch (error) {
+                  failed(error);
+                  return;
+                }
                 setInspectionOverride(updated);
                 setScheduleOpen(false);
                 toast({
@@ -1071,16 +1109,38 @@ export function VerificationReview({ id }: { id: string }) {
         loading={decide.isPending}
       />
 
-      <ConfirmDialog
+      <Modal
         open={confirming === "REJECT"}
         onClose={() => setConfirming(null)}
-        onConfirm={() => decide.mutate("REJECT")}
         title="Reject this application?"
         description="Rejection closes the application. If the applicant could fix the problem, request changes instead."
-        confirmLabel="Reject application"
-        tone="danger"
-        loading={decide.isPending}
-      />
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirming(null)} disabled={decide.isPending}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              loading={decide.isPending}
+              loadingLabel="Rejecting"
+              disabled={!rejectReason.trim()}
+              onClick={() => decide.mutate("REJECT")}
+            >
+              Reject application
+            </Button>
+          </>
+        }
+      >
+        <Textarea
+          label="Reason, shared with the applicant"
+          placeholder="Why the application can't go ahead"
+          rows={3}
+          value={rejectReason}
+          onChange={(event) => setRejectReason(event.target.value)}
+          required
+        />
+      </Modal>
     </div>
   );
 }

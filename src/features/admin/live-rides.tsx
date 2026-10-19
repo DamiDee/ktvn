@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, ChevronRight, Radio, ShieldAlert } from "lucide-react";
@@ -13,25 +13,19 @@ import { EmptyState, ErrorState } from "@/components/ui/states";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/app-shell";
 import { queryKeys } from "@/constants/query-keys";
-import { adminService } from "@/services";
+import { adminData, chipCount, type RideFilter } from "./data/admin-data";
+import { ADMIN_POLL_MS } from "./data/use-admin-live";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
   RIDE_STATUS_PRESENTATION,
   RIDE_TYPE_LABEL,
   TRACK_LABEL,
   TRACK_TONE,
 } from "@/constants/status-presentation";
-import { DriverTrack, RideStatus, RideType } from "@/types/enums";
 import { formatEta, formatPlate, pluralise, shortName } from "@/lib/format";
 import type { LiveRideSummary } from "@/types/models";
 
-type Filter =
-  | "ALL"
-  | "SOS"
-  | "PROFESSIONAL"
-  | "SHARED"
-  | "PRIVATE"
-  | "MATCHING"
-  | "IN_PROGRESS";
+type Filter = RideFilter;
 
 /**
  * The live network, in words rather than pixels on a map.
@@ -44,55 +38,26 @@ export function LiveRides() {
   const [filter, setFilter] = useState<Filter>("ALL");
   const [search, setSearch] = useState("");
 
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: queryKeys.admin.liveRides(),
-    queryFn: () => adminService.listLiveRides(),
+  const query = useDebouncedValue(search.trim());
+
+  // The whole network, for the header and chip counts.
+  const { data: everything } = useQuery({
+    queryKey: queryKeys.admin.liveRides("ALL"),
+    queryFn: () => adminData.listRides({ filter: "ALL" }),
+    refetchInterval: ADMIN_POLL_MS,
   });
 
-  const all = useMemo(() => (data ?? []).filter((item) => item.track === DriverTrack.PROFESSIONAL), [data]);
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: queryKeys.admin.liveRides(filter, query),
+    queryFn: () => adminData.listRides({ filter, q: query }),
+    refetchInterval: ADMIN_POLL_MS,
+  });
 
-  const rides = useMemo(() => {
-    let list = all;
-
-    switch (filter) {
-      case "SOS":
-        list = list.filter((ride) => ride.sosActive);
-        break;
-      case "PROFESSIONAL":
-        list = list.filter((ride) => ride.track === DriverTrack.PROFESSIONAL);
-        break;
-      case "SHARED":
-        list = list.filter((ride) => ride.rideType === RideType.SHARED);
-        break;
-      case "PRIVATE":
-        list = list.filter((ride) => ride.rideType === RideType.PRIVATE);
-        break;
-      case "MATCHING":
-        list = list.filter((ride) => ride.status === RideStatus.SEARCHING);
-        break;
-      case "IN_PROGRESS":
-        list = list.filter((ride) => ride.status === RideStatus.IN_PROGRESS);
-        break;
-    }
-
-    const term = search.trim().toLowerCase();
-    if (term) {
-      list = list.filter(
-        (ride) =>
-          ride.driverName.toLowerCase().includes(term) ||
-          ride.reference.toLowerCase().includes(term) ||
-          ride.destinationLabel.toLowerCase().includes(term) ||
-          ride.passengers.some((person) =>
-            person.name.toLowerCase().includes(term),
-          ),
-      );
-    }
-
-    return list;
-  }, [all, filter, search]);
-
-  const sosCount = all.filter((ride) => ride.sosActive).length;
-  const riders = all.reduce((total, ride) => total + ride.passengerCount, 0);
+  const all = everything?.items ?? [];
+  const rides = data?.items ?? [];
+  const total = everything ? chipCount(everything.counts, "all") ?? everything.total : 0;
+  const sosCount = everything ? chipCount(everything.counts, "sos") ?? all.filter((ride) => ride.sosActive).length : 0;
+  const riders = all.reduce((sum, ride) => sum + ride.passengerCount, 0);
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -102,7 +67,7 @@ export function LiveRides() {
         description="Every journey in progress, who is on it and where they're going."
         action={
           <StatusChip tone="active" dot live size="md">
-            {all.length} {pluralise(all.length, "ride")} · {riders}{" "}
+            {total} {pluralise(total, "ride")} · {riders}{" "}
             {pluralise(riders, "rider")}
           </StatusChip>
         }
@@ -124,7 +89,7 @@ export function LiveRides() {
             value={filter}
             onChange={setFilter}
             options={[
-              { value: "ALL", label: "All", count: all.length },
+              { value: "ALL", label: "All", count: total },
               { value: "SOS", label: "SOS", count: sosCount },
               { value: "IN_PROGRESS", label: "In progress" },
               { value: "MATCHING", label: "Matching" },
@@ -148,12 +113,12 @@ export function LiveRides() {
             icon={Radio}
             size="sm"
             title={
-              all.length === 0
+              total === 0 && !query
                 ? "No rides in progress."
                 : "Nothing matches that filter."
             }
             description={
-              all.length === 0
+              total === 0 && !query
                 ? "Journeys appear here the moment a driver is matched."
                 : "Try a different filter, or clear it to see every live ride."
             }

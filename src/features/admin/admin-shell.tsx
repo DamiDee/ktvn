@@ -5,11 +5,13 @@ import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/layout/app-shell";
 import { ADMIN_NAV } from "@/constants/navigation";
 import { queryKeys } from "@/constants/query-keys";
-import { adminService, userService } from "@/services";
+import { userService } from "@/services";
 import { isSosLive } from "@/lib/state-machines";
 import { shortName } from "@/lib/format";
 import { ADMIN_USER } from "@/mocks/people";
-import { SosBanner } from "@/components/safety/sos-banner";
+import { AdminLiveLayer } from "./admin-live-layer";
+import { useActiveSos } from "./data/use-admin-live";
+import { ADMIN_LIVE } from "./data/admin-data";
 import { LIVE_FREE_BUSES } from "@/lib/freebus-config";
 import { LiveFreeBusShell } from "@/features/free-buses/live-shell";
 import { AdminWorkspaceSwitch } from "@/components/layout/admin-workspace-switch";
@@ -25,12 +27,7 @@ function DemoAdminShell({ children }: { children: ReactNode }) {
     initialData: ADMIN_USER,
   });
 
-  const { data: overview } = useQuery({
-    queryKey: queryKeys.admin.overview(),
-    queryFn: () => adminService.getOverview(),
-  });
-
-  const sos = overview?.activeSos;
+  const { data: sos } = useActiveSos();
   const sosLive = sos ? isSosLive(sos.status) : false;
 
   return (
@@ -50,8 +47,8 @@ function DemoAdminShell({ children }: { children: ReactNode }) {
       }
     >
       <div className="mb-6 ml-auto max-w-sm"><AdminWorkspaceSwitch /></div>
-      <p className="mb-6 text-xs text-ink-secondary">Preview workspace · Demo records and simulated actions</p>
-      {sosLive && sos ? <SosBanner alert={sos} className="mb-6" /> : null}
+      {ADMIN_LIVE ? null : <p className="mb-6 text-xs text-ink-secondary">Preview workspace · Demo records and simulated actions</p>}
+      <AdminLiveLayer />
       {children}
     </AppShell>
   );

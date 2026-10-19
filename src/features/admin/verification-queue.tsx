@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ClipboardCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -12,71 +12,41 @@ import { EmptyState, ErrorState } from "@/components/ui/states";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/layout/app-shell";
 import { queryKeys } from "@/constants/query-keys";
-import { verificationService } from "@/services";
+import { adminData, chipCount, type ApplicationFilter } from "./data/admin-data";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
   TRACK_LABEL,
   TRACK_TONE,
   VERIFICATION_PRESENTATION,
 } from "@/constants/status-presentation";
-import { DocumentStatus, DriverTrack, VerificationStatus } from "@/types/enums";
+import { DocumentStatus } from "@/types/enums";
 import { formatDate, pluralise } from "@/lib/format";
 import type { DriverVerification } from "@/types/models";
 
-type Filter = "ALL" | "REVIEW" | "INSPECTION" | "CHANGES" | "PROFESSIONAL";
+type Filter = ApplicationFilter;
 
 export function VerificationQueue() {
   const [filter, setFilter] = useState<Filter>("ALL");
   const [search, setSearch] = useState("");
 
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: queryKeys.admin.verifications(),
-    queryFn: () => verificationService.listQueue(),
+  const query = useDebouncedValue(search.trim());
+
+  // Unfiltered, for chip counts and the header.
+  const { data: everything } = useQuery({
+    queryKey: queryKeys.admin.verifications("ALL"),
+    queryFn: () => adminData.listApplications({ filter: "ALL" }),
   });
 
-  const rows = useMemo(() => {
-    let list = (data ?? []).filter((item) => item.track === DriverTrack.PROFESSIONAL);
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: queryKeys.admin.verifications(filter, query),
+    queryFn: () => adminData.listApplications({ filter, q: query }),
+  });
 
-    switch (filter) {
-      case "REVIEW":
-        list = list.filter(
-          (record) =>
-            record.status === VerificationStatus.DOCUMENT_REVIEW ||
-            record.status === VerificationStatus.SUBMITTED ||
-            record.status === VerificationStatus.FINAL_REVIEW,
-        );
-        break;
-      case "INSPECTION":
-        list = list.filter(
-          (record) =>
-            record.status === VerificationStatus.INSPECTION_REQUIRED ||
-            record.status === VerificationStatus.INSPECTION_SCHEDULED,
-        );
-        break;
-      case "CHANGES":
-        list = list.filter(
-          (record) => record.status === VerificationStatus.CHANGES_REQUIRED,
-        );
-        break;
-      case "PROFESSIONAL":
-        list = list.filter(
-          (record) => record.track === DriverTrack.PROFESSIONAL,
-        );
-        break;
-    }
-
-    const term = search.trim().toLowerCase();
-    if (term) {
-      list = list.filter((record) =>
-        record.applicantName.toLowerCase().includes(term),
-      );
-    }
-
-    return list;
-  }, [data, filter, search]);
-
-  const all = (data ?? []).filter((item) => item.track === DriverTrack.PROFESSIONAL);
+  const total = everything ? chipCount(everything.counts, "all") ?? everything.total : 0;
+  const rows = data?.items ?? [];
 
   function documentSummary(record: DriverVerification) {
+    if (record.documentsTotal !== undefined) return `${record.documentsReady ?? 0}/${record.documentsTotal}`;
     const ready = record.documents.filter(
       (doc) =>
         doc.status === DocumentStatus.VERIFIED ||
@@ -184,7 +154,7 @@ export function VerificationQueue() {
         description="Review professional driver applications, documents and inspections."
         action={
           <StatusChip tone="pending" dot size="md">
-            {all.length} {pluralise(all.length, "application")}
+            {total} {pluralise(total, "application")}
           </StatusChip>
         }
       />
@@ -205,7 +175,7 @@ export function VerificationQueue() {
             value={filter}
             onChange={setFilter}
             options={[
-              { value: "ALL", label: "All", count: all.length },
+              { value: "ALL", label: "All", count: total },
               { value: "REVIEW", label: "In review" },
               { value: "INSPECTION", label: "Inspection" },
               { value: "CHANGES", label: "Changes required" },

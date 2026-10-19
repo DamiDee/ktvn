@@ -22,11 +22,10 @@ import { useToast } from "@/components/ui/toast";
 import { PageHeader } from "@/components/layout/app-shell";
 import { BarChart } from "@/components/analytics/bar-chart";
 import { queryKeys } from "@/constants/query-keys";
-import { adminService } from "@/services";
+import { adminData, type Period } from "./data/admin-data";
 import { formatCompactNumber, formatNaira } from "@/lib/format";
 import type { LucideIcon } from "lucide-react";
 
-type Period = "WEEK" | "MONTH" | "QUARTER";
 
 const PERIOD_LABEL: Record<Period, string> = {
   WEEK: "Last 7 days",
@@ -64,10 +63,11 @@ const SECTION_SERIES_LABELS: Record<string, [string, string?]> = {
 export function Reports() {
   const { toast } = useToast();
   const [period, setPeriod] = useState<Period>("MONTH");
+  const [exporting, setExporting] = useState(false);
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: queryKeys.admin.reports(),
-    queryFn: () => adminService.listReports(),
+    queryKey: queryKeys.admin.reports(period),
+    queryFn: () => adminData.listReports(period),
   });
 
   return (
@@ -81,12 +81,22 @@ export function Reports() {
             variant="secondary"
             size="md"
             icon={Download}
-            onClick={() =>
-              toast({
-                title: "Report export queued",
-                description: `${PERIOD_LABEL[period]} will be emailed to you as a CSV.`,
-              })
-            }
+            loading={exporting}
+            onClick={async () => {
+              setExporting(true);
+              try {
+                const result = await adminData.exportReports(period);
+                toast(
+                  result === "downloaded"
+                    ? { title: "Report downloaded", description: `${PERIOD_LABEL[period]} as a CSV file.` }
+                    : { title: "Report export queued", description: `${PERIOD_LABEL[period]} will be emailed to you as a CSV.` },
+                );
+              } catch (error) {
+                toast({ title: "The export didn't download.", description: error instanceof Error ? error.message : undefined, tone: "danger" });
+              } finally {
+                setExporting(false);
+              }
+            }}
           >
             Export
           </Button>

@@ -27,7 +27,7 @@ import { useToast } from "@/components/ui/toast";
 import { PageLoader } from "@/components/ui/route-loader";
 import { PageHeader } from "@/components/layout/app-shell";
 import { queryKeys } from "@/constants/query-keys";
-import { rideService, userService } from "@/services";
+import { adminData } from "./data/admin-data";
 import {
   DRIVER_AVAILABILITY_PRESENTATION,
   RIDE_STATUS_PRESENTATION,
@@ -68,19 +68,31 @@ export function DriverDetail({ driverId }: { driverId: string }) {
   const [inspectionLocation, setInspectionLocation] = useState("Koinonia Centre vehicle bay");
   const [inspectionNote, setInspectionNote] = useState("");
   const [savingInspection, setSavingInspection] = useState(false);
+  const [acting, setActing] = useState(false);
 
   const { data: driver, isLoading, isError, refetch } = useQuery({
     queryKey: queryKeys.admin.driver(driverId),
-    queryFn: () => userService.getDriver(driverId),
+    queryFn: () => adminData.getDriver(driverId),
   });
 
-  // Narrowed to the driver's own track: a volunteer's record must never show
-  // a professional trip's fare (Product Rule 1).
   const { data: trips } = useQuery({
-    queryKey: [...queryKeys.admin.driver(driverId), "trips", driver?.track],
-    queryFn: () => rideService.listDriverTrips(driver?.track),
+    queryKey: [...queryKeys.admin.driver(driverId), "trips"],
+    queryFn: () => adminData.listDriverRides(driverId),
     enabled: Boolean(driver),
   });
+
+  async function act(work: () => Promise<unknown>, onDone: () => void) {
+    setActing(true);
+    try {
+      await work();
+      onDone();
+      await refetch();
+    } catch (error) {
+      toast({ title: "That didn't save.", description: error instanceof Error ? error.message : undefined, tone: "danger" });
+    } finally {
+      setActing(false);
+    }
+  }
 
   if (isLoading) return <PageLoader message="Loading the driver record" />;
 
@@ -334,7 +346,7 @@ export function DriverDetail({ driverId }: { driverId: string }) {
                       <NestedTile className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div className="min-w-0">
                           <p className="type-body truncate font-medium text-ink">
-                            {trip.destination.label}
+                            {trip.destinationLabel}
                           </p>
                           <p className="type-meta truncate text-ink-muted">
                             <span className="type-numeric">
@@ -422,21 +434,25 @@ export function DriverDetail({ driverId }: { driverId: string }) {
                 size="lg"
                 icon={Flag}
                 className="w-full"
-                disabled={flagged || deactivated}
-                onClick={async () => {
-                  await userService.updateDriverAccountStatus(
-                    driver.id,
-                    DriverAccountStatus.FLAGGED,
-                  );
-                  setAccountOverride(DriverAccountStatus.FLAGGED);
-                  setFlagOverride(true);
-                  toast({
-                    title: "Flagged for quality review",
-                    description: "This driver now appears on the quality board.",
-                  });
-                }}
+                disabled={deactivated || acting}
+                onClick={() =>
+                  flagged
+                    ? act(() => adminData.clearDriverFlag(driver.id), () => {
+                        setAccountOverride(DriverAccountStatus.ACTIVE);
+                        setFlagOverride(false);
+                        toast({ title: "Flag cleared", description: "This driver is off the quality board." });
+                      })
+                    : act(() => adminData.flagDriver(driver.id, "Flagged for quality review from the driver record."), () => {
+                        setAccountOverride(DriverAccountStatus.FLAGGED);
+                        setFlagOverride(true);
+                        toast({
+                          title: "Flagged for quality review",
+                          description: "This driver now appears on the quality board.",
+                        });
+                      })
+                }
               >
-                {flagged ? "Flagged for review" : "Flag for review"}
+                {flagged ? "Clear quality flag" : "Flag for review"}
               </Button>
 
               <Button
@@ -444,10 +460,17 @@ export function DriverDetail({ driverId }: { driverId: string }) {
                 size="lg"
                 icon={AlertTriangle}
                 className="w-full text-danger-600 dark:text-red-300"
-                disabled={deactivated}
-                onClick={() => setDeactivating(true)}
+                disabled={acting}
+                onClick={() =>
+                  deactivated
+                    ? act(() => adminData.activateDriver(driver.id), () => {
+                        setAccountOverride(DriverAccountStatus.ACTIVE);
+                        toast({ title: `${driver.fullName} reactivated`, description: "They can sign in again. Going online still needs an approved application and a verified vehicle." });
+                      })
+                    : setDeactivating(true)
+                }
               >
-                {deactivated ? "Deactivated" : "Deactivate driver"}
+                {deactivated ? "Reactivate account" : "Deactivate driver"}
               </Button>
             </div>
 
@@ -468,11 +491,12 @@ export function DriverDetail({ driverId }: { driverId: string }) {
             (driver.inspection?.nextDueAt && new Date(driver.inspection.nextDueAt) < new Date())
               ? "Your account was deactivated because you missed the scheduled vehicle inspection."
               : "Your driving access was deactivated by the oversight team pending review.";
-          await userService.updateDriverAccountStatus(
-            driver.id,
-            DriverAccountStatus.DEACTIVATED,
-            reason,
-          );
+          try {
+            await adminData.deactivateDriver(driver.id, reason);
+          } catch (error) {
+            toast({ title: "That didn't save.", description: error instanceof Error ? error.message : undefined, tone: "danger" });
+            return;
+          }
           setAccountOverride(DriverAccountStatus.DEACTIVATED);
           setDeactivating(false);
           toast({
@@ -506,7 +530,7 @@ export function DriverDetail({ driverId }: { driverId: string }) {
               onClick={async () => {
                 setSavingInspection(true);
                 try {
-                  await userService.scheduleDriverInspection(driver.id, {
+                  await adminData.scheduleDriverInspection(driver.id, {
                     scheduledAt: new Date(inspectionDate).toISOString(),
                     location: inspectionLocation,
                     note: inspectionNote || undefined,
@@ -518,6 +542,8 @@ export function DriverDetail({ driverId }: { driverId: string }) {
                     description: "The appointment is now visible to the driver.",
                     tone: "success",
                   });
+                } catch (error) {
+                  toast({ title: "The appointment didn't save.", description: error instanceof Error ? error.message : undefined, tone: "danger" });
                 } finally {
                   setSavingInspection(false);
                 }
