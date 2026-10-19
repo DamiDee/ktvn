@@ -15,7 +15,7 @@ function application() {
     identity: {
       fullName: "Test Driver Member", email: "driver@example.com", username: "testdriver",
       phone: "+234 802 000 0000", address: "Test address, Abuja", country: "Nigeria", city: "Abuja",
-      nin: "12345678901", workerStatus: "YES", department: "Transportation and Logistics",
+      nin: "12345678901", accountNumber: "0123456789", workerStatus: "YES", department: "Transportation and Logistics",
       guarantorName: "Stale guarantor", guarantorPhone: "+2348000000000", guarantorRelationship: "Friend",
     },
     licence: { licenceNumber: "ABC12345AA", licenceClass: "B", licenceExpiry: expiry.toISOString().slice(0, 10) },
@@ -33,7 +33,7 @@ test("driver registration maps every field into CreateUserDto.driver_details", (
     phone: "+234 802 000 0000", address: "Test address, Abuja", city: "Abuja", country: "Nigeria",
     password: credentials.password, role: "Driver",
     driver_details: {
-      nin: "12345678901", nin_slip: draft.documents[DocumentType.GOVERNMENT_ID].base64,
+      nin: "12345678901", account_number: "0123456789", nin_slip: draft.documents[DocumentType.GOVERNMENT_ID].base64,
       profile_photo: draft.documents[DocumentType.PROFILE_PHOTO].base64,
       is_koinonia_worker: true, koinonia_department: "Transportation and Logistics",
       guarantor_name: null, guarantor_phone: null, guarantor_relationship: null, guarantor_photo: null,
@@ -125,6 +125,7 @@ test("revalidation rejects incomplete and invalid drafts at the relevant step", 
   const invalid = [
     [(d) => { d.identity.username = ""; }, 0],
     [(d) => { d.identity.nin = "bad"; }, 0],
+    [(d) => { d.identity.accountNumber = "12345"; }, 0],
     [(d) => { d.identity.department = "  "; }, 0],
     [(d) => { d.licence.licenceClass = "A"; }, 1],
     [(d) => { d.licence.licenceExpiry = "2099-02-30"; }, 1],

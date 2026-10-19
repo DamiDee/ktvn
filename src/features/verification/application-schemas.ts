@@ -44,6 +44,10 @@ export const identitySchema = z
       .string()
       .regex(/^\d{11}$/, "Enter the 11-digit NIN exactly as issued"),
     address: z.string().trim().min(6, "Enter the address on your NIN record"),
+    accountNumber: z
+      .string()
+      .trim()
+      .regex(/^\d{10}$/, "Enter your 10-digit bank account number"),
     workerStatus: z.enum(["YES", "NO"], {
       message: "Tell us whether you are a Koinonia worker",
     }),

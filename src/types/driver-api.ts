@@ -4,6 +4,7 @@ export type LicenceClass = "B" | "C" | "D" | "E";
 export type DriverTrack = "Volunteer" | "Professional" | "Both";
 
 export interface DriverRegistrationDto {
+  account_number: string;
   guarantor_name?: string | null;
   guarantor_phone?: string | null;
   guarantor_photo?: string | null;
