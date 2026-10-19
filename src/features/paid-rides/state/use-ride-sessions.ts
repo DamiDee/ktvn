@@ -8,6 +8,7 @@ import { useLifecycleRecovery } from "../hooks/use-lifecycle-recovery";
 import { useWakeLock } from "../hooks/use-wake-lock";
 import { getRealtimeClient } from "../realtime";
 import { useDriverLocationReporter } from "../location/use-location";
+import { useLocationStore } from "../location/location-store";
 import { useDriverStore } from "./driver-store";
 import { usePassengerStore } from "./passenger-store";
 
@@ -116,6 +117,7 @@ export function usePassengerSession(): void {
 export function useDriverSession() {
   const rideDispatch = useDriverStore((store) => store.rideDispatch);
   const refresh = useDriverStore((store) => store.refresh);
+  const recoverConnection = useDriverStore((store) => store.recoverConnection);
   const rideId = useDriverStore((store) => store.state.ride.ride?.id ?? null);
   const live = useDriverStore((store) => (store.state.ride.ride ? isLive(store.state.ride.ride.status) : false));
   const availability = useDriverStore((store) => store.state.availability);
@@ -130,6 +132,26 @@ export function useDriverSession() {
     useStableEvent((status) => rideDispatch({ type: "CONNECTION", status })),
     useStableEvent(() => void refresh()),
   );
+
+  useEffect(() => {
+    if (connection !== "open") return;
+    let cancelled = false;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    const recover = async () => {
+      const restored = await recoverConnection();
+      if (cancelled) return;
+      if (!restored) {
+        retry = setTimeout(() => void recover(), 5_000);
+        return;
+      }
+      const availability = useDriverStore.getState().state.availability;
+      if (availability === "ONLINE" || availability === "ON_TRIP") {
+        void useLocationStore.getState().request();
+      }
+    };
+    void recover();
+    return () => { cancelled = true; clearTimeout(retry); };
+  }, [connection, recoverConnection]);
 
   useEffect(() => {
     void refresh();

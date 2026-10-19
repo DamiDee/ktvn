@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { accountSession, accountResult } from "@/lib/account-session";
 import { trackRideEvent } from "../analytics";
 import { toRideError } from "../domain/errors";
+import { isLive } from "../domain/ride-status";
 import { driverSessionReducer, initialDriverSession, type DriverSessionMsg, type DriverSessionState } from "../domain/driver-session";
 import type { RideAction, RideSessionMsg } from "../domain/ride-session";
 import type { RideMessage } from "../domain/types";
@@ -22,6 +23,7 @@ interface DriverStore {
   rideDispatch(msg: RideSessionMsg): void;
 
   refresh(): Promise<void>;
+  recoverConnection(): Promise<boolean>;
   setOnline(online: boolean): Promise<void>;
   acceptOffer(): Promise<void>;
   declineOffer(): Promise<void>;
@@ -34,6 +36,15 @@ interface DriverStore {
 }
 
 let refreshInFlight: Promise<void> | null = null;
+let recoveryInFlight: Promise<boolean> | null = null;
+let availabilityRevision = 0;
+// A manual offline request must land after any in-flight recovery PUT.
+let availabilityWrites: Promise<unknown> = Promise.resolve();
+function writeAvailability<T>(operation: () => Promise<T>): Promise<T> {
+  const result = availabilityWrites.then(operation, operation);
+  availabilityWrites = result.catch(() => undefined);
+  return result;
+}
 
 export const useDriverStore = create<DriverStore>()((set, get) => {
   const dispatch = (msg: DriverSessionMsg) => set((store) => ({ state: driverSessionReducer(store.state, msg) }));
@@ -47,12 +58,15 @@ export const useDriverStore = create<DriverStore>()((set, get) => {
     refresh: () => {
       refreshInFlight ??= (async () => {
         const scope = accountSession.capture();
+        const revision = availabilityRevision;
         if (accountSession.isBlocked()) return;
         rideDispatch({ type: "BOOTSTRAP_START" });
         try {
           const service = getRideService();
           const [availability, ride] = await accountResult(scope, Promise.all([service.getDriverAvailability(), service.getCurrentDriverRide()]));
-          dispatch({ type: "AVAILABILITY_CONFIRMED", availability });
+          if (revision === availabilityRevision && !["GOING_ONLINE", "GOING_OFFLINE"].includes(get().state.availability)) {
+            dispatch({ type: "AVAILABILITY_CONFIRMED", availability });
+          }
           rideDispatch({ type: "BOOTSTRAP_SUCCESS", ride: withoutDismissed(ride) });
         } catch (error) {
           if (!scope.isCurrent()) return;
@@ -64,18 +78,59 @@ export const useDriverStore = create<DriverStore>()((set, get) => {
       return refreshInFlight;
     },
 
+    recoverConnection: () => {
+      if (recoveryInFlight) return recoveryInFlight;
+      const scope = accountSession.capture();
+      const revision = availabilityRevision;
+      const current = () => scope.isCurrent() && !accountSession.isBlocked() && revision === availabilityRevision;
+      const task = (async () => {
+        if (!current()) return false;
+        try {
+          const service = getRideService();
+          const [availability, ride] = await accountResult(scope, Promise.all([service.getDriverAvailability(), service.getCurrentDriverRide()]));
+          if (!current() || ["GOING_ONLINE", "GOING_OFFLINE"].includes(get().state.availability)) return false;
+          const currentRide = get().state.ride.ride;
+          if (currentRide && isLive(currentRide.status) && (!ride || ride.id !== currentRide.id)) return false;
+          dispatch({ type: "AVAILABILITY_CONFIRMED", availability });
+          rideDispatch({ type: "BOOTSTRAP_SUCCESS", ride: withoutDismissed(ride) });
+          // Re-register DB-online drivers in WsRegistry. Never turn an
+          // offline driver on, or use ONLINE to overwrite an active trip.
+          if (availability === "ONLINE" && !(ride && isLive(ride.status))) {
+            await writeAvailability(async () => {
+              const state = get().state;
+              if (!current() || state.availability !== "ONLINE" || state.offer?.phase === "accepting" || (state.ride.ride && isLive(state.ride.ride.status))) return;
+              const restored = await accountResult(scope, service.setDriverAvailability(true, { idempotencyKey: newIdempotencyKey(), signal: scope.signal }));
+              if (current()) dispatch({ type: "AVAILABILITY_CONFIRMED", availability: restored });
+            });
+          }
+          return current();
+        } catch (error) {
+          if (current()) rideDispatch({ type: "BOOTSTRAP_FAILURE", code: toRideError(error).code });
+          return false;
+        }
+      })();
+      recoveryInFlight = task;
+      void task.finally(() => { if (recoveryInFlight === task) recoveryInFlight = null; });
+      return task;
+    },
+
     setOnline: async (online) => {
       const scope = accountSession.capture();
       if (accountSession.isBlocked()) return;
       const before = get().state.availability;
       dispatch({ type: "AVAILABILITY_REQUEST", online });
       if (get().state.availability === before) return;
+      const revision = ++availabilityRevision;
       try {
-        const availability = await accountResult(scope, getRideService().setDriverAvailability(online, { idempotencyKey: newIdempotencyKey() }));
+        const availability = await writeAvailability(async () => {
+          scope.assertCurrent();
+          return accountResult(scope, getRideService().setDriverAvailability(online, { idempotencyKey: newIdempotencyKey(), signal: scope.signal }));
+        });
+        if (!scope.isCurrent() || revision !== availabilityRevision) return;
         dispatch({ type: "AVAILABILITY_CONFIRMED", availability });
         if (online) trackRideEvent("driver_went_online");
       } catch (error) {
-        if (!scope.isCurrent()) return;
+        if (!scope.isCurrent() || revision !== availabilityRevision) return;
         dispatch({ type: "AVAILABILITY_FAILED", code: toRideError(error).code });
       }
     },
@@ -87,6 +142,11 @@ export const useDriverStore = create<DriverStore>()((set, get) => {
       if (!offer || offer.phase !== "incoming") return;
       const offerId = offer.offer.offerId;
       dispatch({ type: "ACCEPT_START", offerId });
+      availabilityRevision += 1;
+      // An already-sent recovery PUT must finish before accepting a trip,
+      // otherwise its late ONLINE write could overwrite the new assignment.
+      await availabilityWrites;
+      if (!scope.isCurrent()) return;
       // One key per offer: a retried tap can never accept twice.
       const result = await getRideService().acceptOffer(offer.offer, { idempotencyKey: `accept:${offerId}` });
       if (!scope.isCurrent()) return;
@@ -206,5 +266,8 @@ export const useDriverStore = create<DriverStore>()((set, get) => {
 
 accountSession.subscribe(() => {
   refreshInFlight = null;
+  recoveryInFlight = null;
+  availabilityRevision += 1;
+  availabilityWrites = Promise.resolve();
   useDriverStore.setState({ state: initialDriverSession });
 });

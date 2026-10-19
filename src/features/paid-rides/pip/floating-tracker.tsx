@@ -100,9 +100,9 @@ const PipContext = createContext<PipControls | null>(null);
  * changes (approach → trip) and closes when the ride ends or the screen
  * unmounts. Panels render the prompt through `PipPromptCard`.
  */
-export function PictureInPictureHost({ frame, children }: { frame: TrackerFrame | null; children: ReactNode }) {
+export function PictureInPictureHost({ frame, children, preferVideo = false }: { frame: TrackerFrame | null; children: ReactNode; preferVideo?: boolean }) {
   const mounted = useMounted();
-  const pip = usePictureInPicture(frame);
+  const pip = usePictureInPicture(frame, preferVideo);
   const { close } = pip;
 
   useEffect(() => {
@@ -110,8 +110,8 @@ export function PictureInPictureHost({ frame, children }: { frame: TrackerFrame 
   }, [frame, close]);
 
   const value = useMemo<PipControls>(
-    () => ({ strategy: mounted ? pipStrategy() : "none", mode: pip.mode, enable: pip.enable }),
-    [mounted, pip.mode, pip.enable],
+    () => ({ strategy: mounted ? pipStrategy(preferVideo) : "none", mode: pip.mode, enable: pip.enable }),
+    [mounted, pip.mode, pip.enable, preferVideo],
   );
 
   return (

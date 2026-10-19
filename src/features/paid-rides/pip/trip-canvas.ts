@@ -22,6 +22,7 @@ export interface TrackerFrame {
   status: string;
   detail: string;
   dark: boolean;
+  heartbeat?: { lastReplyAt: number | null; connected: boolean; timeoutMs: number };
 }
 
 const PALETTE = {
@@ -136,6 +137,23 @@ export function drawTrackerFrame(ctx: CanvasRenderingContext2D, width: number, h
     ctx.fillStyle = colors.muted;
     ctx.fillText(frame.detail, width - 14, height * 0.2, width * 0.45);
     ctx.textAlign = "left";
+  }
+  if (frame.heartbeat) {
+    const now = Date.now();
+    const { lastReplyAt, connected, timeoutMs } = frame.heartbeat;
+    const healthy = connected && lastReplyAt !== null && now - lastReplyAt < timeoutMs;
+    const label = !connected ? "Server disconnected" : lastReplyAt === null ? "Waiting for server reply" : `${healthy ? "Server replied" : "Last server reply"} ${new Date(lastReplyAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
+    ctx.fillStyle = colors.card;
+    ctx.fillRect(0, height - 32, width, 32);
+    // The pulse is animation; the timestamp advances only on a real pong.
+    ctx.fillStyle = healthy ? "#16834a" : "#b77812";
+    ctx.beginPath();
+    ctx.arc(16, height - 16, healthy ? 4 + (Math.sin(now / 250) + 1) : 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = colors.text;
+    ctx.textAlign = "left";
+    ctx.font = "500 13px -apple-system, BlinkMacSystemFont, sans-serif";
+    ctx.fillText(label, 30, height - 11, width - 40);
   }
   ctx.restore();
 }

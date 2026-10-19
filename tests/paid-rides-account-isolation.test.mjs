@@ -9,6 +9,7 @@ import * as errors from "../src/features/paid-rides/domain/errors.ts";
 import * as phases from "../src/features/paid-rides/domain/phases.ts";
 import * as rideSession from "../src/features/paid-rides/domain/ride-session.ts";
 import * as driverSession from "../src/features/paid-rides/domain/driver-session.ts";
+import * as rideStatus from "../src/features/paid-rides/domain/ride-status.ts";
 
 // Execute the actual stores with injected network adapters, without browser or live API writes.
 function loadStore(name, service) {
@@ -18,6 +19,7 @@ function loadStore(name, service) {
     zustand: { create }, "@/lib/account-session": { accountSession, accountResult },
     "../domain/errors": errors, "../domain/phases": phases, "../domain/ride-session": rideSession,
     "../domain/driver-session": driverSession, "../analytics": { trackRideEvent() {} },
+    "../domain/ride-status": rideStatus,
     "../services": { getRideService: () => service, newIdempotencyKey: () => crypto.randomUUID() },
     "./dismissed-rides": { withoutDismissed: (ride) => ride, dismissRideLocally() {} },
     "./preferences-store": { rememberRecentPlace() {} },
@@ -59,4 +61,105 @@ test("an old refresh finishing cannot clear a newer account's in-flight refresh"
   const b = store.getState().refreshCurrentRide(); old.resolve({ id: "A" }); await a;
   assert.equal(store.getState().refreshCurrentRide(), b); assert.equal(calls, 2);
   fresh.resolve(null); await b; assert.equal(store.getState().session.ride, null);
+});
+
+test("reconnect re-registers DB-online drivers without turning offline drivers on", async () => {
+  for (const availability of ["ONLINE", "OFFLINE", "ON_TRIP"]) {
+    accountSession.replace(false);
+    const writes = [];
+    const store = loadStore("driver", {
+      getDriverAvailability: async () => availability,
+      getCurrentDriverRide: async () => availability === "ON_TRIP" ? { id: "active", status: "IN_PROGRESS", version: 1 } : null,
+      setDriverAvailability: async (online) => { writes.push(online); return "ONLINE"; },
+    });
+    assert.equal(await store.getState().recoverConnection(), true);
+    assert.deepEqual(writes, availability === "ONLINE" ? [true] : []);
+    assert.equal(store.getState().state.availability, availability);
+  }
+});
+
+test("recovery never re-registers an assigned driver as available for new rides", async () => {
+  accountSession.replace(false);
+  let writes = 0;
+  const ride = { id: "assigned", status: "DRIVER_ASSIGNED", version: 1 };
+  const store = loadStore("driver", {
+    getDriverAvailability: async () => "ONLINE",
+    getCurrentDriverRide: async () => ride,
+    setDriverAvailability: async () => { writes++; return "ONLINE"; },
+  });
+  await store.getState().recoverConnection();
+  assert.equal(writes, 0);
+  assert.equal(store.getState().state.ride.ride.id, "assigned");
+});
+
+test("manual offline waits for recovery's write and wins", async () => {
+  accountSession.replace(false);
+  const gate = deferred(), started = deferred(), writes = [];
+  const store = loadStore("driver", {
+    getDriverAvailability: async () => "ONLINE", getCurrentDriverRide: async () => null,
+    setDriverAvailability: async (online) => {
+      writes.push(online);
+      if (online) { started.resolve(); await gate.promise; }
+      return online ? "ONLINE" : "OFFLINE";
+    },
+  });
+  const recovery = store.getState().recoverConnection();
+  await started.promise;
+  const offline = store.getState().setOnline(false);
+  assert.deepEqual(writes, [true]);
+  gate.resolve();
+  await Promise.all([recovery, offline]);
+  assert.deepEqual(writes, [true, false]);
+  assert.equal(store.getState().state.availability, "OFFLINE");
+});
+
+test("recovery cannot write for a signed-out account", async () => {
+  accountSession.replace(false);
+  const gate = deferred(); let writes = 0;
+  const store = loadStore("driver", {
+    getDriverAvailability: () => gate.promise, getCurrentDriverRide: async () => null,
+    setDriverAvailability: async () => { writes++; return "ONLINE"; },
+  });
+  const recovery = store.getState().recoverConnection();
+  accountSession.replace(true); gate.resolve("ONLINE");
+  assert.equal(await recovery, false);
+  assert.equal(writes, 0);
+  assert.deepEqual(store.getState().state, driverSession.initialDriverSession);
+});
+
+test("accepting a ride waits for an in-flight availability recovery", async () => {
+  accountSession.replace(false);
+  const started = deferred(), gate = deferred(), calls = [];
+  const store = loadStore("driver", {
+    getDriverAvailability: async () => "ONLINE", getCurrentDriverRide: async () => null,
+    setDriverAvailability: async () => { calls.push("online"); started.resolve(); await gate.promise; return "ONLINE"; },
+    acceptOffer: async () => { calls.push("accept"); return { outcome: "accepted", ride: { id: "new", status: "DRIVER_ASSIGNED", version: 1 } }; },
+  });
+  const recovery = store.getState().recoverConnection(); await started.promise;
+  store.getState().dispatch({ type: "OFFER_RECEIVED", offer: { offerId: "offer", rideId: "new" } });
+  const acceptance = store.getState().acceptOffer();
+  assert.deepEqual(calls, ["online"]);
+  gate.resolve(); await Promise.all([recovery, acceptance]);
+  assert.deepEqual(calls, ["online", "accept"]);
+  assert.equal(store.getState().state.availability, "ON_TRIP");
+});
+
+test("failed recovery can retry and an old refresh cannot undo manual offline", async () => {
+  accountSession.replace(false);
+  let fail = true;
+  const gate = deferred();
+  let delayed = false;
+  const store = loadStore("driver", {
+    getDriverAvailability: async () => { if (fail) throw new Error("network"); return delayed ? gate.promise : "ONLINE"; },
+    getCurrentDriverRide: async () => null,
+    setDriverAvailability: async (online) => online ? "ONLINE" : "OFFLINE",
+  });
+  assert.equal(await store.getState().recoverConnection(), false);
+  fail = false;
+  assert.equal(await store.getState().recoverConnection(), true);
+  delayed = true;
+  const refresh = store.getState().refresh();
+  await store.getState().setOnline(false);
+  gate.resolve("ONLINE"); await refresh;
+  assert.equal(store.getState().state.availability, "OFFLINE");
 });

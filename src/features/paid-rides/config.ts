@@ -76,7 +76,7 @@ export const PAID_RIDES_CONFIG = {
 
   /** Realtime reconnection. */
   reconnect: { baseDelayMs: 1_000, maxDelayMs: 30_000, jitterRatio: 0.3 },
-  heartbeatIntervalMs: 25_000,
+  heartbeatIntervalMs: 5_000,
 
   /** "Connection restored" stays visible this long before the pill hides. */
   restoredNoticeMs: 2_400,

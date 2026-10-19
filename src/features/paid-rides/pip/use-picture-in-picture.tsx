@@ -28,7 +28,8 @@ type DocumentPiP = {
 
 export type PipMode = "document" | "video" | null;
 
-export function pipStrategy(): "document" | "video" | "none" {
+export function pipStrategy(preferVideo = false): "document" | "video" | "none" {
+  if (preferVideo && supportsVideoPiP() && supportsCanvasCapture()) return "video";
   if (supportsDocumentPiP()) return "document";
   if (supportsVideoPiP() && supportsCanvasCapture()) return "video";
   return "none";
@@ -58,7 +59,7 @@ function copyStyles(target: Document): void {
   }
 }
 
-export function usePictureInPicture(frame: TrackerFrame | null) {
+export function usePictureInPicture(frame: TrackerFrame | null, preferVideo = false) {
   const [mode, setMode] = useState<PipMode>(null);
   const [pipWindow, setPipWindow] = useState<Window | null>(null);
   const frameRef = useRef(frame);
@@ -94,7 +95,7 @@ export function usePictureInPicture(frame: TrackerFrame | null) {
     if (windowRef.current || video.current) return true;
     opening.current = true;
     const attempt = ++generation.current;
-    const strategy = pipStrategy();
+    const strategy = pipStrategy(preferVideo);
     try {
       if (strategy === "document") {
         const api = (window as unknown as { documentPictureInPicture: DocumentPiP }).documentPictureInPicture;
@@ -129,6 +130,8 @@ export function usePictureInPicture(frame: TrackerFrame | null) {
         element.muted = true;
         element.playsInline = true;
         const stream = canvas.captureStream(4);
+        // Paint after capture starts so a stream frame is available to play().
+        draw();
         element.srcObject = stream;
         element.style.cssText = "position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;";
         document.body.appendChild(element);
@@ -155,12 +158,12 @@ export function usePictureInPicture(frame: TrackerFrame | null) {
       if (attempt === generation.current) opening.current = false;
     }
     return false;
-  }, [close]);
+  }, [close, preferVideo]);
 
   // Never leave a floating window behind when the screen unmounts.
   useEffect(() => () => close(), [close]);
 
-  return { mode, strategy: pipStrategy(), enable, close, pipWindow };
+  return { mode, strategy: pipStrategy(preferVideo), enable, close, pipWindow };
 }
 
 /** Renders children into the Document PiP window. */

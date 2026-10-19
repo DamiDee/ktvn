@@ -21,8 +21,16 @@ export function useLifecycleRecovery(handlers: { onResume: () => void; onOffline
 
   useEffect(() => {
     let hiddenAt: number | null = null;
+    let lastResumeAt: number | null = null;
 
-    const resume = () => latest.current.onResume();
+    const resume = () => {
+      const now = Date.now();
+      // Mobile browsers emit focus, pageshow and visibilitychange together.
+      // Do not repeatedly replace a socket that has just started reconnecting.
+      if (lastResumeAt !== null && now - lastResumeAt < 1_000) return;
+      lastResumeAt = now;
+      latest.current.onResume();
+    };
     const onVisibility = () => {
       if (document.visibilityState === "hidden") {
         hiddenAt = Date.now();
@@ -35,7 +43,7 @@ export function useLifecycleRecovery(handlers: { onResume: () => void; onOffline
     const onPageShow = (event: PageTransitionEvent) => {
       if (event.persisted) resume();
     };
-    const onOffline = () => latest.current.onOffline();
+    const onOffline = () => { lastResumeAt = null; latest.current.onOffline(); };
 
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("pageshow", onPageShow);

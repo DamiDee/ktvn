@@ -30,6 +30,8 @@ export interface RideRealtimeClient {
   /** The browser reported it went offline; show it rather than spinning. */
   markOffline(): void;
   readonly status: ConnectionStatus;
+  /** Actual server pong time; absent for adapters without ping/pong. */
+  readonly lastHeartbeatReplyAt?: number | null;
 }
 
 /** Small helper so implementations share listener bookkeeping. */

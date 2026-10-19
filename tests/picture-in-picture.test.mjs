@@ -5,7 +5,7 @@ import Module from "node:module";
 import ts from "typescript";
 
 // Exercise the hook's asynchronous resource ownership with browser adapters.
-function setup(t, { play = () => Promise.resolve(), enter = () => Promise.resolve() } = {}) {
+function setup(t, { play = () => Promise.resolve(), enter = () => Promise.resolve(), documentSupported = false, preferVideo = false } = {}) {
   const effects = [];
   const resources = [];
   const previous = Object.getOwnPropertyDescriptor(globalThis, "document");
@@ -31,14 +31,22 @@ function setup(t, { play = () => Promise.resolve(), enter = () => Promise.resolv
     react: { useRef: (current) => ({ current }), useState: (value) => [value, () => {}], useCallback: (callback) => callback, useEffect: (effect) => effects.push(effect()) },
     "react-dom": { createPortal() {} },
     "../analytics": { trackRideEvent() {} },
-    "../capabilities": { supportsDocumentPiP: () => false, supportsVideoPiP: () => true, supportsCanvasCapture: () => true },
+    "../capabilities": { supportsDocumentPiP: () => documentSupported, supportsVideoPiP: () => true, supportsCanvasCapture: () => true },
     "./trip-canvas": { drawTrackerFrame() {} },
   };
   const loaded = new Module(file.pathname);
   loaded.require = (name) => { if (!(name in dependencies)) throw new Error(name); return dependencies[name]; };
   loaded._compile(compiled, file.pathname);
-  return { controls: loaded.exports.usePictureInPicture({}), resources };
+  return { controls: loaded.exports.usePictureInPicture({}, preferVideo), resources };
 }
+
+test("driver preference selects canvas video even when document PiP exists", async (t) => {
+  const { controls, resources } = setup(t, { documentSupported: true, preferVideo: true });
+  assert.equal(controls.strategy, "video");
+  assert.equal(await controls.enable(), true);
+  assert.equal(resources.length, 1);
+  controls.close();
+});
 
 test("denied video PiP stops the captured stream and removes the video", async (t) => {
   const { controls, resources } = setup(t, { enter: () => Promise.reject(new Error("Denied")) });

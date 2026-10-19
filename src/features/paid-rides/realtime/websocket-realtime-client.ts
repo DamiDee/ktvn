@@ -27,6 +27,7 @@ type ServerFrame = { type?: unknown; event?: unknown };
 export interface WebSocketClientOptions {
   url?: string;
   heartbeatIntervalMs?: number;
+  connectTimeoutMs?: number;
 }
 
 export class WebSocketRealtimeClient implements RideRealtimeClient {
@@ -39,15 +40,23 @@ export class WebSocketRealtimeClient implements RideRealtimeClient {
   private attempt = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private connectTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly connectTimeoutMs: number;
   private wanted = false;
   private everConnected = false;
   private readonly url: string;
   private readonly heartbeatIntervalMs: number;
   private awaitingPong = false;
+  private heartbeatReplyAt: number | null = null;
+
+  get lastHeartbeatReplyAt(): number | null {
+    return this.heartbeatReplyAt;
+  }
 
   constructor(options: WebSocketClientOptions = {}) {
     this.url = (options.url ?? PAID_RIDES_CONFIG.realtimeUrl).replace(/\/$/, "");
     this.heartbeatIntervalMs = options.heartbeatIntervalMs ?? PAID_RIDES_CONFIG.heartbeatIntervalMs;
+    this.connectTimeoutMs = options.connectTimeoutMs ?? 10_000;
   }
 
   get status(): ConnectionStatus {
@@ -76,9 +85,15 @@ export class WebSocketRealtimeClient implements RideRealtimeClient {
     this.setStatus(this.everConnected ? "reconnecting" : "connecting");
     const socket = new WebSocket(this.url);
     this.socket = socket;
+    this.connectTimer = setTimeout(() => {
+      if (this.socket !== socket || !this.wanted) return;
+      this.closeSocket();
+      this.scheduleReconnect();
+    }, this.connectTimeoutMs);
 
     socket.onopen = () => {
       if (this.socket !== socket || !this.wanted) return;
+      this.clearConnectTimer();
       const wasReconnect = this.everConnected;
       this.everConnected = true;
       this.attempt = 0;
@@ -96,7 +111,11 @@ export class WebSocketRealtimeClient implements RideRealtimeClient {
       } catch {
         return;
       }
-      if (frame?.type === "pong") { this.awaitingPong = false; return; }
+      if (frame?.type === "pong") {
+        if (this.awaitingPong) this.heartbeatReplyAt = Date.now();
+        this.awaitingPong = false;
+        return;
+      }
       if (frame?.type !== "event") return;
       const event = mapRealtimeEvent(frame.event, { trustSeq: PAID_RIDES_CONFIG.trustRealtimeSeq });
       if (event) this.events.emit(event);
@@ -104,6 +123,7 @@ export class WebSocketRealtimeClient implements RideRealtimeClient {
 
     socket.onclose = () => {
       if (this.socket !== socket) return;
+      this.clearConnectTimer();
       this.stopHeartbeat();
       this.socket = null;
       if (this.wanted) this.scheduleReconnect();
@@ -160,10 +180,16 @@ export class WebSocketRealtimeClient implements RideRealtimeClient {
   }
 
   private closeSocket(): void {
+    this.clearConnectTimer();
     const previous = this.socket;
     this.socket = null;
     this.stopHeartbeat();
     previous?.close(1000, "client reconnect or disconnect");
+  }
+
+  private clearConnectTimer(): void {
+    if (this.connectTimer) clearTimeout(this.connectTimer);
+    this.connectTimer = null;
   }
 
   private startHeartbeat(): void {
@@ -182,6 +208,7 @@ export class WebSocketRealtimeClient implements RideRealtimeClient {
   private stopHeartbeat(): void {
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
     this.heartbeatTimer = null;
+    this.heartbeatReplyAt = null;
   }
 
   private send(frame: Record<string, unknown>): boolean {

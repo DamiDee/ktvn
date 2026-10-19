@@ -6,21 +6,22 @@ import { useDriverStore } from "../state/driver-store";
 import { useLocationStore } from "../location/location-store";
 import { PictureInPictureHost, usePipControls } from "./floating-tracker";
 import { driverTrackerFrame } from "./driver-tracker-frame";
+import { getRealtimeClient } from "../realtime";
 
 /** Session-scoped so navigating to requests/account does not close the map. */
 export function DriverFloatingTracker() {
   const state = useDriverStore((store) => store.state);
   const fix = useLocationStore((store) => store.fix);
-  const [now, setNow] = useState(0);
+  const [{ now, lastReplyAt }, setHeartbeat] = useState<{ now: number; lastReplyAt: number | null }>({ now: 0, lastReplyAt: null });
   const active = driverTrackerFrame(state, fix, now) !== null;
   useEffect(() => {
     if (!active) return;
-    const timer = setInterval(() => setNow(Date.now()), 1_000);
+    const timer = setInterval(() => setHeartbeat({ now: Date.now(), lastReplyAt: getRealtimeClient().lastHeartbeatReplyAt ?? null }), 1_000);
     return () => clearInterval(timer);
   }, [active]);
-  const frame = driverTrackerFrame(state, fix, now);
+  const frame = driverTrackerFrame(state, fix, now, lastReplyAt);
   return (
-    <PictureInPictureHost frame={frame}>
+    <PictureInPictureHost frame={frame} preferVideo>
       {frame ? <FloatMapControl /> : null}
     </PictureInPictureHost>
   );

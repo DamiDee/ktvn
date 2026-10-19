@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { WebSocketRealtimeClient } from "../src/features/paid-rides/realtime/websocket-realtime-client.ts";
 import { mapPoint, mapLocation, mapMoney, mapFare, mapEstimate, mapRide, mapRideEnvelope, mapContact, mapRealtimeEvent } from "../src/features/paid-rides/services/api-mappers.ts";
 import { toRideError } from "../src/features/paid-rides/domain/errors.ts";
+import { PAID_RIDES_CONFIG } from "../src/features/paid-rides/config.ts";
 
 class FakeSocket {
   static OPEN = 1;
@@ -60,6 +61,55 @@ test("a socket that stops answering pings is closed instead of remaining falsely
   t.mock.timers.tick(100); assert.equal(client.status, "open");
   t.mock.timers.tick(100); assert.equal(client.status, "reconnecting");
   assert.equal(socket.readyState, 3);
+});
+
+test("heartbeat confirmation requires a real pong and is cleared on reconnect", (t) => {
+  t.mock.timers.enable({ apis: ["setInterval", "Date"], now: 1000 });
+  const client = setup(t); client.connect();
+  const first = FakeSocket.instances[0]; first.open();
+  assert.equal(client.lastHeartbeatReplyAt, null);
+  first.onmessage({ data: '{"type":"pong"}' });
+  assert.equal(client.lastHeartbeatReplyAt, null);
+  t.mock.timers.tick(100);
+  assert.equal(client.lastHeartbeatReplyAt, null);
+  first.onmessage({ data: '{"type":"pong"}' });
+  assert.equal(client.lastHeartbeatReplyAt, 1100);
+  t.mock.timers.tick(100);
+  assert.equal(client.lastHeartbeatReplyAt, 1100);
+  client.reconnectNow();
+  assert.equal(client.lastHeartbeatReplyAt, null);
+  first.onmessage({ data: '{"type":"pong"}' });
+  assert.equal(client.lastHeartbeatReplyAt, null);
+});
+
+test("production heartbeat sends a WebSocket ping every five seconds", (t) => {
+  assert.equal(PAID_RIDES_CONFIG.heartbeatIntervalMs, 5_000);
+  t.mock.timers.enable({ apis: ["setInterval"] });
+  const original = globalThis.WebSocket;
+  globalThis.WebSocket = FakeSocket;
+  const client = new WebSocketRealtimeClient({ url: "wss://example.test/rides/ws" });
+  t.after(() => { client.disconnect(); globalThis.WebSocket = original; });
+  client.connect(); const socket = FakeSocket.instances.at(-1); socket.open();
+  t.mock.timers.tick(4999); assert.equal(socket.sent.length, 0);
+  t.mock.timers.tick(1); assert.deepEqual(socket.sent, [{ type: "ping" }]);
+  socket.onmessage({ data: '{"type":"pong"}' });
+  t.mock.timers.tick(5000); assert.equal(socket.sent.length, 2);
+});
+
+test("a stuck WebSocket handshake times out and retries without a reload", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const client = setup(t); client.connect();
+  const first = FakeSocket.instances[0];
+  t.mock.timers.tick(10_000);
+  assert.equal(first.readyState, 3);
+  assert.equal(client.status, "reconnecting");
+  t.mock.timers.tick(2_000);
+  assert.equal(FakeSocket.instances.length, 2);
+  const second = FakeSocket.instances[1]; second.open();
+  first.open(); first.onclose();
+  assert.equal(client.status, "open");
+  t.mock.timers.tick(10_000);
+  assert.equal(second.readyState, 1);
 });
 
 test("untrusted coordinates, fares, timestamps and call links fail safely", () => {
