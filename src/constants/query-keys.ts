@@ -32,6 +32,7 @@ export const queryKeys = {
       [...queryKeys.admin.root, "verification", id] as const,
     drivers: (filter?: string, q?: string) => [...queryKeys.admin.root, "drivers", filter ?? "ALL", q ?? ""] as const,
     driver: (id: string) => [...queryKeys.admin.root, "driver", id] as const,
+    liveDrivers: () => [...queryKeys.admin.root, "live-drivers"] as const,
     passengers: (filter?: string, q?: string) => [...queryKeys.admin.root, "passengers", filter ?? "ALL", q ?? ""] as const,
     passenger: (id: string) => [...queryKeys.admin.root, "passenger", id] as const,
     incidents: (filter?: string, q?: string) =>

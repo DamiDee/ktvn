@@ -8,6 +8,7 @@ import {
   mapApplication,
   mapDriver,
   mapIncident,
+  mapLiveDrivers,
   mapOverview,
   mapPage,
   mapPassenger,
@@ -173,4 +174,22 @@ test("spec-shaped records (docs/paid-rides/openapi.json) map without guesses", (
   const person = mapPassenger({ userId: "p1", displayName: "M", email: "m@example.test", homeArea: "Wuse", verificationStatus: "APPROVED", membershipStatus: "VERIFIED", restricted: false, trustedContactCount: 0, completedRides: 3, availability: "OFFLINE", accountStatus: "ACTIVE", joinedAt: "2026-01-01T00:00:00Z", rating: null });
   assert.equal(person.homeArea, "Wuse");
   assert.equal(person.totalRides, 3);
+});
+
+test("live drivers keep idle and busy drivers and drop ones without a fix", () => {
+  const snapshot = mapLiveDrivers({
+    items: [
+      { driverId: "d1", displayName: "Ada", phone: "+234 1", lat: 9.05, lng: 7.49, heading: -90, speedMps: 8.2, availableSeats: 2, lastSeenAt: "2026-10-19T17:00:00Z", currentRide: null },
+      { driverId: "d2", displayName: "Bayo", phone: "+234 2", lat: "9.06", lng: "7.5", heading: null, speedMps: null, availableSeats: 0, lastSeenAt: "2026-10-19T17:00:01Z", currentRide: { rideId: "r9", status: "driver_en_route" } },
+      { driverId: "d3", displayName: "No fix", lat: null, lng: 7.5 },
+    ],
+    total: 3,
+  });
+  assert.equal(snapshot.total, 3);
+  assert.deepEqual(snapshot.items.map((driver) => driver.driverId), ["d1", "d2"]);
+  assert.equal(snapshot.items[0].currentRide, null);
+  assert.equal(snapshot.items[0].heading, 270);
+  assert.deepEqual(snapshot.items[1].currentRide, { rideId: "r9", status: "DRIVER_EN_ROUTE" });
+  assert.equal(snapshot.items[1].lat, 9.06);
+  assert.equal(snapshot.items[1].speedMps, null);
 });

@@ -41,6 +41,7 @@ import {
   mapComment0,
   mapDriver,
   mapIncident,
+  mapLiveDrivers,
   mapOverview,
   mapPage,
   mapPassenger,
@@ -50,6 +51,7 @@ import {
   mapSos,
   type AdminPage,
   type AdminRideRow,
+  type LiveDriversSnapshot,
 } from "./admin-wire";
 
 /**
@@ -100,7 +102,8 @@ export interface CallResult {
   callHref?: string;
 }
 
-export type { AdminPage, AdminRideRow };
+export type { AdminPage, AdminRideRow, LiveDriversSnapshot };
+export type { LiveDriver, LiveDriverRideStatus } from "./admin-wire";
 
 export interface AdminData {
   getOverview(period?: Period): Promise<AdminOverviewData>;
@@ -124,6 +127,8 @@ export interface AdminData {
   scheduleApplicationInspection(id: string, appointment: Appointment): Promise<PhysicalInspection>;
   decide(id: string, decision: Decision, detail?: { reason?: string; changesRequested?: string[] }): Promise<VerificationStatus>;
 
+  /** Every online driver's last ping. Not paginated; drivers drop off ~15 s after their last ping. */
+  listLiveDrivers(): Promise<LiveDriversSnapshot>;
   listDrivers(query: ListQuery<DriverFilter>): Promise<AdminPage<Driver>>;
   getDriver(id: string): Promise<Driver | null>;
   listDriverRides(id: string): Promise<AdminRideRow[]>;
@@ -265,6 +270,9 @@ const live: AdminData = {
     return mapApplication({ id: userId, status: body?.status ?? fallback })?.status ?? fallback;
   },
 
+  async listLiveDrivers() {
+    return mapLiveDrivers(await adminRequest("admin/drivers/live"));
+  },
   async listDrivers({ filter, q }) {
     const page = mapPage(await adminRequest(withQuery("admin/drivers", {
       q: q?.trim(),
@@ -443,6 +451,9 @@ const demo: AdminData = {
     return verificationService.decide(applicationId, decision);
   },
 
+  async listLiveDrivers() {
+    return adminService.listLiveDrivers();
+  },
   async listDrivers({ filter, q }) {
     const all = (await userService.listDrivers()).filter((driver) => driver.track === DriverTrack.PROFESSIONAL);
     const items = all.filter((driver) => {

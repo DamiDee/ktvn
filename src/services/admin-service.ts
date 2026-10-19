@@ -3,12 +3,14 @@ import {
   ADMIN_METRICS,
   ADMIN_SECONDARY_METRICS,
   INCIDENTS,
+  LIVE_DRIVERS,
   LIVE_RIDES,
   QUALITY_FLAGS,
   REPORT_SECTIONS,
   RIDE_VOLUME_SERIES,
   TRACK_DISTRIBUTION,
 } from "@/mocks/admin";
+import type { LiveDriversSnapshot } from "@/features/admin/data/admin-wire";
 import { IncidentStatus } from "@/types/enums";
 import type {
   AdminMetric,
@@ -91,6 +93,28 @@ export const adminService = {
       delayMs: MockDelay.normal,
       ...options,
     });
+  },
+
+  /** The live driver map. Moving drivers drift along their heading between polls. */
+  async listLiveDrivers(options?: RequestOptions): Promise<LiveDriversSnapshot> {
+    return request(
+      () => {
+        const now = Date.now();
+        const elapsed = (now % 600_000) / 1_000;
+        const items = LIVE_DRIVERS.map(({ secondsAgo, ...driver }) => {
+          const metres = driver.heading !== null && driver.speedMps ? (driver.speedMps * elapsed) % 1_500 : 0;
+          const radians = ((driver.heading ?? 0) * Math.PI) / 180;
+          return {
+            ...driver,
+            lat: driver.lat + (metres * Math.cos(radians)) / 111_320,
+            lng: driver.lng + (metres * Math.sin(radians)) / (111_320 * Math.cos((driver.lat * Math.PI) / 180)),
+            lastSeenAt: new Date(now - secondsAgo * 1_000).toISOString(),
+          };
+        });
+        return { items, total: items.length };
+      },
+      { delayMs: MockDelay.fast, ...options },
+    );
   },
 
   async acknowledgeSos(options?: RequestOptions): Promise<SOSAlert> {

@@ -20,6 +20,7 @@ import type {
   ReportSection,
   SOSAlert,
 } from "@/types/models";
+import type { LiveDriver } from "@/features/admin/data/admin-wire";
 import { LOCATIONS } from "./locations";
 import { DRIVERS, PASSENGERS } from "./people";
 
@@ -512,4 +513,17 @@ export const REPORT_SECTIONS: ReportSection[] = [
       { label: "Wk 4", value: 68 },
     ],
   },
+];
+
+/**
+ * Online drivers as `GET /admin/drivers/live` returns them. `lastSeenAt` is
+ * filled in at request time (seconds ago), so it is left out here.
+ */
+export const LIVE_DRIVERS: Array<Omit<LiveDriver, "lastSeenAt"> & { secondsAgo: number }> = [
+  { driverId: DRIVERS[0].id, displayName: DRIVERS[0].fullName, phone: DRIVERS[0].phone, lat: 9.0021, lng: 7.3888, heading: 62, speedMps: 11.4, availableSeats: 2, secondsAgo: 3, currentRide: { rideId: "ride-2292", status: "DRIVER_EN_ROUTE" } },
+  { driverId: DRIVERS[1].id, displayName: DRIVERS[1].fullName, phone: DRIVERS[1].phone, lat: 9.0402, lng: 7.3932, heading: 24, speedMps: 9.8, availableSeats: 1, secondsAgo: 2, currentRide: { rideId: "ride-2291", status: "IN_PROGRESS" } },
+  { driverId: DRIVERS[3].id, displayName: DRIVERS[3].fullName, phone: DRIVERS[3].phone, lat: 9.0512, lng: 7.4402, heading: 310, speedMps: 6.2, availableSeats: 0, secondsAgo: 5, currentRide: { rideId: "ride-2293", status: "IN_PROGRESS" } },
+  { driverId: DRIVERS[2].id, displayName: DRIVERS[2].fullName, phone: DRIVERS[2].phone, lat: 8.9968, lng: 7.3801, heading: null, speedMps: 0, availableSeats: 3, secondsAgo: 4, currentRide: { rideId: "ride-2294", status: "DRIVER_ARRIVED" } },
+  { driverId: DRIVERS[4].id, displayName: DRIVERS[4].fullName, phone: DRIVERS[4].phone, lat: 9.0765, lng: 7.4801, heading: 145, speedMps: 4.1, availableSeats: 3, secondsAgo: 6, currentRide: null },
+  { driverId: DRIVERS[5].id, displayName: DRIVERS[5].fullName, phone: DRIVERS[5].phone, lat: 9.0873, lng: 7.4951, heading: null, speedMps: null, availableSeats: 3, secondsAgo: 9, currentRide: null },
 ];

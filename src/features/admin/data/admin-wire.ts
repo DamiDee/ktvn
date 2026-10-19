@@ -873,6 +873,67 @@ export function mapRideRow(value: unknown): AdminRideRow | null {
   };
 }
 
+// ─── Live driver map (`GET /admin/drivers/live`) ──────────────────────────────
+
+/** The ride statuses a driver can be busy with, as the backend sends them. */
+export type LiveDriverRideStatus = "DRIVER_ASSIGNED" | "DRIVER_EN_ROUTE" | "DRIVER_ARRIVING" | "DRIVER_ARRIVED" | "IN_PROGRESS" | "PAUSED";
+
+const LIVE_RIDE_STATUS = new Set<string>(["DRIVER_ASSIGNED", "DRIVER_EN_ROUTE", "DRIVER_ARRIVING", "DRIVER_ARRIVED", "IN_PROGRESS", "PAUSED"]);
+
+/** One online driver's last ping. `currentRide` null means idle, otherwise busy. */
+export interface LiveDriver {
+  driverId: string;
+  displayName: string;
+  phone: string;
+  lat: number;
+  lng: number;
+  heading: number | null;
+  speedMps: number | null;
+  availableSeats: number;
+  lastSeenAt: string;
+  currentRide: { rideId: string; status: LiveDriverRideStatus } | null;
+}
+
+export interface LiveDriversSnapshot {
+  items: LiveDriver[];
+  total: number;
+}
+
+export function mapLiveDriver(value: unknown): LiveDriver | null {
+  const raw = obj(value);
+  const driverId = str(raw?.driverId) ?? str(raw?.id);
+  const lat = num(raw?.lat);
+  const lng = num(raw?.lng);
+  // A driver without a usable fix can't be placed; drop it rather than draw it at 0,0.
+  if (!raw || !driverId || lat === undefined || lng === undefined || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  const ride = obj(raw.currentRide);
+  const rideId = str(ride?.rideId) ?? str(ride?.id);
+  const status = upper(ride?.status);
+  const heading = num(raw.heading);
+  const speed = num(raw.speedMps);
+  return {
+    driverId,
+    displayName: str(raw.displayName) ?? str(raw.name) ?? "Driver",
+    phone: str(raw.phone) ?? "",
+    lat,
+    lng,
+    heading: heading === undefined ? null : ((heading % 360) + 360) % 360,
+    speedMps: speed === undefined || speed < 0 ? null : speed,
+    availableSeats: Math.max(0, Math.round(num(raw.availableSeats) ?? 0)),
+    lastSeenAt: str(raw.lastSeenAt) ?? new Date(0).toISOString(),
+    currentRide: ride && rideId
+      ? { rideId, status: (LIVE_RIDE_STATUS.has(status) ? status : "IN_PROGRESS") as LiveDriverRideStatus }
+      : null,
+  };
+}
+
+export function mapLiveDrivers(value: unknown): LiveDriversSnapshot {
+  const body = unwrap(value);
+  const raw = obj(body);
+  const items = (Array.isArray(body) ? body : list(raw?.items)).map(mapLiveDriver).filter((entry): entry is LiveDriver => entry !== null);
+  return { items, total: num(raw?.total) ?? items.length };
+}
+
 // ─── Socket frames ────────────────────────────────────────────────────────────
 
 export type AdminSocketEvent =

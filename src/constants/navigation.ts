@@ -11,6 +11,7 @@ import {
   Home,
   Inbox,
   LifeBuoy,
+  LocateFixed,
   MapPinned,
   Navigation,
   Route,
@@ -82,6 +83,7 @@ export const ADMIN_NAV: NavItem[] = [
     shortLabel: "Live",
     matchPrefix: true,
   },
+  { href: "/admin/driver-map", label: "Driver Map", icon: LocateFixed, shortLabel: "Map" },
   {
     href: "/admin/verifications",
     label: "Verification",

@@ -23,6 +23,7 @@ const ERROR_COPY: Record<string, string> = {
   validation: "Some of those details weren't accepted. Check them and try again.",
   requests_restricted: "This member is restricted from requesting rides.",
   network: "We couldn't reach the network just now.",
+  dispatch_unavailable: "Live driver locations are unavailable right now. Try again in a moment.",
   unavailable: "The service is unavailable right now. Try again in a moment.",
 };
 
