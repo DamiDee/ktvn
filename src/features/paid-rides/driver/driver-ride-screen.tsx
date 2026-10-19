@@ -6,7 +6,6 @@ import { useIsDesktop } from "@/hooks/use-media-query";
 import { PAID_RIDES_CONFIG } from "../config";
 import { deriveDriverPhase, type DriverPhase } from "../domain/phases";
 import { useLocationStore } from "../location/location-store";
-import { useWakeLock } from "../hooks/use-wake-lock";
 import { useDriverStore } from "../state/driver-store";
 import { useHideRideNav, useRideShell } from "../shell/ride-module-shell";
 import { useRideViewer } from "../hooks/use-ride-viewer";
@@ -48,8 +47,6 @@ export function DriverRideScreen() {
   const [exploring, setExploring] = useState(false);
   const [recenterToken, setRecenterToken] = useState(0);
   const viewer = useRideViewer();
-
-  useWakeLock(phase === "EN_ROUTE_TO_PICKUP" || phase === "ARRIVED_AT_PICKUP" || phase === "TRIP_ACTIVE");
 
   const onCoverChange = useCallback((next: { bottom: number; left: number }) => {
     setCover((current) => (current.bottom === next.bottom && current.left === next.left ? current : next));

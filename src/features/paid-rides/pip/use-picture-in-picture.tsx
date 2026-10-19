@@ -62,19 +62,25 @@ export function usePictureInPicture(frame: TrackerFrame | null) {
   const [mode, setMode] = useState<PipMode>(null);
   const [pipWindow, setPipWindow] = useState<Window | null>(null);
   const frameRef = useRef(frame);
-  const video = useRef<{ element: HTMLVideoElement; canvas: HTMLCanvasElement; timer: ReturnType<typeof setInterval> } | null>(null);
+  const video = useRef<{ element: HTMLVideoElement; stream: MediaStream; timer: ReturnType<typeof setInterval> | null } | null>(null);
   const windowRef = useRef<Window | null>(null);
+  const generation = useRef(0);
+  const opening = useRef(false);
 
   useEffect(() => {
     frameRef.current = frame;
   }, [frame]);
 
   const close = useCallback(() => {
+    generation.current += 1;
+    opening.current = false;
     windowRef.current?.close();
     windowRef.current = null;
     if (video.current) {
-      clearInterval(video.current.timer);
+      if (video.current.timer) clearInterval(video.current.timer);
       if (document.pictureInPictureElement === video.current.element) void document.exitPictureInPicture().catch(() => undefined);
+      video.current.stream.getTracks().forEach((track) => track.stop());
+      video.current.element.pause();
       video.current.element.srcObject = null;
       video.current.element.remove();
       video.current = null;
@@ -84,15 +90,21 @@ export function usePictureInPicture(frame: TrackerFrame | null) {
   }, []);
 
   const enable = useCallback(async (): Promise<boolean> => {
+    if (opening.current) return false;
+    if (windowRef.current || video.current) return true;
+    opening.current = true;
+    const attempt = ++generation.current;
     const strategy = pipStrategy();
     try {
       if (strategy === "document") {
         const api = (window as unknown as { documentPictureInPicture: DocumentPiP }).documentPictureInPicture;
         const opened = await api.requestWindow({ width: 340, height: 236 });
+        if (attempt !== generation.current) { opened.close(); return false; }
         copyStyles(opened.document);
         opened.document.documentElement.className = document.documentElement.className;
         opened.document.title = "K-Rides trip";
         opened.addEventListener("pagehide", () => {
+          if (windowRef.current !== opened) return;
           windowRef.current = null;
           setPipWindow(null);
           setMode(null);
@@ -116,25 +128,31 @@ export function usePictureInPicture(frame: TrackerFrame | null) {
         const element = document.createElement("video");
         element.muted = true;
         element.playsInline = true;
-        element.srcObject = canvas.captureStream(4);
+        const stream = canvas.captureStream(4);
+        element.srcObject = stream;
         element.style.cssText = "position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;";
         document.body.appendChild(element);
-        await element.play();
-        await element.requestPictureInPicture();
-        const timer = setInterval(draw, REDRAW_MS);
-        video.current = { element, canvas, timer };
+        const resource = { element, stream, timer: null as ReturnType<typeof setInterval> | null };
+        video.current = resource;
         element.addEventListener("leavepictureinpicture", () => {
-          clearInterval(timer);
-          element.remove();
-          video.current = null;
-          setMode(null);
-        });
+          if (video.current === resource) close();
+        }, { once: true });
+        await element.play();
+        if (attempt !== generation.current) return false;
+        await element.requestPictureInPicture();
+        if (attempt !== generation.current) {
+          if (document.pictureInPictureElement === element) void document.exitPictureInPicture().catch(() => undefined);
+          return false;
+        }
+        resource.timer = setInterval(draw, REDRAW_MS);
         setMode("video");
         trackRideEvent("pip_enabled", { strategy });
         return true;
       }
     } catch {
-      close();
+      if (attempt === generation.current) close();
+    } finally {
+      if (attempt === generation.current) opening.current = false;
     }
     return false;
   }, [close]);

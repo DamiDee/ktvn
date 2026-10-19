@@ -5,6 +5,7 @@ import { accountSession } from "@/lib/account-session";
 import { STORAGE_KEYS } from "../config";
 import { isLive } from "../domain/ride-status";
 import { useLifecycleRecovery } from "../hooks/use-lifecycle-recovery";
+import { useWakeLock } from "../hooks/use-wake-lock";
 import { getRealtimeClient } from "../realtime";
 import { useDriverLocationReporter } from "../location/use-location";
 import { useDriverStore } from "./driver-store";
@@ -112,7 +113,7 @@ export function usePassengerSession(): void {
   }, [live, connection, refresh]);
 }
 
-export function useDriverSession(): void {
+export function useDriverSession() {
   const rideDispatch = useDriverStore((store) => store.rideDispatch);
   const refresh = useDriverStore((store) => store.refresh);
   const rideId = useDriverStore((store) => store.state.ride.ride?.id ?? null);
@@ -122,6 +123,7 @@ export function useDriverSession(): void {
   const resyncToken = useDriverStore((store) => store.state.ride.resyncToken);
   const listening = availability === "ONLINE" || availability === "ON_TRIP" || availability === "GOING_OFFLINE";
   useDriverLocationReporter(listening);
+  const wakeStatus = useWakeLock(listening || live);
 
   useRealtimeWiring(
     useStableEvent((event) => rideDispatch({ type: "EVENT", event })),
@@ -156,6 +158,7 @@ export function useDriverSession(): void {
     const timer = setInterval(() => void refresh(), connection === "open" ? 30_000 : FALLBACK_POLL_MS);
     return () => clearInterval(timer);
   }, [live, listening, connection, refresh]);
+  return wakeStatus;
 }
 
 /**

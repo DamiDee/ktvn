@@ -48,6 +48,24 @@ export function useDriverLocationReporter(active: boolean): void {
   const lastSentAt = useRef(0);
   useLocationWatch(active);
 
+  // A suspended page may retain a stale watch result. Ask for a fresh fix
+  // immediately on return instead of waiting for the next heartbeat tick.
+  useEffect(() => {
+    if (!active) return;
+    let acquiring = false;
+    const resume = () => {
+      if (document.visibilityState !== "visible" || acquiring) return;
+      acquiring = true;
+      void useLocationStore.getState().request().finally(() => { acquiring = false; });
+    };
+    document.addEventListener("visibilitychange", resume);
+    window.addEventListener("pageshow", resume);
+    return () => {
+      document.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("pageshow", resume);
+    };
+  }, [active]);
+
   useEffect(() => {
     if (!active || !fix || classifyFix(fix, Date.now(), PAID_RIDES_CONFIG.location) === "stale") return;
     const next = { point: fix.point, at: fix.timestamp };

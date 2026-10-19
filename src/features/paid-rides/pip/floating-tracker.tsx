@@ -103,11 +103,11 @@ const PipContext = createContext<PipControls | null>(null);
 export function PictureInPictureHost({ frame, children }: { frame: TrackerFrame | null; children: ReactNode }) {
   const mounted = useMounted();
   const pip = usePictureInPicture(frame);
-  const { close, mode } = pip;
+  const { close } = pip;
 
   useEffect(() => {
-    if (!frame && mode) close();
-  }, [frame, mode, close]);
+    if (!frame) close();
+  }, [frame, close]);
 
   const value = useMemo<PipControls>(
     () => ({ strategy: mounted ? pipStrategy() : "none", mode: pip.mode, enable: pip.enable }),

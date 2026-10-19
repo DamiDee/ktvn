@@ -19,6 +19,7 @@ import { useDriverSession, usePassengerSession } from "../state/use-ride-session
 import { useSilentLocation } from "../location/use-location";
 import { MockDevPanel } from "./mock-dev-panel";
 import { RideModeSwitch } from "./mode-switch";
+import { DriverFloatingTracker } from "../pip/driver-floating-tracker";
 
 /**
  * Paid Rides shell: an immersive, full-viewport frame with its own bubble
@@ -68,8 +69,15 @@ function PassengerSession() {
 }
 
 function DriverSession() {
-  useDriverSession();
-  return null;
+  const wakeStatus = useDriverSession();
+  return (
+    <>
+    <DriverFloatingTracker />
+    {wakeStatus === "unavailable" ? <div role="status" className="absolute inset-x-3 z-40 mx-auto max-w-sm rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950 shadow-sm" style={{ top: "calc(var(--ride-safe-top) + 56px)" }}>
+      Screen stay-awake is unavailable. Keep K-Rides open and turn off auto-lock in your phone settings while online.
+    </div> : null}
+    </>
+  );
 }
 
 export function RideModuleShell({ children }: { children: ReactNode }) {
@@ -164,7 +172,7 @@ export function RideModuleShell({ children }: { children: ReactNode }) {
         >
           <BubbleNav items={navItems} label={role === "driver" ? "Driver navigation" : "Paid Rides navigation"} />
         </div>
-        <div
+        {role === "passenger" ? <div
           className={cn(
             "pointer-events-none absolute left-3 z-30 transition-[opacity,transform] duration-300 ease-[var(--ride-ease)] lg:left-[calc(25rem+2.5rem)]",
             navHidden && "-translate-y-3 opacity-0",
@@ -174,7 +182,7 @@ export function RideModuleShell({ children }: { children: ReactNode }) {
           inert={navHidden || undefined}
         >
           <RideModeSwitch />
-        </div>
+        </div> : null}
         {PAID_RIDES_MODE === "mock" ? <MockDevPanel role={role} /> : null}
       </div>
     </ShellContext.Provider>
