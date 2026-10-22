@@ -15,7 +15,7 @@ function application() {
     identity: {
       fullName: "Test Driver Member", email: "driver@example.com", username: "testdriver",
       phone: "+234 802 000 0000", address: "Test address, Abuja", country: "Nigeria", city: "Abuja",
-      nin: "12345678901", accountNumber: "0123456789", workerStatus: "YES", department: "Transportation and Logistics",
+      nin: "12345678901", accountNumber: "0123456789", bankName: "Test Bank", workerStatus: "YES", department: "Transportation and Logistics",
       guarantorName: "Stale guarantor", guarantorPhone: "+2348000000000", guarantorRelationship: "Friend",
     },
     licence: { licenceNumber: "ABC12345AA", licenceClass: "B", licenceExpiry: expiry.toISOString().slice(0, 10) },
@@ -31,9 +31,9 @@ test("driver registration maps every field into CreateUserDto.driver_details", (
   assert.deepEqual(payload, {
     first_name: "Test", last_name: "Driver Member", email: "driver@example.com", username: "testdriver",
     phone: "+234 802 000 0000", address: "Test address, Abuja", city: "Abuja", country: "Nigeria",
-    password: credentials.password, role: "Driver",
+    password: credentials.password, role: "Driver", account_number: "0123456789", bank_name: "Test Bank",
     driver_details: {
-      nin: "12345678901", account_number: "0123456789", nin_slip: draft.documents[DocumentType.GOVERNMENT_ID].base64,
+      nin: "12345678901", nin_slip: draft.documents[DocumentType.GOVERNMENT_ID].base64,
       profile_photo: draft.documents[DocumentType.PROFILE_PHOTO].base64,
       is_koinonia_worker: true, koinonia_department: "Transportation and Logistics",
       guarantor_name: null, guarantor_phone: null, guarantor_relationship: null, guarantor_photo: null,
@@ -230,4 +230,18 @@ test("file selection rejects empty, oversized and unsupported documents", async 
     await assert.rejects(encodeDocumentFile(file));
   }
   assert.equal((await encodeDocumentFile(new File(["test"], "profile.JPG", { type: "image/jpeg" }))).base64, "dGVzdA==");
+});
+
+
+test("driver bank name is required and bank fields use the documented user payload", () => {
+  for (const value of [undefined, "", "  "]) {
+    const draft = application(); draft.identity.bankName = value;
+    assert.throws(() => buildDriverRegistration(draft, credentials), (error) => error instanceof DriverApplicationError && error.stepIndex === 0);
+  }
+  const draft = application(); draft.identity.bankName = "  Test Bank  ";
+  const payload = buildDriverRegistration(draft, credentials);
+  assert.equal(payload.account_number, "0123456789");
+  assert.equal(payload.bank_name, "Test Bank");
+  assert.equal("account_number" in payload.driver_details, false);
+  assert.equal("bank_name" in payload.driver_details, false);
 });

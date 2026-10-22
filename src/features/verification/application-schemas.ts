@@ -48,6 +48,7 @@ export const identitySchema = z
       .string()
       .trim()
       .regex(/^\d{10}$/, "Enter your 10-digit bank account number"),
+    bankName: z.string().trim().min(2, "Enter your bank name").max(120, "Bank name is too long"),
     workerStatus: z.enum(["YES", "NO"], {
       message: "Tell us whether you are a Koinonia worker",
     }),

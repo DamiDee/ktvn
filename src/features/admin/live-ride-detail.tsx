@@ -112,12 +112,17 @@ export function LiveRideDetail({ rideId }: { rideId: string }) {
     );
   }
 
+  const past = ride.status === RideStatus.COMPLETED || ride.status === RideStatus.CANCELLED || ride.status === RideStatus.CLOSED;
   const sos = ride.sos ?? (ride.sosActive && !ADMIN_LIVE ? ACTIVE_SOS : null);
   const onBoard = ride.passengers.filter(
     (person) => person.state === RidePassengerState.PICKED_UP,
   ).length;
 
-  const timeline: TimelineItem[] = ride.events?.length ? ride.events.map((event, index, events) => ({
+  const timeline: TimelineItem[] = past && !ride.events?.length ? [{
+    id: "ended", label: ride.status === RideStatus.CANCELLED ? "Ride cancelled" : "Ride completed",
+    description: "This journey has ended.", state: "COMPLETE",
+    meta: ride.completedAt || ride.cancelledAt ? formatTime((ride.completedAt ?? ride.cancelledAt)!) : undefined,
+  }] : ride.events?.length ? ride.events.map((event, index, events) => ({
     id: event.id,
     label: event.label,
     description: event.detail,
@@ -168,11 +173,11 @@ export function LiveRideDetail({ rideId }: { rideId: string }) {
   return (
     <div className="mx-auto max-w-4xl">
       <Link
-        href="/admin/live-rides"
+        href={past ? "/admin/ride-history" : "/admin/live-rides"}
         className="kx-tap type-meta mb-4 inline-flex items-center gap-1.5 font-medium text-ink-secondary transition-colors hover:text-ink"
       >
         <ArrowLeft className="size-4" strokeWidth={2} aria-hidden />
-        Live rides
+        {past ? "Ride history" : "Live rides"}
       </Link>
 
       <PageHeader
@@ -187,7 +192,7 @@ export function LiveRideDetail({ rideId }: { rideId: string }) {
             <StatusBadge
               presentation={RIDE_STATUS_PRESENTATION[ride.status]}
               size="md"
-              live
+              live={!past}
             />
           )
         }
@@ -221,9 +226,9 @@ export function LiveRideDetail({ rideId }: { rideId: string }) {
             </NestedTile>
             <NestedTile>
               <DataPoint
-                label="Arrival"
+                label={past ? "Journey status" : "Arrival"}
                 value={
-                  ride.etaMinutes > 0 ? formatEta(ride.etaMinutes) : "Arriving"
+                  past ? (ride.status === RideStatus.CANCELLED ? "Cancelled" : "Completed") : ride.etaMinutes > 0 ? formatEta(ride.etaMinutes) : "Arriving"
                 }
                 hint={
                   ride.startedAt

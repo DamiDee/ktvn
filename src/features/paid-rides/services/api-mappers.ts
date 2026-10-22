@@ -117,13 +117,16 @@ export function placeToWire(place: Place): Json {
  */
 export function mapRoute(value: unknown, ends?: { from: GeoPoint; to: GeoPoint }): RouteGeometry {
   const raw = obj(value) ?? {};
-  const points = list(raw.points).map(mapPoint).filter((point): point is GeoPoint => point !== null);
+  const geometry = obj(raw.geometry);
+  const geojson = geometry?.type === "LineString" ? list(geometry.coordinates) : [];
+  const points = (Array.isArray(raw.points) ? raw.points : geojson.map((pair) => Array.isArray(pair) ? { lat: pair[1], lng: pair[0] } : null))
+    .map(mapPoint).filter((point): point is GeoPoint => point !== null);
   const usable = points.length >= 2;
   return {
     points: usable ? points : ends ? [ends.from, ends.to] : points,
     distanceMeters: num(raw.distanceMeters) ?? num(raw.distance_meters) ?? 0,
     durationSeconds: num(raw.durationSeconds) ?? num(raw.duration_seconds) ?? 0,
-    source: usable && raw.source === "road" ? "road" : "approximate",
+    source: usable && (raw.source === "road" || geojson.length >= 2) ? "road" : "approximate",
   };
 }
 
@@ -290,6 +293,15 @@ function optionalString(value: unknown): string | undefined {
   return str(value);
 }
 
+/** Only bank details explicitly released in this ride projection are used. */
+export function mapDriverBankAccount(value: unknown): import("../domain/types").DriverBankAccount | undefined {
+  const raw = obj(value);
+  const bankName = str(raw?.bankName) ?? str(raw?.bank_name);
+  const accountNumber = str(raw?.accountNumber) ?? str(raw?.account_number);
+  if (!bankName || !accountNumber || !/^\d{10}$/.test(accountNumber)) return undefined;
+  return { bankName, accountNumber, accountName: str(raw?.accountName) ?? str(raw?.account_name) };
+}
+
 export function mapRide(value: unknown): Ride {
   const raw = obj(value) ?? {};
   if (!Number.isSafeInteger(raw.version) || Number(raw.version) < 0) throw new RideServiceError("unavailable");
@@ -327,6 +339,7 @@ export function mapRide(value: unknown): Ride {
     payment: { status: mapPaymentStatus(payment.status), methodLabel: str(payment.methodLabel) ?? "Cash" },
     driver: driver
       ? {
+          bankAccount: raw.status === "COMPLETED" ? mapDriverBankAccount(driver.bankAccount ?? driver) : undefined,
           displayName: str(driver.displayName) ?? "Your driver",
           avatarUrl: str(driver.avatarUrl),
           rating: num(driver.rating),

@@ -7,7 +7,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftRight, Bell, ChevronRight, Inbox, LogOut, MapPinned, PictureInPicture2, Trash2 } from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { AppearanceSettings } from "@/components/layout/appearance-settings";
-import { EmptyState } from "@/components/ui/states";
+import { RouteLoader } from "@/components/ui/route-loader";
+import { ErrorState, EmptyState } from "@/components/ui/states";
 import { useMounted } from "@/hooks/use-media-query";
 import { getRideCapabilities } from "../capabilities";
 import { PAID_RIDES_MODE } from "../config";
@@ -96,6 +97,8 @@ export function AccountPage({ role }: { role: "passenger" | "driver" }) {
         </div>
       </PageSection>
 
+      {viewer.isPending ? <RouteLoader message="Loading your account" size="sm" className="py-6" /> : null}
+      {viewer.isError ? <ErrorState title="We couldn't load your account." onRetry={() => viewer.refetch()} /> : null}
       {viewer.data ? <AccountDetails viewer={viewer.data} onRefresh={() => void viewer.refetch()} refreshing={viewer.isFetching} /> : null}
 
       {canDrive ? (

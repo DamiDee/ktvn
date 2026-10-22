@@ -167,6 +167,7 @@ export function PassengerRideScreen() {
         <RideMap
           route={route ?? null}
           approachRoute={approachRoute ?? null}
+          approaching={Boolean(ride && phaseShowsDriver(phase) && !onTrip && phase !== "DRIVER_ARRIVED")}
           pickup={phase === "CONFIRMING_PICKUP" ? null : pickupPoint}
           pickupLabel={phase === "ROUTE_PREVIEW" ? draft.pickup?.name : undefined}
           destination={phase === "CONFIRMING_PICKUP" ? null : destinationPoint}

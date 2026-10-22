@@ -113,6 +113,7 @@ export interface AdminData {
 
   listRides(query: ListQuery<RideFilter>): Promise<AdminPage<LiveRideSummary>>;
   getRide(id: string): Promise<LiveRideSummary | null>;
+  listPastRides(status: "COMPLETED" | "CANCELLED", cursor: string | null, q?: string): Promise<AdminPage<LiveRideSummary>>;
 
   listIncidents(query: ListQuery<IncidentFilter>): Promise<AdminPage<Incident>>;
   getIncident(id: string): Promise<Incident | null>;
@@ -191,6 +192,11 @@ const live: AdminData = {
     const status = filter === "MATCHING" ? RIDE_STATUS_FILTER.MATCHING : filter === "IN_PROGRESS" ? RIDE_STATUS_FILTER.IN_PROGRESS : undefined;
     return mapPage(await adminRequest(withQuery("admin/rides", {
       state: "active", status, sos: filter === "SOS" ? true : undefined, q: q?.trim(), limit: PAGE_LIMIT,
+    })), mapAdminRide);
+  },
+  async listPastRides(status, cursor, q) {
+    return mapPage(await adminRequest(withQuery("admin/rides", {
+      state: "all", status, cursor, q: q?.trim(), limit: PAGE_LIMIT,
     })), mapAdminRide);
   },
   async getRide(rideId) {
@@ -396,6 +402,11 @@ const demo: AdminData = {
       }
     }).filter((ride) => matches(q, ride.driverName, ride.reference, ride.destinationLabel, ...ride.passengers.map((person) => person.name)));
     return page(items, { all: all.length, sos: all.filter((ride) => ride.sosActive).length });
+  },
+  async listPastRides(status, _cursor, q) {
+    const rides = (await adminService.listLiveRides()).filter((ride) =>
+      ride.track === DriverTrack.PROFESSIONAL && ride.status === status && matches(q, ride.driverName, ride.reference, ride.destinationLabel));
+    return page(rides, {});
   },
   async getRide(rideId) {
     return adminService.getLiveRide(rideId);

@@ -1,5 +1,6 @@
 "use client";
 
+import { DriverPaymentDetails } from "../components/driver-payment-details";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, History, Star } from "lucide-react";
@@ -116,6 +117,13 @@ export function RideDetail({ role, rideId }: { role: Role; rideId: string }) {
   const liveRide = usePassengerStore((store) => (store.session.ride?.id === rideId ? store.session.ride : null));
   const item = history.data?.items.find((entry) => entry.id === rideId);
   const back = role === "driver" ? "/rides/driver/trips" : "/rides/history";
+  const detail = useQuery({
+    queryKey: ["paid-rides", "history-detail", role, rideId],
+    queryFn: ({ signal }) => getRideService().getRide(rideId, signal),
+    enabled: role === "passenger" && item?.status === "COMPLETED",
+    staleTime: 30_000,
+    retry: false,
+  });
 
   if (role === "passenger" && liveRide && isLive(liveRide.status)) {
     return (
@@ -167,6 +175,9 @@ export function RideDetail({ role, rideId }: { role: Role; rideId: string }) {
           ) : null}
         </div>
       </PageSection>
+      {role === "passenger" && item.status === "COMPLETED" ? <PageSection>
+        {detail.data ? <DriverPaymentDetails ride={detail.data} /> : detail.isError ? <ErrorState title="We couldn't load the driver's payment details." onRetry={() => detail.refetch()} /> : <div className="kx-skeleton h-28 rounded-xl" role="status" aria-label="Loading driver payment details" />}
+      </PageSection> : null}
       <PageSection title="Need help with this trip?">
         <Link href="/rides/safety" className="ride-press flex items-center justify-between rounded-[var(--ride-radius-lg)] bg-[var(--surface-primary)] p-4 shadow-[var(--kx-shadow-xs)]">
           <span className="ride-body font-semibold">Report an issue or lost item</span>

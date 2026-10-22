@@ -59,6 +59,7 @@ export function createMockRideService(): RideService {
     // ─── Passenger ──────────────────────────────────────────────────────
     getViewer: (signal) =>
       call(LATENCY.read, () => ({ ...MOCK_SELF_PASSENGER, roles: ["passenger", "driver"] as Array<"passenger" | "driver">, vehicle: MOCK_SELF_DRIVER.vehicle }), signal),
+    updateAccount: async () => { throw new RideServiceError("not_supported"); },
     getCurrentRide: (signal) => call(LATENCY.read, () => world.currentPassengerRide(), signal),
     getRide: (rideId, signal) =>
       call(LATENCY.read, () => {

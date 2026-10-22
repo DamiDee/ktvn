@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { CarFront, History, Inbox, LifeBuoy, MapPinned, MessageCircle, UserRound } from "lucide-react";
+import { CalendarClock, CarFront, History, Inbox, LifeBuoy, MapPinned, MessageCircle, UserRound } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useIsDesktop } from "@/hooks/use-media-query";
 import { ButtonLink } from "@/components/ui/button";
@@ -109,12 +109,14 @@ export function RideModuleShell({ children }: { children: ReactNode }) {
             { href: "/rides/driver", label: "Drive", icon: CarFront },
             { href: "/rides/driver/requests", label: "Requests", icon: Inbox, badge: offerWaiting ? 1 : 0 },
             ...(PAID_RIDES_FEATURES.chat ? [{ href: "/rides/driver/messages", label: "Messages", icon: MessageCircle, badge: driverUnread }] : []),
+            { href: "/rides/driver/schedule", label: "Schedule", icon: CalendarClock },
             { href: "/rides/driver/trips", label: "Trips", icon: History, match: (path) => path.startsWith("/rides/driver/trips") },
             { href: "/rides/driver/account", label: "Account", icon: UserRound },
           ]
         : [
             { href: "/rides", label: "Ride", icon: MapPinned, match: (path) => path === "/rides" || path === "/rides/current" },
-            { href: "/rides/history", label: "Activity", icon: History, match: (path) => path.startsWith("/rides/history") || /^\/rides\/(?!driver|messages|safety|account)[^/]+$/.test(path) },
+            { href: "/rides/schedule", label: "Schedule", icon: CalendarClock },
+            { href: "/rides/history", label: "Activity", icon: History, match: (path) => path.startsWith("/rides/history") || /^\/rides\/(?!driver|messages|safety|account|schedule)[^/]+$/.test(path) },
             ...(PAID_RIDES_FEATURES.chat
               ? [{ href: "/rides/messages", label: "Messages", icon: MessageCircle, badge: passengerUnread, match: (path: string) => path === "/rides/messages" || path.endsWith("/chat") }]
               : []),

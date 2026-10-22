@@ -314,6 +314,7 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
       nin: identity.nin ?? "",
       address: identity.address ?? "",
       accountNumber: identity.accountNumber ?? "",
+      bankName: identity.bankName ?? "",
       workerStatus: identity.workerStatus,
       department: identity.department ?? "",
       guarantorName: identity.guarantorName ?? "",
@@ -416,6 +417,16 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
           error={errors.accountNumber?.message}
           required
           {...register("accountNumber")}
+        />
+        <Input
+          label="Bank name"
+          placeholder="Enter your bank’s name"
+          autoComplete="off"
+          maxLength={120}
+          icon={Wallet}
+          error={errors.bankName?.message}
+          required
+          {...register("bankName")}
         />
 
         <Select
@@ -910,6 +921,7 @@ function ReviewStep({
             ["Phone", identity.phone],
             ["NIN", identity.nin ? `•••••••${identity.nin.slice(-4)}` : undefined],
             ["Account number", identity.accountNumber ? `••••••${identity.accountNumber.slice(-4)}` : undefined],
+            ["Bank name", identity.bankName],
             ["Address", identity.address],
             ["City / area", identity.city],
             ["Country", identity.country],

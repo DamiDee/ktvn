@@ -79,9 +79,10 @@ function assembleDriverRegistration(draft: DriverApplicationDraft, credentials: 
     country: person.country,
     password: account.data.password,
     role: "Driver",
+    account_number: person.accountNumber.trim(),
+    bank_name: person.bankName.trim(),
     driver_details: {
       nin: person.nin,
-      account_number: person.accountNumber.trim(),
       nin_slip: contents(DocumentType.GOVERNMENT_ID, "your NIN slip", 0),
       profile_photo: contents(DocumentType.PROFILE_PHOTO, "your profile photo", 0),
       is_koinonia_worker: isWorker,

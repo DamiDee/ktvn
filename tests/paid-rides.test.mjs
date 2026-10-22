@@ -12,6 +12,8 @@ import { mockQuote } from "../src/features/paid-rides/services/mock/mock-pricing
 import { MOCK_DRIVERS, MOCK_PRODUCTS } from "../src/features/paid-rides/services/mock/mock-fixtures.ts";
 import {
   mapAvailability,
+  mapRoute,
+  mapDriverBankAccount,
   mapContact,
   mapEstimate,
   mapRealtimeEvent,
@@ -493,4 +495,23 @@ test("an expiry without an offer id is matched by the event's ride", () => {
   assert.equal(offerEvent.payload.offer.earning.amountMinor, 300000);
   assert.equal(offerEvent.payload.offer.pickupDistanceMeters, 0, "missing pickup distance degrades to zero");
   assert.equal(offerEvent.payload.offer.passenger.displayName, "Grace A.");
+});
+
+
+test("road geometry accepts OSRM GeoJSON without flipping latitude and longitude", () => {
+  const mapped = mapRoute({ geometry: { type: "LineString", coordinates: [[7.4728, 9.0647], [7.45, 9.068], [7.4246, 9.0721]] }, distanceMeters: 5900, durationSeconds: 540 });
+  assert.equal(mapped.source, "road");
+  assert.deepEqual(mapped.points[0], pickup.point);
+  assert.deepEqual(mapped.points.at(-1), destination.point);
+});
+
+test("bank accounts are released only on completed ride projections and retain leading zeroes", () => {
+  const bankAccount = { bankName: "Test Bank", accountNumber: "0123456789", accountName: "Test Driver" };
+  const driver = { displayName: "Test Driver", bankAccount };
+  assert.deepEqual(mapRide(ride("COMPLETED", 5, { driver })).driver.bankAccount, bankAccount);
+  assert.equal(mapRide(ride("IN_PROGRESS", 4, { driver })).driver.bankAccount, undefined);
+  assert.equal(mapRide(ride("CANCELLED", 5, { driver })).driver.bankAccount, undefined);
+  assert.equal(mapDriverBankAccount({ bankName: "Test", accountNumber: 1234567890 }), undefined);
+  assert.equal(mapDriverBankAccount({ bankName: "Test", accountNumber: "123" }), undefined);
+  assert.equal(mapDriverBankAccount(null), undefined);
 });

@@ -23,6 +23,7 @@ import {
   TRACK_TONE,
 } from "@/constants/status-presentation";
 import { formatEta, formatPlate, pluralise, shortName } from "@/lib/format";
+import { RideStatus } from "@/types/enums";
 import type { LiveRideSummary } from "@/types/models";
 
 type Filter = RideFilter;
@@ -142,7 +143,8 @@ export function LiveRides() {
   );
 }
 
-function LiveRideCard({ ride }: { ride: LiveRideSummary }) {
+export function LiveRideCard({ ride }: { ride: LiveRideSummary }) {
+  const past = ride.status === RideStatus.COMPLETED || ride.status === RideStatus.CANCELLED || ride.status === RideStatus.CLOSED;
   return (
     <Link
       href={`/admin/live-rides/${ride.id}`}
@@ -187,12 +189,13 @@ function LiveRideCard({ ride }: { ride: LiveRideSummary }) {
         </div>
       </div>
 
+      {past && ride.createdAt && Number.isFinite(Date.parse(ride.createdAt)) ? <p className="type-meta mt-2 text-ink-muted">{new Date(ride.createdAt).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" })}</p> : null}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <StatusChip tone={TRACK_TONE[ride.track]}>
           {TRACK_LABEL[ride.track]}
         </StatusChip>
         <StatusChip tone="neutral">{RIDE_TYPE_LABEL[ride.rideType]}</StatusChip>
-        {ride.etaMinutes > 0 ? (
+        {!past && ride.etaMinutes > 0 ? (
           <StatusChip tone="info">
             Arriving in {formatEta(ride.etaMinutes)}
           </StatusChip>
@@ -235,7 +238,7 @@ function LiveRideCard({ ride }: { ride: LiveRideSummary }) {
           />
           <div className="min-w-0">
             <p className="type-micro text-ink-muted">
-              {ride.passengerCount} of 3 on board
+              {past ? `${ride.passengerCount} rider${ride.passengerCount === 1 ? "" : "s"}` : `${ride.passengerCount} of 3 on board`}
             </p>
             <p className="type-body truncate font-medium text-ink">
               {ride.passengers.length > 0

@@ -1,3 +1,4 @@
+import { parseOsrmRoute } from "@/lib/road-routing";
 import { routingCoordinates, type Coordinates } from "@/lib/transport-locations";
 
 /**
@@ -19,21 +20,19 @@ export async function GET(request: Request) {
   }
 
   try {
-    const base = (process.env.ROUTING_API_BASE_URL ?? "https://router.project-osrm.org").replace(/\/$/, "");
+    const configured = process.env.ROUTING_API_BASE_URL?.trim();
+    // The public OSRM demo is limited to non-commercial testing. Paid rides
+    // need their own routing service; never silently use the demo in production.
+    const base = (configured || (process.env.NODE_ENV === "production" ? "" : "https://router.project-osrm.org")).replace(/\/$/, "");
+    if (!base || process.env.NODE_ENV === "production" && new URL(base).hostname === "router.project-osrm.org") {
+      return Response.json({ message: "A production road-routing server must be configured." }, { status: 503 });
+    }
     const response = await fetch(`${base}/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=false`, {
       signal: AbortSignal.timeout(8000),
       next: { revalidate: 600 },
     });
     if (!response.ok) throw new Error();
-    const data = await response.json();
-    const route = data.routes?.[0];
-    const line: unknown = route?.geometry?.coordinates;
-    if (data.code !== "Ok" || !route || !Array.isArray(line) || line.length < 2) throw new Error();
-    return Response.json({
-      points: (line as [number, number][]).map(([lng, lat]) => ({ lat, lng })),
-      distanceMeters: Math.round(route.distance),
-      durationSeconds: Math.round(route.duration),
-    });
+    return Response.json(parseOsrmRoute(await response.json()));
   } catch {
     return Response.json({ message: "Road routing is unavailable." }, { status: 502 });
   }

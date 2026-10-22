@@ -1,5 +1,6 @@
 "use client";
 
+import { AccountEditor } from "./account-editor";
 import { FileText, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { memberSince } from "@/lib/member-profile";
@@ -41,6 +42,7 @@ export function AccountDetails({ viewer, onRefresh, refreshing }: { viewer: View
         ["Identity verification", account.identityVerified ? "Verified" : "Not yet verified"],
         ...(account.maskedNin ? [["NIN", account.maskedNin] as [string, string]] : []),
       ]} />
+      <AccountEditor key={account.id} account={account} />
     </PageSection>
 
     {viewer.roles.includes("driver") ? <PageSection title="Driver verification">

@@ -53,6 +53,7 @@ export type CameraIntent =
 export interface RideMapProps {
   route?: RouteGeometry | null;
   approachRoute?: RouteGeometry | null;
+  approaching?: boolean;
   pickup?: GeoPoint | null;
   pickupLabel?: string;
   destination?: GeoPoint | null;

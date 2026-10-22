@@ -551,6 +551,9 @@ export interface LiveRideSummary {
   passengerCount: number;
   passengers: LiveRidePassenger[];
   status: RideStatus;
+  createdAt?: string;
+  completedAt?: string;
+  cancelledAt?: string;
   startedAt?: string;
   etaMinutes: number;
   sosActive: boolean;

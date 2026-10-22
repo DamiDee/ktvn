@@ -4,7 +4,6 @@ export type LicenceClass = "B" | "C" | "D" | "E";
 export type DriverTrack = "Volunteer" | "Professional" | "Both";
 
 export interface DriverRegistrationDto {
-  account_number: string;
   guarantor_name?: string | null;
   guarantor_phone?: string | null;
   guarantor_photo?: string | null;
@@ -32,6 +31,8 @@ export interface DriverRegistrationDto {
 }
 
 export interface CreateUserDto {
+  account_number?: string | null;
+  bank_name?: string | null;
   address: string;
   city?: string | null;
   country: string;

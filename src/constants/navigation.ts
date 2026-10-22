@@ -5,6 +5,7 @@ import {
   BusFront,
   Car,
   ClipboardCheck,
+  CalendarClock,
   FileText,
   Gauge,
   Heart,
@@ -83,6 +84,8 @@ export const ADMIN_NAV: NavItem[] = [
     shortLabel: "Live",
     matchPrefix: true,
   },
+  { href: "/admin/scheduled-trips", label: "Scheduled Trips", icon: CalendarClock, shortLabel: "Scheduled" },
+  { href: "/admin/ride-history", label: "Ride History", icon: FileText, shortLabel: "History" },
   { href: "/admin/driver-map", label: "Driver Map", icon: LocateFixed, shortLabel: "Map" },
   {
     href: "/admin/verifications",

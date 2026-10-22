@@ -1,5 +1,6 @@
 import type {
   AcceptOutcome,
+  AccountUpdate,
   DriverAvailability,
   EmergencyType,
   FareEstimate,
@@ -70,6 +71,7 @@ export interface RideHistoryPage {
 
 export interface PassengerRideService {
   getViewer(signal?: AbortSignal): Promise<Viewer>;
+  updateAccount(input: AccountUpdate, signal?: AbortSignal): Promise<void>;
   /** The one live ride for this rider, or null. The source of truth after reload. */
   getCurrentRide(signal?: AbortSignal): Promise<Ride | null>;
   getRide(rideId: string, signal?: AbortSignal): Promise<Ride>;

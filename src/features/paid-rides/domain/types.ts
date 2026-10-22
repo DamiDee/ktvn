@@ -156,7 +156,14 @@ export interface ContactOptions {
   chat: boolean;
 }
 
+export interface DriverBankAccount {
+  bankName: string;
+  accountNumber: string;
+  accountName?: string;
+}
+
 export interface DriverPublicProfile {
+  bankAccount?: DriverBankAccount;
   displayName: string;
   avatarUrl?: string;
   rating?: number;
@@ -202,6 +209,15 @@ export interface AccountDocument {
   label: string;
   provided: boolean;
   source?: string;
+}
+
+export interface AccountUpdate {
+  first_name: string;
+  last_name: string;
+  phone: string;
+  address: string;
+  city: string;
+  country: string;
 }
 
 export interface RideAccountProfile {

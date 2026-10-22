@@ -60,7 +60,7 @@ const BAD_REQUEST_MEANS = {
 } as const satisfies Record<string, RideErrorCode>;
 
 interface RequestOptions {
-  method?: "GET" | "POST" | "PUT";
+  method?: "GET" | "POST" | "PUT" | "PATCH";
   body?: unknown;
   signal?: AbortSignal;
   idempotencyKey?: string;
@@ -162,6 +162,16 @@ export function createApiRideService(): RideService {
 
     // ─── Passenger ──────────────────────────────────────────────────────
     getViewer: (signal) => loadAccountViewer(request, signedInUserId(), signal),
+    updateAccount: async (input, signal) => {
+      const userId = signedInUserId();
+      if (!userId) throw new RideServiceError("unauthorized");
+      const body = {
+        first_name: input.first_name.trim(), last_name: input.last_name.trim(),
+        phone: input.phone.trim(), address: input.address.trim(), city: input.city.trim(), country: input.country.trim(),
+      };
+      if (!body.first_name || !body.last_name || !body.phone || !body.address || !body.country || Object.values(body).some((value) => value.length > 250)) throw new RideServiceError("validation");
+      await request(`/users/${id(userId)}`, { method: "PATCH", body, signal });
+    },
     getCurrentRide: async (signal) => mapRideEnvelope(await request("/rides/current", { signal })),
     getRide: async (rideId, signal) => mapRide(await request(`/rides/${id(rideId)}`, { signal })),
     estimateRide: async ({ pickup, destination }, signal) =>

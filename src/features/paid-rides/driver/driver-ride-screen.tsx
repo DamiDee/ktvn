@@ -95,6 +95,7 @@ export function DriverRideScreen() {
     <div id="main" role="main" tabIndex={-1} aria-label="Driver ride workspace" className="absolute inset-0">
       <RideMap
         route={phase === "TRIP_ACTIVE" || phase === "TRIP_COMPLETED" ? (ride?.route ?? null) : null}
+        approaching={phase === "EN_ROUTE_TO_PICKUP"}
         approachRoute={phase === "EN_ROUTE_TO_PICKUP" ? (ride?.approach?.route ?? null) : null}
         pickup={showOffer ? offer.offer.pickup.point : ride && phase !== "TRIP_ACTIVE" ? ride.pickup.point : null}
         pickupLabel={showOffer ? "Pickup" : undefined}

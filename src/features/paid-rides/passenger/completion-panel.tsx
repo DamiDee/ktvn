@@ -1,5 +1,6 @@
 "use client";
 
+import { DriverPaymentDetails } from "../components/driver-payment-details";
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Star } from "lucide-react";
@@ -90,7 +91,7 @@ export function CompletionPanel({ ride, onCoverChange, bottomOffset }: SheetHost
 
         <div className="rounded-[var(--ride-radius-lg)] border border-[var(--border-subtle)] p-4">
           <div className="mb-4 flex items-baseline justify-between">
-            <p className="ride-label">{paymentFailed ? "Amount due" : `Paid · ${ride.payment.methodLabel}`}</p>
+            <p className="ride-label">{ride.payment.status === "paid" ? `Paid · ${ride.payment.methodLabel}` : `Fare · ${ride.payment.methodLabel}`}</p>
             <p className="ride-num text-[1.5rem] font-semibold tracking-[-0.03em]">{formatMoney(ride.fare.total)}</p>
           </div>
           {ride.waiting && ride.waiting.charge.amountMinor > 0 ? (
@@ -109,6 +110,8 @@ export function CompletionPanel({ ride, onCoverChange, bottomOffset }: SheetHost
             <RouteStops pickup={ride.pickup} destination={ride.destination} compact />
           </div>
         </div>
+
+        <DriverPaymentDetails ride={ride} />
 
         <AnimatePresence mode="wait" initial={false}>
           {thanked ? (

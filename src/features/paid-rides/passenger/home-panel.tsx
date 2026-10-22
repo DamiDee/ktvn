@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ChevronRight, Clock3, LocateFixed, Search, ShieldCheck } from "lucide-react";
 import { greetingForHour } from "@/lib/format";
 import Image from "next/image";
@@ -84,6 +85,10 @@ export function HomePanel({ onCoverChange, bottomOffset }: SheetHostProps) {
             </div>
           </div>
         ) : null}
+
+        <Link href="/rides/schedule" className="ride-press flex items-center justify-between rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-primary)] p-4">
+          <span className="flex items-center gap-3"><Clock3 className="size-5" aria-hidden /><span><span className="ride-body-sm block font-semibold">Schedule trip</span><span className="ride-caption">Plan a journey ahead</span></span></span><ChevronRight className="size-4" aria-hidden />
+        </Link>
 
         {recent.length ? (
           <div>
