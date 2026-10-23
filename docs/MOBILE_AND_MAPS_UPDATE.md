@@ -71,8 +71,15 @@ currently directs these verified-record changes to the transport team.
 
 ## Routing deployment
 
-Set the web host's server environment `ROUTING_API_BASE_URL` to the base URL of
-your own OSRM service, then redeploy. Example shape: `https://routing.your-domain`.
+Self-hosted Nigeria OSRM is live on the existing Hostinger VPS as of 2026-10-23.
+The hosted app uses `ROUTING_API_BASE_URL=http://127.0.0.1:5001`; local development
+uses `https://app.freebus.cloud/routing`. Abuja and Lagos route checks passed
+through both HTTPS and the app proxy. See `../deploy/osrm/README.md` for metrics,
+map updates, service operation and the web runtime recovery performed at restart.
+
+For another deployment, set the web host's server environment
+`ROUTING_API_BASE_URL` to the base URL of your own OSRM service and restart the
+matching production build. Example shape: `https://routing.your-domain`.
 Do not append `/route/v1/driving`; the app supplies that path. No private
 credentials should appear in a NEXT_PUBLIC variable. The route proxy validates
 coordinates and OSRM geometry, times out after eight seconds, and caches routes
@@ -89,7 +96,7 @@ profile. Prepare the same data with `osrm-extract`, `osrm-partition`, then
 pinned OSRM image for preprocessing and serving. Put the service behind your
 HTTPS reverse proxy, monitor it, and refresh its map data periodically.
 Official deployment guide: https://github.com/Project-OSRM/osrm-backend#quick-start
-No server has been provisioned or paid for in this change.
+This deployment reuses the owner's existing VPS; no additional server was purchased.
 
 ## Map storage
 

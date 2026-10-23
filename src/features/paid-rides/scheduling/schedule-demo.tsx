@@ -1,105 +1,108 @@
 "use client";
-
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { Bell, CalendarClock, CheckCircle2, MapPin, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/cn";
-import { DEMO_DRIVERS, type ScheduleRole, type ScheduledStatus } from "./scheduled-trips";
+import { formatMoney } from "../domain/format";
+import { Bell, CalendarClock, Car, Search, UserRound, LayoutDashboard } from "lucide-react";
+import { Card, CardHeader, DataPoint } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input, Select } from "@/components/ui/input";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { EmptyState } from "@/components/ui/states";
+import { DEMO_DRIVERS, DEMO_PLACES, type DemoEstimate } from "./scheduled-trips";
+import { DAY, HOUR, localScheduleTime, resolveScheduleTime, validateBookingTime, type ScheduleRole } from "./contract";
+import { BookingCard, SCHEDULE_LABEL, scheduleDate, scheduleError, type ScheduleAction } from "./booking-card";
 import { getScheduleDemoStore } from "./demo-store";
+import type { Place } from "../domain/types";
+import { ScheduledRoutePicker } from "./scheduled-route-picker";
 
-const LABEL: Record<ScheduledStatus, string> = { OPEN: "Awaiting a driver", RESERVED: "Driver reserved", MATCHED: "Matched for departure", CANCELLED: "Cancelled" };
-const inputClass = "w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-primary)] px-3 py-3 text-sm text-[var(--text-primary)]";
-const dateLabel = (value: string | number) => new Date(value).toLocaleString("en-NG", { timeZone: "Africa/Lagos", dateStyle: "medium", timeStyle: "short" });
-const localDateTime = (now: number) => new Date(now + 3_600_000).toISOString().slice(0, 16);
+const DEMO_ROUTE_PLACES: Place[] = DEMO_PLACES.map((place, index) => ({ ...place, id: place.id ?? `demo-place-${index}`, secondary: place.secondary ?? "Abuja", source: "search" }));
 
 export default function ScheduleDemo({ initialRole }: { initialRole: ScheduleRole }) {
-  const [store] = useState(getScheduleDemoStore);
-  const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
-  const [role, setRole] = useState(initialRole);
-  const [driver, setDriver] = useState(DEMO_DRIVERS[0].id);
-  const [pickup, setPickup] = useState("");
-  const [destination, setDestination] = useState("");
-  const [departure, setDeparture] = useState(() => localDateTime(state.now + 86_400_000));
-  const [filter, setFilter] = useState("ALL");
-  const [search, setSearch] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [feedback, setFeedback] = useState("");
-  async function act(work: () => Promise<void>, success: string) {
-    if (busy) return;
-    setBusy(true); setFeedback("");
-    try { await work(); setFeedback(success); }
-    catch (error) { setFeedback(error instanceof Error ? error.message : "That did not save. Try again."); }
-    finally { setBusy(false); }
+  const [store] = useState(getScheduleDemoStore), state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+  const [role, setRole] = useState(initialRole), [driver, setDriver] = useState(DEMO_DRIVERS[0].id);
+  const [pickup, setPickup] = useState<Place | null>(DEMO_ROUTE_PLACES[0]), [destination, setDestination] = useState<Place | null>(DEMO_ROUTE_PLACES[1]);
+  const [routePending, setRoutePending] = useState(false);
+  const [departure, setDeparture] = useState(() => localScheduleTime(state.now + DAY)), [quote, setQuote] = useState<DemoEstimate | null>(null), [optionId, setOptionId] = useState("go");
+  const [filter, setFilter] = useState("ALL"), [mine, setMine] = useState(false), [search, setSearch] = useState("");
+  const [busy, setBusy] = useState(false), [feedback, setFeedback] = useState("");
+  async function run(work: () => Promise<void>, message: string) {
+    if (busy) return; setBusy(true); setFeedback("");
+    try { await work(); setFeedback(message); } catch (error) { setFeedback(scheduleError(error)); throw error; } finally { setBusy(false); }
   }
+  const click = (work: () => Promise<void>, message: string) => { void run(work, message).catch(() => {}); };
   useEffect(() => {
     let mounted = true;
-    void store.initialize().catch((error: unknown) => { if (mounted) setFeedback(error instanceof Error ? error.message : "Demo storage is unavailable."); });
+    void store.initialize().catch((e: unknown) => { if (mounted) setFeedback(scheduleError(e)); });
     const timer = setInterval(() => { void store.tick().catch(() => {}); }, 10_000);
     return () => { mounted = false; clearInterval(timer); };
   }, [store]);
-
-  const trips = [...state.trips].sort((a, b) => a.departureAt.localeCompare(b.departureAt)).filter((trip) =>
-    (filter === "ALL" || trip.status === filter) && `${trip.pickup} ${trip.destination} ${trip.driverName ?? ""} ${trip.passengerName}`.toLowerCase().includes(search.toLowerCase()));
-  const due = state.trips.filter((trip) => trip.status === "RESERVED").sort((a, b) => a.departureAt.localeCompare(b.departureAt))[0];
-  const notices = state.notices.filter((notice) => notice.audience === role).slice(0, 5);
-
-  return <div className="space-y-5">
-    <section className="rounded-2xl border border-amber-300/60 bg-amber-50 p-4 text-amber-950 dark:bg-amber-950/40 dark:text-amber-100">
-      <p className="text-sm font-semibold">Local scheduling demo</p>
-      <p className="mt-1 text-xs leading-relaxed">Fictional passengers and drivers. No real booking, push notification or payment is created. Production shows Coming soon.</p>
-      <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Preview scheduled trips as">
-        {(["passenger", "driver", "admin"] as const).map((view) => <button key={view} type="button" aria-pressed={role === view} onClick={() => { setRole(view); setFeedback(""); setFilter("ALL"); }} className={cn("rounded-full border px-4 py-2 text-sm capitalize", role === view ? "border-amber-950 bg-amber-950 text-white" : "border-amber-400")}>{view}</button>)}
-      </div>
-      <p className="mt-3 text-xs">Demo time: {dateLabel(state.now)} WAT</p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Button size="sm" variant="secondary" icon={CalendarClock} disabled={busy || !due} onClick={() => due && void act(() => store.advance(Date.parse(due.departureAt)), "Departure time reached. Reserved trips due now are matched.")}>Simulate next departure</Button>
-        <Button size="sm" variant="ghost" icon={RotateCcw} disabled={busy} onClick={() => void act(store.reset, "Demo reset with fictional upcoming trips.")}>Reset demo</Button>
-      </div>
-    </section>
-
-    <div role="status" aria-live="polite" className="text-sm font-medium">{feedback}</div>
-
-    {role === "passenger" ? <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-primary)] p-5">
-      <h2 className="ride-heading-md">Schedule your trip</h2>
-      <p className="ride-caption mt-1">Choose a future departure. The first driver to accept reserves your trip; matching happens at departure time.</p>
-      <form className="mt-4 space-y-3" onSubmit={(event) => {
-        event.preventDefault();
-        void act(async () => {
-          await store.create({ pickup, destination, departureAt: new Date(`${departure}:00+01:00`).toISOString() });
-          setPickup(""); setDestination("");
-        }, "Trip scheduled. Drivers have a new request in their demo inbox.");
-      }}>
-        <label className="block text-sm font-medium">Pickup<input required maxLength={200} placeholder="Where should your driver meet you?" className={`${inputClass} mt-1`} value={pickup} onChange={(event) => setPickup(event.target.value)} /></label>
-        <label className="block text-sm font-medium">Destination<input required maxLength={200} placeholder="Where are you going?" className={`${inputClass} mt-1`} value={destination} onChange={(event) => setDestination(event.target.value)} /></label>
-        <label className="block text-sm font-medium">Departure date and time · Abuja (WAT)<input type="datetime-local" required min={localDateTime(state.now + 60_000)} className={`${inputClass} mt-1`} value={departure} onChange={(event) => setDeparture(event.target.value)} /></label>
-        <Button type="submit" block loading={busy} loadingLabel="Scheduling">Schedule trip</Button>
+  const trips = [...state.trips].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt)).filter((trip) =>
+    (role !== "driver" || (mine ? trip.driverId === driver : trip.status === "OPEN")) && (filter === "ALL" || trip.status === filter) &&
+    `${trip.pickup.name} ${trip.destination.name} ${trip.driverName ?? ""}`.toLowerCase().includes(search.toLowerCase()));
+  const due = state.trips.filter((trip) => trip.status === "RESERVED").sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))[0];
+  const action = (id: string, value: ScheduleAction) => run(() => value.type === "accept" ? store.accept(id, driver, value.version) : value.type === "release" ? store.release(id, driver, value.reason) : value.type === "cancel" ? store.cancel(id, value.reason) : value.type === "reschedule" ? store.reschedule(id, { scheduledAt: value.scheduledAt, timezone: value.timezone }) : store.complete(id), "Booking updated. Review its current state below.");
+  return <div className="space-y-6">
+    <Card radius="xl" className="space-y-4">
+      <CardHeader eyebrow="Preview" title="Scheduled trips" description="Try the passenger, driver and admin views using sample trips." action={<Badge variant="gold">Local demo</Badge>} />
+      <SegmentedControl<ScheduleRole> label="Preview scheduled trips as" value={role} onChange={(view) => { setRole(view); setFilter("ALL"); setFeedback(""); }} options={[{ value: "passenger", label: "Passenger", icon: UserRound }, { value: "driver", label: "Driver", icon: Car }, { value: "admin", label: "Admin", icon: LayoutDashboard }]} />
+      <p className="ride-caption">Sample data only. No real trips or notifications are sent. Scheduling stays Coming soon in production.</p>
+      <details className="border-t border-line pt-3">
+        <summary className="ride-body-sm cursor-pointer font-medium text-ink-secondary">Simulation controls</summary>
+        <p className="ride-caption mt-3">Demo time: {scheduleDate(state.now, "Africa/Lagos")} · Africa/Lagos</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button pill size="sm" disabled={busy || !due} onClick={() => due && click(() => store.advance(Date.parse(due.scheduledAt) - 15 * 60_000), "Activation window reached; eligible reservations became live rides.")}>Activate next ride</Button>
+          <Button pill size="sm" variant="secondary" disabled={busy} onClick={() => click(() => store.advance(state.now + HOUR), "Demo clock advanced by one hour.")}>Advance 1 hour</Button>
+          <Button pill size="sm" variant="secondary" disabled={busy || !due} onClick={() => due && click(() => store.advance(Date.parse(due.scheduledAt) + 11 * 60_000, true), "Busy participants deferred activation until the booking expired.")}>Simulate busy expiry</Button>
+          <Button pill size="sm" variant="ghost" disabled={busy} onClick={() => click(store.reset, "Demo reset.")}>Reset demo</Button>
+        </div>
+      </details>
+    </Card>
+    {feedback ? <p role="status" className="ride-body-sm rounded-[var(--kx-radius-md)] bg-surface-nested px-4 py-3 text-ink-secondary">{feedback}</p> : null}
+    {role === "admin" ? <>
+      <Card radius="xl"><div className="grid grid-cols-3 gap-3"><DataPoint label="Open" value={state.trips.filter((t) => t.status === "OPEN").length} /><DataPoint label="Reserved" value={state.trips.filter((t) => t.status === "RESERVED").length} /><DataPoint label="Ride ready" value={state.trips.filter((t) => t.status === "ACTIVATED").length} /></div></Card>
+      <p className="ride-caption px-1">This is the same scheduled-trip list with a summary for admin. Names and bookings in this preview are fictional.</p>
+    </> : null}
+    {role === "passenger" ? <Card radius="xl" className="space-y-5">
+      <CardHeader title="Plan your next journey" description="Choose your route and pickup time. Book from one hour to thirty days ahead." />
+      <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); click(async () => {
+        if (!pickup || !destination || routePending) throw new Error("Choose and confirm your pickup and destination first.");
+        validateBookingTime({ scheduledAt: resolveScheduleTime(departure, "Africa/Lagos"), timezone: "Africa/Lagos" }, state.now);
+        setQuote(await store.quote(pickup, destination));
+      }, "Review the quote, then confirm your booking."); }}>
+        <ScheduledRoutePicker pickup={pickup} destination={destination} suggestions={DEMO_ROUTE_PLACES} disabled={busy} onPendingChange={setRoutePending} onChange={(field, place) => { if (field === "pickup") setPickup(place); else setDestination(place); setQuote(null); }} />
+        <Input label="Pickup time" hint="All pickup times are in Africa/Lagos." icon={CalendarClock} type="datetime-local" required min={localScheduleTime(state.now + HOUR)} max={localScheduleTime(state.now + 30 * DAY)} value={departure} onChange={(e) => { setDeparture(e.target.value); setQuote(null); }} />
+        <Button type="submit" pill block disabled={!pickup || !destination || routePending} loading={busy} loadingLabel="Getting your quote">Get fare quote</Button>
       </form>
-    </section> : null}
-
-    {role === "driver" ? <section className="rounded-2xl bg-[var(--surface-primary)] p-4">
-      <label className="block text-sm font-medium">Test driver<select value={driver} onChange={(event) => setDriver(event.target.value)} className={`${inputClass} mt-2`}>{DEMO_DRIVERS.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}</select></label>
-      <p className="ride-caption mt-2">First acceptance wins. Switch drivers or open another local tab to test a competing acceptance.</p>
-    </section> : null}
-
-    {role !== "admin" ? <section aria-label="Schedule notifications" className="rounded-2xl bg-[var(--surface-primary)] p-4">
-      <h2 className="flex items-center gap-2 text-sm font-semibold"><Bell className="size-4" aria-hidden />Scheduled trip notifications</h2>
-      <ul className="mt-3 space-y-2" aria-live="polite" aria-relevant="additions">{notices.length ? notices.map((notice) => <li key={notice.id} className="text-sm text-[var(--text-secondary)]">{notice.message}</li>) : <li className="text-sm text-[var(--text-secondary)]">No new schedule notifications.</li>}</ul>
-    </section> : null}
-
-    <section>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><h2 className="ride-heading-md">{role === "admin" ? "All scheduled trips" : role === "driver" ? "Upcoming requests" : "Your scheduled trips"}</h2><span className="ride-caption">{state.trips.filter((trip) => trip.status === "OPEN").length} open · {state.trips.filter((trip) => trip.status === "RESERVED").length} reserved</span></div>
-      <div className="mb-4 grid gap-2 sm:grid-cols-2"><input className={inputClass} type="search" aria-label="Search scheduled trips" placeholder="Search locations or driver" value={search} onChange={(event) => setSearch(event.target.value)} /><select className={inputClass} aria-label="Scheduled trip status" value={filter} onChange={(event) => setFilter(event.target.value)}><option value="ALL">All statuses</option>{Object.entries(LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
-      <ul className="space-y-3">{trips.map((trip) => <li key={trip.id} className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-primary)] p-4">
-        <div className="flex items-start justify-between gap-3"><p className="flex items-center gap-2 text-sm font-semibold"><MapPin className="size-4 shrink-0" aria-hidden />{trip.pickup} → {trip.destination}</p><span className="rounded-full bg-[var(--surface-secondary)] px-2 py-1 text-xs font-semibold">{LABEL[trip.status]}</span></div>
-        <p className="mt-3 text-sm">{dateLabel(trip.departureAt)} WAT</p>
-        <p className="ride-caption mt-1">Passenger: {trip.passengerName}</p>
-        <p className="ride-caption mt-1">{trip.driverName ? `Accepted by ${trip.driverName}${trip.acceptedAt ? ` · ${dateLabel(trip.acceptedAt)} WAT` : ""}` : "No driver has accepted yet."}</p>
-        {trip.status === "RESERVED" ? <p className="ride-caption mt-2">Driver reserved. Matching waits until the scheduled departure.</p> : null}
-        {trip.status === "MATCHED" ? <p className="mt-2 flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300"><CheckCircle2 className="size-4" aria-hidden />Demo match ready. No live ride has been dispatched.</p> : null}
-        {role === "driver" && trip.status === "OPEN" ? <Button size="sm" className="mt-3" disabled={busy} onClick={() => void act(() => store.accept(trip.id, driver), "Trip reserved. Admin and passenger views now show the accepting driver.")}>Accept scheduled trip</Button> : null}
-        {role === "passenger" && ["OPEN", "RESERVED"].includes(trip.status) ? <Button size="sm" variant="ghost" className="mt-3" disabled={busy} onClick={() => void act(() => store.cancel(trip.id), "Scheduled trip cancelled. Drivers have been notified in the demo.")}>Cancel schedule</Button> : null}
-      </li>)}</ul>
-      {!trips.length ? <p className="rounded-2xl bg-[var(--surface-primary)] p-6 text-center text-sm">No scheduled trips match this view.</p> : null}
+      {quote ? <div className="space-y-4 border-t border-line pt-5">
+        <Select label="Ride option" value={optionId} onChange={(e) => setOptionId(e.target.value)} options={quote.options.filter((row) => !row.option.shared).map((row) => ({ value: row.option.id, label: `${row.option.name} · ${formatMoney(row.fare.total)}` }))} />
+        <p className="ride-caption">Your fare is locked when you book. You can schedule a private ride even if no driver is available right now. Demo prices are fictional.</p>
+        <Button pill block disabled={!pickup || !destination || routePending} loading={busy} loadingLabel="Confirming your trip" onClick={() => click(async () => {
+          if (!pickup || !destination || routePending) throw new Error("Confirm your route first.");
+          const fresh = await store.quote(pickup, destination);
+          const before = quote.options.find((row) => row.option.id === optionId), after = fresh.options.find((row) => row.option.id === optionId);
+          if (!before || !after || before.fare.total.amountMinor !== after.fare.total.amountMinor) { setQuote(fresh); throw new Error("The fare changed. Review the new quote before confirming again."); }
+          await store.create({ estimateId: fresh.estimateId, optionId, scheduledAt: resolveScheduleTime(departure, "Africa/Lagos"), timezone: "Africa/Lagos" }); setQuote(null);
+        }, "Trip booked with a locked fare. Drivers have been notified in the demo.")}>Confirm scheduled trip</Button>
+      </div> : null}
+    </Card> : null}
+    {role === "driver" ? <Card radius="xl" className="space-y-4">
+      <CardHeader title="Upcoming opportunities" description="Reserve a journey ahead of time. The first driver to accept gets the trip." />
+      <Select label="Preview as" value={driver} onChange={(e) => setDriver(e.target.value)} options={DEMO_DRIVERS.map((person) => ({ value: person.id, label: person.name }))} />
+      <SegmentedControl label="Driver schedules" value={mine ? "mine" : "open"} onChange={(value) => { setMine(value === "mine"); setFilter("ALL"); }} options={[{ value: "open", label: "Open requests" }, { value: "mine", label: "My bookings" }]} />
+    </Card> : null}
+    {role !== "admin" ? <Card radius="xl">
+      <CardHeader title="Updates" action={<Bell className="size-4 text-ink-muted" aria-hidden />} />
+      <ul className="mt-3 divide-y divide-line" aria-live="polite">{state.notices.filter((n) => n.audience === role).slice(0, 3).map((n) => <li key={n.id} className="ride-body-sm py-3 text-ink-secondary">{n.message}</li>)}</ul>
+      {!state.notices.some((n) => n.audience === role) ? <p className="ride-caption mt-3">Updates about your scheduled trips will appear here.</p> : null}
+    </Card> : null}
+    <section className="space-y-4" aria-label="Scheduled bookings">
+      <h2 className="ride-label px-1">{role === "admin" ? "Scheduled trips" : role === "driver" && !mine ? "Open requests" : "Your scheduled trips"}</h2>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Input type="search" label="Search trips" icon={Search} placeholder="Location or driver" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <Select label="Status" value={filter} onChange={(e) => setFilter(e.target.value)} options={[{ value: "ALL", label: "All statuses" }, ...Object.entries(SCHEDULE_LABEL).map(([value, label]) => ({ value, label }))]} />
+      </div>
+      <ul className={role === "admin" ? "grid items-start gap-4 lg:grid-cols-2" : "space-y-3"}>{trips.map((trip) => <BookingCard key={trip.id} booking={trip} role={role} driverId={driver} now={state.now} demo driverName={trip.driverName} passengerName={trip.passengerName} busy={busy} onAction={(value) => action(trip.id, value)} />)}</ul>
+      {!trips.length ? <EmptyState icon={CalendarClock} title="No scheduled trips here yet" description={role === "driver" && !mine ? "New requests will appear here when passengers schedule a trip." : "Try another filter, or plan your next journey above."} /> : null}
     </section>
   </div>;
 }

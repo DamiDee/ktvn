@@ -1,16 +1,17 @@
 "use client";
 
-import { acceptSchedule, cancelSchedule, createSchedule, localScheduleDemo, matchDueSchedules, seedSchedules, type ScheduleState } from "./scheduled-trips";
+import { acceptSchedule, cancelSchedule, completeDemoSchedule, createSchedule, demoEstimate, localScheduleDemo, matchDueSchedules, releaseSchedule, rescheduleSchedule, seedSchedules, type ScheduleState } from "./scheduled-trips";
 
-const KEY = "krides-scheduled-trip-demo-v1";
+import type { CreateScheduledRide, ScheduledPlace } from "./contract";
+const KEY = "krides-scheduled-trip-demo-v2";
 function requireLocal() {
   if (typeof window === "undefined" || !localScheduleDemo(process.env.NODE_ENV, window.location.hostname)) throw new Error("Scheduled-trip simulation is available only on localhost in development.");
 }
 function read(): ScheduleState {
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? "null") as ScheduleState | null;
-    if (raw && Number.isFinite(raw.now) && Array.isArray(raw.trips) && raw.trips.length <= 100 && Array.isArray(raw.notices) && raw.notices.length <= 50 && raw.trips.every((trip) =>
-      trip && typeof trip.id === "string" && typeof trip.pickup === "string" && typeof trip.destination === "string" && typeof trip.passengerName === "string" && Number.isFinite(Date.parse(trip.departureAt)) && ["OPEN", "RESERVED", "MATCHED", "CANCELLED"].includes(trip.status))) return raw;
+    if (raw && Number.isFinite(raw.now) && Array.isArray(raw.estimates) && Array.isArray(raw.trips) && raw.trips.length <= 100 && Array.isArray(raw.notices) && raw.notices.length <= 50 && raw.trips.every((trip) =>
+      trip && typeof trip.id === "string" && typeof trip.pickup?.name === "string" && Number.isFinite(Date.parse(trip.scheduledAt)) && ["OPEN", "RESERVED", "ACTIVATED", "COMPLETED", "CANCELLED", "EXPIRED"].includes(trip.status))) return raw;
   } catch { /* A corrupt demo is replaced with synthetic fixtures. */ }
   return seedSchedules(Date.now());
 }
@@ -38,15 +39,23 @@ function makeStore() {
       listeners.add(listener);
       return () => { listeners.delete(listener); if (listeners.size === 0) window.removeEventListener("storage", sync); };
     },
-    create: (input: { pickup: string; destination: string; departureAt: string }) => mutate((current) => {
+    quote: async (pickup: ScheduledPlace, destination: ScheduledPlace) => {
+      const estimateId = crypto.randomUUID();
+      await mutate((current) => ({ ...current, estimates: [demoEstimate(current.now, pickup, destination, estimateId), ...current.estimates].slice(0, 50) }));
+      return state.estimates.find((entry) => entry.estimateId === estimateId)!;
+    },
+    create: (input: CreateScheduledRide) => mutate((current) => {
       if (current.trips.length >= 100) throw new Error("Reset this demo before creating more trips.");
-      return createSchedule(current, { ...input, id: crypto.randomUUID() });
+      return createSchedule(current, input, crypto.randomUUID());
     }),
-    accept: (tripId: string, driverId: string) => mutate((current) => matchDueSchedules(acceptSchedule(current, tripId, driverId), current.now)),
-    cancel: (tripId: string) => mutate((current) => cancelSchedule(current, tripId)),
-    advance: (now: number) => mutate((current) => matchDueSchedules(current, Math.max(now, current.now))),
+    accept: (tripId: string, driverId: string, version: number) => mutate((current) => acceptSchedule(current, tripId, driverId, version)),
+    cancel: (tripId: string, reason: string) => mutate((current) => cancelSchedule(current, tripId, reason)),
+    release: (tripId: string, driverId: string, reason: string) => mutate((current) => releaseSchedule(current, tripId, driverId, reason)),
+    reschedule: (tripId: string, input: { scheduledAt: string; timezone: string }) => mutate((current) => rescheduleSchedule(current, tripId, input)),
+    complete: (tripId: string) => mutate((current) => completeDemoSchedule(current, tripId)),
+    advance: (now: number, busy = false) => mutate((current) => matchDueSchedules(current, Math.max(now, current.now), busy)),
     initialize: () => mutate((current) => current),
-    tick: () => state.trips.some((trip) => trip.status === "RESERVED" && Date.parse(trip.departureAt) <= Math.max(state.now, Date.now()))
+    tick: () => state.trips.some((trip) => ["RESERVED", "OPEN"].includes(trip.status) && Date.parse(trip.scheduledAt) - (trip.status === "RESERVED" ? 15 * 60_000 : 0) <= Math.max(state.now, Date.now()))
       ? mutate((current) => matchDueSchedules(current, current.now)) : Promise.resolve(),
     reset: () => mutate(() => seedSchedules(Date.now())),
   };

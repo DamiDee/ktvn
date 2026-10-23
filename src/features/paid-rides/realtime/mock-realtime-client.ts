@@ -94,6 +94,10 @@ export class MockRealtimeClient implements RideRealtimeClient {
     if (subscribed) this.events.emit(event);
   }
 
+  subscribeToSchedule(): void {}
+  unsubscribeFromSchedule(): void {}
+  onScheduledEvent(): () => void { return () => {}; }
+
   subscribeToRide(rideId: string): void {
     this.rides.add(rideId);
   }

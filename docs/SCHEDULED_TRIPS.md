@@ -1,71 +1,146 @@
 # Scheduled trips frontend
 
-## Local demo
+The supplied backend contract is preserved in
+[`paid-rides/SCHEDULED_RIDES_FRONTEND.md`](paid-rides/SCHEDULED_RIDES_FRONTEND.md).
+It is the workflow reference; the newer supplied `/Users/user/Downloads/openapi.json`
+confirms the endpoint definitions and optional response fields. The earlier
+proposed `/scheduled-trips` endpoints are obsolete.
 
-Run the development server, then open `/demo/schedule-trip` on localhost. This
-standalone preview needs no backend login and includes Passenger, Driver and
-Admin preview buttons. Integrated entries are `/rides/schedule`,
-`/rides/driver/schedule` and `/admin/scheduled-trips`.
+## Page styling
 
-The demo runs only when BOTH conditions hold: the Next.js environment is
-`development` and the browser hostname is localhost, 127.0.0.1 or IPv6 loopback.
-Production, including production builds served on localhost, always renders
-Coming soon on the integrated routes. The standalone preview returns 404 in
-production. No public feature flag can enable production simulation.
+Scheduling uses the same shared cards, form inputs, segmented controls, status
+chips, route stops and empty states as the rest of the app. Booking cards group
+pickup time, route, locked fare and driver assignment, with additional details in
+an expandable section. Admin previews add a compact summary and responsive card
+grid. Local simulation controls are expandable, while the demo label remains
+visible. API lists use the existing animated skeleton treatment while loading.
 
-1. Preview Passenger and schedule a future pickup/destination/date/time.
-2. Preview Driver: the new request appears in the demo notifications and list.
-3. Select Demo Driver A or B and accept. The first acceptance reserves that
-   driver; it does not immediately dispatch a live ride.
-4. Preview Admin: the accepting driver, acceptance time and schedule status are
-   visible. Passenger also receives an acceptance notification.
-5. Simulate next departure. Due reserved trips become MATCHED and both parties
-   receive demo notifications. An unclaimed trip remains awaiting a driver.
-6. Passenger may cancel an open/reserved trip. Cancelled trips cannot be claimed
-   or matched. Reset demo restores fictional fixtures and the real-time clock.
+## Local simulation
 
-All entered times are Abuja/WAT (+01:00), independent of browser timezone.
-Notifications are in-app demo events, not real web/native pushes. No backend,
-real ride, payment, location or account mutation is made by the scheduling demo.
-The simulation clock advances explicitly; due reservations also reconcile with
-wall-clock time while the page is open. It is not a background dispatch worker.
+Open <http://127.0.0.1:3017/demo/schedule-trip> with the development server running.
+No login is needed. Passenger, Driver and Admin buttons preview fictional roles.
+Integrated routes are `/rides/schedule`, `/rides/driver/schedule` and
+`/admin/scheduled-trips`.
 
-Demo state is separate from real sessions in localStorage under
-`krides-scheduled-trip-demo-v1`. Web Locks serialize mutations across tabs,
-re-reading the winner inside the lock before accepting. Storage events synchronize
-views. Unsupported Web Locks or unavailable storage produce an error instead of
-pretending a reservation succeeded. This is a local demonstration of the workflow,
-not a replacement for backend atomicity. Reset clears only the disposable demo.
+1. As Passenger, search pickup and destination just as when booking a ride,
+   use current location, or choose each stop with a map pin. The shared ride map
+   shows both stops and a road route with journey distance/time when available.
+   Search and map data use the existing geocoding/routing proxies even in the demo;
+   scheduling records and fare quotes remain fictional. No GPS watcher, presence
+   update or live ride is started. If road routing is unavailable, selected stops
+   remain usable without drawing an approximate line as a road route. Map-pin
+   confirmation waits for the map to initialize and finish moving.
+   Choose a pickup time one hour to thirty days ahead.
+   Get a quote, review a private option and confirm. A fresh quote is obtained at
+   confirmation; unavailable-now options can still be scheduled. Shared options
+   are excluded. The saved fare is locked, including zero additional waiting fees.
+2. As Driver, select Driver A or B and accept an open request. Acceptance includes
+   the reviewed version: the first successful acceptance wins. Switch to
+   **My reservations and history** to see accepted bookings.
+3. As Admin, inspect the assigned driver and booking state. Names are fictional;
+   the real API currently returns participant IDs only.
+4. Change a pickup time as Passenger: the fare and route stay locked, the driver
+   is released and the request requires new acceptance. Cancellation and driver
+   release require a reason. Overlap checks include journey duration and buffer.
+5. **Simulate activation window** advances to fifteen minutes before pickup.
+   A reserved booking becomes ACTIVATED with a fictional live-ride ID. Use
+   **Simulate completion** to finish it. **Simulate busy expiry** demonstrates
+   deferred activation and expiry after the ten-minute grace period. An unclaimed
+   OPEN booking expires at pickup. Reset restores fictional fixtures.
 
-## Backend integration to add later
+States are OPEN, RESERVED, ACTIVATED, COMPLETED, CANCELLED and EXPIRED. All demo
+inputs use Africa/Lagos regardless of device timezone. The demo is a simulation,
+not a background worker or real booking, payment, push notification or email.
+Reminder delivery and backend worker durability require server-side verification.
 
-Keep the UI behind Coming soon until these are implemented and verified:
+Demo storage uses `krides-scheduled-trip-demo-v2`; old v1 fixtures are not reused.
+Web Locks serialize cross-tab acceptance and storage events synchronize views.
+Unsupported locks or failed storage produce an error rather than a false success.
+The simulation clock advances explicitly and reconciles due states while open.
 
-- Persist a schedule with owner ID, timezone-aware departure instant, validated
-  pickup/destination places and coordinates, passenger count/product and policy.
-- Notify eligible drivers when a schedule is created. Use authenticated events
-  and durable push delivery; do not rely on an open browser tab.
-- Atomically claim an OPEN schedule in a database transaction/CAS. The first
-  successful driver wins; a competing acceptance receives 409 and the current
-  projection. Validate approved driver/vehicle, time overlaps and availability.
-- Accepting ahead of time means RESERVED. A durable, idempotent worker promotes
-  it at departure to a normal paid-ride assignment; no duplicate live rides,
-  even if the worker retries or two workers execute. Recheck driver eligibility,
-  online presence and cancellation state; define no-show/reassignment behavior.
-- Passenger can list/cancel their own schedules; drivers receive eligible offers
-  and their own reservations; Admin/Root can list/search all schedules and see
-  accepted driver, timestamps, status, audit trail and resulting ride ID.
-- Return authoritative versions/status and reconcile over the existing
-  authenticated WebSocket. Define cancellation deadlines, reservation release,
-  notifications, fare estimates and final pricing. The frontend must never
-  settle payment or change presence by pretending a local match is a live ride.
-- Replace `demo-store.ts` behind a service adapter. Do not connect the demo's
-  fictional identities/storage directly to live account or dispatch endpoints.
+## Local API testing
 
-Suggested future endpoints (design proposal, NOT calls implemented by this UI):
-`POST /scheduled-trips`, `GET /scheduled-trips/mine`,
-`POST /scheduled-trips/{id}/cancel`, `GET /driver/scheduled-trips`,
-`POST /driver/scheduled-trips/{id}/accept`, `GET /admin/scheduled-trips`.
+Default local routes remain simulations. To use actual backend bookings, sign in
+with an appropriate test account and explicitly open:
+
+- Passenger: `/rides/schedule?source=api`
+- Driver: `/rides/driver/schedule?source=api`
+- Admin: `/admin/scheduled-trips?source=api` (uses the same booking list component
+  and `GET rides/scheduled` endpoint; no separate admin list is required)
+
+This uses the existing paid-rides API mode, configured API base and shared cookie
+session client. It can change real backend data; use test accounts. There are no
+automatic mutation retries. An uncertain create keeps the exact estimate and body
+for an explicit **Retry same booking**, preserving backend idempotency.
+
+The adapter implements the documented routes relative to the API base:
+
+- `POST/GET rides/scheduled`, `GET/PATCH rides/scheduled/{id}` and passenger cancel.
+- `GET driver/scheduled-requests`, including `mine=true` for assigned history.
+- Driver accept with `{version}` and driver cancel/release with `{reason}`.
+
+Create sends only `estimateId`, `optionId`, `scheduledAt` and `timezone`. List
+filters use only the documented cursor, limit, single status, from/to and driver
+mine fields. Dates carry an offset or Z. Loaded results are sorted by pickup time;
+server pagination remains UUID-based, so this is not a global chronological sort.
+A 409 refreshes the list and requires explicit review before another acceptance.
+Older booking versions cannot overwrite newer cached snapshots.
+
+Scheduled events extend the existing shared WebSocket; no second driver mailbox
+connection is opened. The supplied contract requires the server-root `/rides/ws`.
+For local API testing, configure `NEXT_PUBLIC_PAID_RIDES_REALTIME_URL` to the
+backend's root socket URL and restart development. The existing default socket
+path is not silently changed for the rest of the app or Android wrapper. Until
+that configuration matches, scheduling uses visible-list polling only.
+
+Private `scheduled:{id}` channels are subscribed only for the current participant;
+ACTIVATED bookings also subscribe to `ride:{rideId}`. Scheduled frames deduplicate
+by event ID, not `seq: 0`. Refetches run after events, reconnect, focus, actions and
+conflicts, with ten-second visible polling as fallback. Cleanup removes screen
+subscriptions and listeners. The existing five-second application heartbeat stays
+in place. API actions do not locally invent activation or completion.
+
+## Production gate and remaining backend checks
+
+Both development mode AND a loopback hostname are required for simulation or API
+test screens. Production integrated routes always show **Coming soon**, including
+production served on localhost or a URL containing `source=api`. The standalone
+`/demo/schedule-trip` returns 404 in production. No public flag enables it.
+
+Before launch, verify the adapter against a deployed backend with test accounts,
+including cookie permissions, race/conflict behavior, worker activation and email
+and durable notification delivery. The supplied guide names
+`rides/me/notifications` but provides no response DTO, and the existing frontend
+has no typed inbox adapter; a durable scheduled-notification inbox remains pending
+that response contract. WebSocket hints currently refresh booking lists. Demo
+notifications are synthetic and must not be treated as delivery evidence.
+
+Admin uses the same scheduled-booking list as the other roles, without requiring
+a separate admin endpoint. Driver requests still use the documented driver board.
+The API controls record visibility: the current OpenAPI describes
+`GET rides/scheduled` as the authenticated passenger's bookings. Reusing that
+endpoint for admin does not expand its server-side scope; if everyone should see
+all bookings, the backend must implement that shared visibility on the existing
+endpoint. No client-side identity override or unprovided query parameter is sent.
+Booking actions remain role-specific and passenger changes are limited to owned
+bookings. The authenticated driver mine list supplies assignment context when an
+optional driver ID is absent. Participant names are not supplied, so real
+booking details show authorized IDs when present.
+
+Response parsing accepts omitted `driverId`, `rideId`, `cancellationReason` and
+`nextCursor`, normalizing them to null, in every documented state. Missing optional
+links do not prevent the list from loading or create fictional assignments/live
+ride IDs. Basic checks for required display data, valid dates and amounts remain
+so malformed responses cannot display an invented fare or trigger an invalid
+booking action. Extra response fields are tolerated. Request validation remains
+aligned with the backend's accepted fields. Nullable place metadata (`id`, `secondary`,
+`source`) is accepted and normalized for the shared route display. `fare` and
+`option` remain arbitrary JSON as documented, including null, objects, arrays or
+primitives. Cards display the separate required `total`; they only use an option
+name when it is text. Demo quotes retain their own typed model instead of imposing
+that synthetic structure on real API responses. New response status strings are
+shown with a neutral badge and cannot activate actions intended for known states.
+
 
 ## Bank fields
 
@@ -80,19 +155,22 @@ bank records. See `MOBILE_AND_MAPS_UPDATE.md` for that payload contract.
 
 ## Verification
 
-- Scheduled-trip domain tests cover local-only gating, validation, notification,
-  competing acceptance, delayed matching, cancellation and clock ordering.
-- Registration tests verify mandatory bank name, trimmed value and top-level
-  bank payload with the leading zero preserved in the account number.
-- Browser preview verified passenger creation, immediate driver inbox event,
-  acceptance by Demo Driver B, admin visibility and matching at departure.
-- Screenshot: `previews/scheduled-trips-demo.png`.
-- Production Webpack build and TypeScript passed; lint checks passed.
-- 68 focused registration, signup, upload preparation, paid-ride and scheduling
-  tests passed. The generated production `/demo/schedule-trip` response has
-  HTTP status 404 and contains no demo interface. Integrated production routes
-  are present and guarded by the development-plus-loopback policy.
+The earlier 77-test integration run passed. Following optional-response and shared
+admin-list alignment, the 31 focused scheduling and shared-transport tests passed, including nullable
+place metadata and arbitrary fare/option payloads. The route-picker update passed
+38 scheduling, transport, routing and map-tile tests plus focused lint checks.
+Read-only local HTTP checks returned 200 for Jabi Lake Mall search (two results)
+and a Jabi-to-Wuse road route (151 points, 7,601 metres, 516 seconds). They cover scheduling bounds, locked quotes, exact payloads, safe
+retries, acceptance races, rescheduling, buffered overlap, activation/expiry,
+timezone conversion, monotonic versions, event deduplication and reconnect
+subscriptions. The production Webpack build, TypeScript and focused ESLint checks
+passed. Generated production
+metadata confirms that `/demo/schedule-trip` returns 404.
 
-OSRM deployment is separate. SSH host identity was verified by the owner, but
-login was rejected by the VPS. Its resources have not been read and it has not
-been modified. See `../deploy/osrm/README.md` for a read-only Hostinger check.
+The current preview has not been visually re-verified: browser access was rejected
+by the browser URL security policy. The older screenshot in `previews/` predates
+this contract-aligned revision. No real booking was created during implementation.
+
+OSRM deployment is separate. Nigeria road routing is live on the Hostinger VPS
+and connected to the hosted app and local preview, verified on 2026-10-23. See
+`../deploy/osrm/README.md` for deployment status and operating instructions.

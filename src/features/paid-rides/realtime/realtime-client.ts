@@ -1,3 +1,4 @@
+import type { ScheduledEvent } from "../scheduling/scheduled-events";
 import type { ConnectionStatus, LiveLocation, RideEvent } from "../domain/types";
 
 /**
@@ -15,6 +16,9 @@ import type { ConnectionStatus, LiveLocation, RideEvent } from "../domain/types"
 export interface RideRealtimeClient {
   connect(): void;
   disconnect(): void;
+  subscribeToSchedule(id: string): void;
+  unsubscribeFromSchedule(id: string): void;
+  onScheduledEvent(listener: (event: ScheduledEvent) => void): () => void;
   subscribeToRide(rideId: string): void;
   unsubscribeFromRide(rideId: string): void;
   /** Driver channel: offers, availability, assignment. */

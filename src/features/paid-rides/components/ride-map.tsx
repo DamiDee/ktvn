@@ -65,7 +65,7 @@ function useRoadRoute(route: RouteGeometry | null | undefined, from?: GeoPoint |
   return { route: route?.source === "road" ? route : needsRoad ? query.data ?? null : null, loading: needsRoad && query.isFetching, failed: needsRoad && query.isError };
 }
 
-export function RideMap(props: Omit<RideMapProps, "onError">) {
+export function RideMap(props: Omit<RideMapProps, "onError"> & { failureMessage?: string }) {
   const road = useRoadRoute(props.route);
   const approach = useRoadRoute(props.approaching ? props.approachRoute : null,
     props.approaching ? props.vehicle?.point : null, props.approaching ? props.pickup : null, true);
@@ -80,7 +80,7 @@ export function RideMap(props: Omit<RideMapProps, "onError">) {
         <div className="flex max-w-xs items-start gap-3 rounded-[var(--ride-radius-lg)] bg-[var(--surface-primary)] p-4 shadow-[var(--ride-elev-2)]" role="status">
           <MapPinOff className="mt-0.5 size-5 shrink-0 text-[var(--text-tertiary)]" aria-hidden />
           <p className="ride-body-sm text-[var(--text-secondary)]">
-            The map couldn&apos;t load. Your trip details below are still live and up to date.
+            {props.failureMessage ?? "The map couldn't load. Your trip details below are still live and up to date."}
           </p>
         </div>
       </div>

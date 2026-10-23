@@ -1,3 +1,4 @@
+import { mapScheduledEvent, type ScheduledEvent } from "../scheduling/scheduled-events.ts";
 import { PAID_RIDES_CONFIG, PAID_RIDES_FEATURES } from "../config.ts";
 import { backoffDelay } from "../domain/location-policy.ts";
 import type { ConnectionStatus, LiveLocation, RideEvent } from "../domain/types";
@@ -33,6 +34,8 @@ export interface WebSocketClientOptions {
 export class WebSocketRealtimeClient implements RideRealtimeClient {
   private socket: WebSocket | null = null;
   private readonly channels = new Map<string, number>();
+  private readonly scheduledEvents = new ListenerSet<[ScheduledEvent]>();
+  private readonly scheduledIds = new Set<string>();
   private readonly events = new ListenerSet<[RideEvent]>();
   private readonly statuses = new ListenerSet<[ConnectionStatus]>();
   private readonly reconnects = new ListenerSet<[]>();
@@ -117,6 +120,15 @@ export class WebSocketRealtimeClient implements RideRealtimeClient {
         return;
       }
       if (frame?.type !== "event") return;
+      const scheduled = mapScheduledEvent(frame.event);
+      if (scheduled) {
+        if (!this.scheduledIds.has(scheduled.id)) {
+          this.scheduledIds.add(scheduled.id);
+          if (this.scheduledIds.size > 500) this.scheduledIds.delete(this.scheduledIds.values().next().value!);
+          this.scheduledEvents.emit(scheduled);
+        }
+        return;
+      }
       const event = mapRealtimeEvent(frame.event, { trustSeq: PAID_RIDES_CONFIG.trustRealtimeSeq });
       if (event) this.events.emit(event);
     };
@@ -236,6 +248,10 @@ export class WebSocketRealtimeClient implements RideRealtimeClient {
     if (!this.channels.delete(channel)) return;
     this.send({ type: "unsubscribe", channel });
   }
+
+  subscribeToSchedule(id: string): void { this.subscribe(`scheduled:${id}`); }
+  unsubscribeFromSchedule(id: string): void { this.unsubscribe(`scheduled:${id}`); }
+  onScheduledEvent(listener: (event: ScheduledEvent) => void): () => void { return this.scheduledEvents.add(listener); }
 
   subscribeToRide(rideId: string): void {
     this.subscribe(`ride:${rideId}`);

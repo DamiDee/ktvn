@@ -127,3 +127,19 @@ test("untrusted coordinates, fares, timestamps and call links fail safely", () =
   assert.equal(mapRealtimeEvent({ id: "event", payload: { type: "ride.updated", ride: {} } }, { trustSeq: false }), null);
   assert.equal(toRideError(new DOMException("timeout", "TimeoutError")).code, "timeout");
 });
+
+test("scheduled channels share the driver socket, ref-count, deduplicate event IDs and ignore seq zero", (t) => {
+  const client = setup(t), events = [];
+  client.onScheduledEvent((event) => events.push(event));
+  client.subscribeToDriver(); client.connect(); const socket = FakeSocket.instances[0]; socket.open();
+  client.subscribeToSchedule("booking-1"); client.subscribeToSchedule("booking-1");
+  client.unsubscribeFromSchedule("booking-1");
+  assert.deepEqual(socket.sent, [{ type: "subscribe", channel: "scheduled:booking-1" }]);
+  const event = (id) => JSON.stringify({ type: "event", event: { id, seq: 0, occurredAt: "2026-10-22T09:00:00Z", payload: { type: "scheduled.resync_required" } } });
+  socket.onmessage({ data: event("first") });socket.onmessage({ data: event("first") });socket.onmessage({ data: event("second") });
+  assert.deepEqual(events.map((e) => e.id), ["first", "second"]);
+  assert.equal(FakeSocket.instances.length, 1);
+  client.reconnectNow();const next = FakeSocket.instances[1];next.open();
+  assert.deepEqual(next.sent, [{ type: "subscribe", channel: "scheduled:booking-1" }]);
+  client.unsubscribeFromSchedule("booking-1");assert.deepEqual(next.sent[1], { type: "unsubscribe", channel: "scheduled:booking-1" });
+});
