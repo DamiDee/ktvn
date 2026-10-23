@@ -7,10 +7,13 @@ Dedicated owner-authorized SSH access works. Private keys are not part of this r
 
 ## Deployment status
 
-Live and verified on 2026-10-23 (Africa/Lagos). Nigeria road routing serves the
+Live and verified on 2026-10-23 (Africa/Lagos). FCT road routing serves the
 hosted app and local preview. The Android WebView uses the hosted integration
 without an APK rebuild. All three temporary build swap files have been removed;
-the final host check showed 3,098 MiB available RAM and 31 GiB free disk.
+the final FCT host check showed 3,101 MiB available RAM and 34 GiB free disk.
+The active regional dataset is about 103 MiB. Retiring 26 unused national routing
+files freed 3.40 GiB; retained source/build inputs bring total map storage to about
+1.04 GiB. See [BACKEND_HANDOFF.md](BACKEND_HANDOFF.md) for the developer's API URL.
 
 The engine is the published official `v26.6.1-amd64-alpine` image, pinned as:
 
@@ -27,7 +30,11 @@ package-index update was left running; installation used the available index.
 ## Components
 
 - `/opt/krides-osrm/image-ref`: exact image digest used for preprocessing/serving.
-- `/opt/krides-osrm/data/nigeria-<UTC timestamp>/`: versioned map and MLD files.
+- `/opt/krides-osrm/data/fct-<UTC timestamp>/`: active regional map and MLD files.
+- `/opt/krides-osrm/data/nigeria-<UTC timestamp>/`: retained original source inputs.
+- `/opt/krides-osrm/boundaries/fct.geojson`: OSM `NG-FC` administrative polygon.
+- `/opt/krides-osrm/fct-build-dir`, `fct-build-status`: regional staging path/status.
+- `/opt/krides-osrm/logs/fct-preprocess.log`: regional preprocessing log.
 - `/opt/krides-osrm/build-dir`: staging dataset path.
 - `/opt/krides-osrm/current`: active dataset symlink, set only after preprocessing.
 - `/opt/krides-osrm/logs/preprocess.log`: extract/partition/customize output.
@@ -36,7 +43,8 @@ package-index update was left running; installation used the available index.
 - `krides-osrm-prepare.service`: one-time data build; not enabled as a scheduled job.
 - `krides-osrm.service`: the routing server, enabled at boot after verification.
 
-`bootstrap-host.sh` installs Podman and creates 20 GiB of temporary, owner-only
+The following national-build details are historical; the active FCT build uses
+`prepare-fct.sh` and no swap. `bootstrap-host.sh` installs Podman and creates 20 GiB of temporary, owner-only
 build swap in three files. It is not added to `/etc/fstab`; remove it after the build when memory
 headroom permits. `prepare-data.sh` downloads Nigeria's PBF over HTTPS, verifies
 Geofabrik's checksum, then runs car-profile extract, partition and customize.
@@ -56,7 +64,20 @@ without discarding completed work or increasing physical RAM/CPU limits.
 Preprocessing is capped at 0.75 CPU, 2.75 GiB RAM, 20 GiB combined RAM/swap, with
 low CPU/I/O priority. It does not use an application database or volume.
 The serving container runs as UID 65534 with a read-only filesystem/data mount,
-no extra capabilities, a 1.5 GiB memory cap, and memory-mapped routing files.
+no extra capabilities and memory-mapped routing files. The active FCT service has
+a 512 MiB memory cap and 0.5 CPU quota; the older Nigeria configuration allowed
+1.5 GiB and 0.75 CPU.
+
+The FCT polygon came from `r/ISO3166-2=NG-FC` in the verified source PBF, exported
+with `osmium export --geometry-types=polygon`. The first polygon extraction hit
+its 2.25 GiB job limit because indexes scaled with worldwide OSM object IDs.
+The corrected build uses `osmium renumber` on a separate routing-input copy,
+preserving coordinates, tags and references. IDs in this derived dataset are
+internal, not original upstream OSM IDs. Never upload the derived file to OSM.
+`osmium extract -s smart -S types=restriction` retains complete boundary-crossing
+roads and turn restrictions. `osmium check-refs` passed before OSRM processing.
+The corrected build ran with a 0.5 CPU quota, 2.25 GiB parent memory cap, and
+1.5 GiB container cap, without swap. The live app remained available.
 
 ## Routing and app configuration
 
@@ -117,21 +138,23 @@ Verified through public HTTPS and the application's normalized proxy:
 | Route | Geometry points | Distance | Estimated duration |
 | --- | ---: | ---: | ---: |
 | Abuja, Jabi–Wuse | 151 | 7,601 m | 516 s |
-| Lagos, Victoria Island–Ikeja | 512 | 26,631 m | 1,287 s |
+| Gwagwalada–Abuja | 647 | 55,903 m | 2,654 s |
+| Kuje–Abuja | 598 | 41,117 m | 2,154 s |
 
 Both endpoints returned identical geometry and matching rounded metrics. The
 local preview on port 3017 also returned the same Abuja route. Invalid coordinates
 returned 400, unexposed services 404, write requests 403, and London locations
-`NoSegment` rather than a distant Nigeria route. Login returned 200 after the
+`NoSegment` rather than a distant FCT route. Lagos now returns `NoSegment` too;
+the earlier national deployment's Lagos success is no longer expected. Login returned 200 after the
 web restart and final cleanup. Port 5001 listens only on 127.0.0.1; the routing
 service is enabled at boot and had zero restarts at the final check.
 
-Dataset built at `2026-10-22T23:01:26Z`, from the Geofabrik Nigeria extract with
+The original national dataset was built at `2026-10-22T23:01:26Z`, from the Geofabrik Nigeria extract with
 source timestamp `2026-10-21T20:21:46Z` and SHA-256:
 `67249ca4e4948df07e60bbe83ac1de47d94457a4d614f984faed36338f57e2c4`.
 
-Run `verify-routing.py` after connecting the service and app. It checks Abuja and
-Lagos road routes through both HTTPS endpoints, including exact geometry and
+Run `verify-routing.py --region fct` after connecting the service and app. It checks Abuja,
+Gwagwalada and Kuje through both HTTPS endpoints, including exact geometry and
 rounded distance/time agreement. It also checks invalid coordinates, rejected
 write methods, unexposed table routing, outside-country snapping and the existing
 login page. Inspect `ss -lnt` to confirm that port 5001 is loopback-only, and
@@ -141,6 +164,28 @@ No account, booking, driver-presence or payment mutation is part of these checks
 Live traffic and spoken navigation are not supplied by this setup.
 
 ## Operations and future map updates
+
+For FCT updates, retain/refetch the verified Nigeria source, regenerate the
+`NG-FC` polygon, and point `fct-source-dir` at the filtered national input folder.
+Set `fct-build-dir` to a **new** staging directory and run `prepare-fct.sh` with
+the same resource limits as the last build. The compact input cache is
+keyed by the filtered source checksum and is rebuilt when that source changes.
+Validate on a temporary loopback service before atomically switching `current`.
+The initial national derived files were retired after FCT verification; their
+retirement report is `backups/national-derived-retired.json`. Restoring national
+coverage now requires rebuilding it from the retained source; changing a symlink
+alone cannot restore those deleted files.
+
+Coverage retains complete boundary-crossing roads and is not a strict legal
+geofence. If bookings must enforce FCT endpoint boundaries, validate the polygon
+in the booking backend. Serving a smaller graph does not enforce booking policy.
+
+Automatic failover is prepared in the local frontend source using
+`ROUTING_FALLBACK_API_BASE_URL`, but has not been deployed/enabled in production:
+the owner has no approved backup provider. Public demo hosts are rejected in
+production. Tests cover primary success, backup on network/timeout/429/5xx/invalid
+responses, cooldown/recovery, and preserving coverage errors. See the handoff for
+failure behavior and why a shared-VPS outage needs an independently hosted backup.
 
 Inspect with `systemctl status krides-osrm`, `journalctl -u krides-osrm` and
 `cat /opt/krides-osrm/current/manifest.json`. Do not expose private keys or

@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Read-only checks for the installed OSRM and existing frontend proxy."""
+import argparse
 import json
 import urllib.error
 import urllib.parse
 import urllib.request
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--region', choices=['fct', 'nigeria'], default='fct')
+region = parser.parse_args().region
 ORIGIN = 'https://app.freebus.cloud'
 
 def request(url, method='GET'):
@@ -23,10 +27,14 @@ def request(url, method='GET'):
             data = None
         return error.code, data
 
-for label, points in [
+routes = [
     ('Abuja', [{'lat': 9.0721, 'lng': 7.4246}, {'lat': 9.0647, 'lng': 7.4728}]),
-    ('Lagos', [{'lat': 6.4281, 'lng': 3.4219}, {'lat': 6.6018, 'lng': 3.3515}]),
-]:
+    ('Gwagwalada to Abuja', [{'lat': 8.943, 'lng': 7.083}, {'lat': 9.0647, 'lng': 7.4728}]),
+    ('Kuje to Abuja', [{'lat': 8.879, 'lng': 7.228}, {'lat': 9.0647, 'lng': 7.4728}]),
+]
+if region == 'nigeria':
+    routes.append(('Lagos', [{'lat': 6.4281, 'lng': 3.4219}, {'lat': 6.6018, 'lng': 3.3515}]))
+for label, points in routes:
     coords = ';'.join(f"{point['lng']},{point['lat']}" for point in points)
     path = '/route/v1/driving/' + coords + '?overview=full&geometries=geojson&steps=false'
     status, raw = request(ORIGIN + '/routing' + path)
@@ -55,3 +63,8 @@ for label, path, method, expected in [
 status, data = request(ORIGIN + '/routing/route/v1/driving/-0.1278,51.5074;-0.12,51.51?overview=false')
 assert status == 400 and data.get('code') == 'NoSegment', (status, data)
 print('Outside-country locations are not silently snapped to Nigeria: NoSegment')
+
+if region == 'fct':
+    status, data = request(ORIGIN + '/routing/route/v1/driving/3.4219,6.4281;3.3515,6.6018?overview=false')
+    assert status == 400 and data.get('code') == 'NoSegment', (status, data)
+    print('Lagos outside FCT dataset: NoSegment')

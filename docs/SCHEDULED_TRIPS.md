@@ -171,6 +171,6 @@ The current preview has not been visually re-verified: browser access was reject
 by the browser URL security policy. The older screenshot in `previews/` predates
 this contract-aligned revision. No real booking was created during implementation.
 
-OSRM deployment is separate. Nigeria road routing is live on the Hostinger VPS
+OSRM deployment is separate. FCT road routing is live on the Hostinger VPS
 and connected to the hosted app and local preview, verified on 2026-10-23. See
 `../deploy/osrm/README.md` for deployment status and operating instructions.

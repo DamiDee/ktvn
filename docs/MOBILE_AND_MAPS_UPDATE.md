@@ -71,11 +71,16 @@ currently directs these verified-record changes to the transport team.
 
 ## Routing deployment
 
-Self-hosted Nigeria OSRM is live on the existing Hostinger VPS as of 2026-10-23.
+Self-hosted FCT OSRM is live on the existing Hostinger VPS as of 2026-10-23.
 The hosted app uses `ROUTING_API_BASE_URL=http://127.0.0.1:5001`; local development
-uses `https://app.freebus.cloud/routing`. Abuja and Lagos route checks passed
+uses `https://app.freebus.cloud/routing`. Abuja, Gwagwalada and Kuje route checks passed
 through both HTTPS and the app proxy. See `../deploy/osrm/README.md` for metrics,
 map updates, service operation and the web runtime recovery performed at restart.
+Lagos is now outside coverage. The active FCT dataset is approximately 103 MiB,
+and retiring the national routing files freed 3.40 GiB. The source includes a
+shared, tested failover client configured by `ROUTING_FALLBACK_API_BASE_URL`;
+no approved backup provider is available, so that change is not deployed/enabled
+in production. See `../deploy/osrm/BACKEND_HANDOFF.md` for backend integration.
 
 For another deployment, set the web host's server environment
 `ROUTING_API_BASE_URL` to the base URL of your own OSRM service and restart the

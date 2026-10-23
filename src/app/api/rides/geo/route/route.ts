@@ -1,4 +1,4 @@
-import { parseOsrmRoute } from "@/lib/road-routing";
+import { fetchRoadRoute, RoutingConfigurationError } from "@/lib/osrm-client";
 import { routingCoordinates, type Coordinates } from "@/lib/transport-locations";
 
 /**
@@ -20,20 +20,9 @@ export async function GET(request: Request) {
   }
 
   try {
-    const configured = process.env.ROUTING_API_BASE_URL?.trim();
-    // The public OSRM demo is limited to non-commercial testing. Paid rides
-    // need their own routing service; never silently use the demo in production.
-    const base = (configured || (process.env.NODE_ENV === "production" ? "" : "https://router.project-osrm.org")).replace(/\/$/, "");
-    if (!base || process.env.NODE_ENV === "production" && new URL(base).hostname === "router.project-osrm.org") {
-      return Response.json({ message: "A production road-routing server must be configured." }, { status: 503 });
-    }
-    const response = await fetch(`${base}/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=false`, {
-      signal: AbortSignal.timeout(8000),
-      next: { revalidate: 600 },
-    });
-    if (!response.ok) throw new Error();
-    return Response.json(parseOsrmRoute(await response.json()));
-  } catch {
+    return Response.json(await fetchRoadRoute(coordinates));
+  } catch (error) {
+    if (error instanceof RoutingConfigurationError) return Response.json({ message: error.message }, { status: 503 });
     return Response.json({ message: "Road routing is unavailable." }, { status: 502 });
   }
 }
