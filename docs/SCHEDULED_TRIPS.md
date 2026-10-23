@@ -19,8 +19,9 @@ visible. API lists use the existing animated skeleton treatment while loading.
 
 Open <http://127.0.0.1:3017/demo/schedule-trip> with the development server running.
 No login is needed. Passenger, Driver and Admin buttons preview fictional roles.
-Integrated routes are `/rides/schedule`, `/rides/driver/schedule` and
-`/admin/scheduled-trips`.
+Live integrated routes are `/rides/schedule`, `/rides/driver/schedule` and
+`/admin/scheduled-trips`; they use real API data by default, even on localhost.
+Sample data is confined to the explicit `/demo/schedule-trip` page.
 
 1. As Passenger, search pickup and destination just as when booking a ride,
    use current location, or choose each stop with a map pin. The shared ride map
@@ -58,15 +59,19 @@ Web Locks serialize cross-tab acceptance and storage events synchronize views.
 Unsupported locks or failed storage produce an error rather than a false success.
 The simulation clock advances explicitly and reconciles due states while open.
 
-## Local API testing
+## Live API scheduling
 
-Default local routes remain simulations. To use actual backend bookings, sign in
-with an appropriate test account and explicitly open:
+Sign in with the appropriate account and open:
 
-- Passenger: `/rides/schedule?source=api`
-- Driver: `/rides/driver/schedule?source=api`
-- Admin: `/admin/scheduled-trips?source=api` (uses the same booking list component
-  and `GET rides/scheduled` endpoint; no separate admin list is required)
+- Passenger: `/rides/schedule`
+- Driver: `/rides/driver/schedule`
+- Admin: `/admin/scheduled-trips` (the same booking list and `GET rides/scheduled`;
+  no separate admin endpoint)
+
+No `source=api` query parameter or loopback hostname is required. The API screen
+is the default in development and production; mock/off mode does not create real
+scheduled bookings. The production UI has no Coming soon gate or API-test labels.
+Account loading, expired sessions and request errors have explicit states.
 
 This uses the existing paid-rides API mode, configured API base and shared cookie
 session client. It can change real backend data; use test accounts. There are no
@@ -88,10 +93,13 @@ Older booking versions cannot overwrite newer cached snapshots.
 
 Scheduled events extend the existing shared WebSocket; no second driver mailbox
 connection is opened. The supplied contract requires the server-root `/rides/ws`.
-For local API testing, configure `NEXT_PUBLIC_PAID_RIDES_REALTIME_URL` to the
-backend's root socket URL and restart development. The existing default socket
-path is not silently changed for the rest of the app or Android wrapper. Until
-that configuration matches, scheduling uses visible-list polling only.
+The shared socket now defaults to `/rides/ws` at the backend origin, matching
+the supplied guide. An explicit `NEXT_PUBLIC_PAID_RIDES_REALTIME_URL` still wins;
+check that override if the deployed server uses a custom proxy path. Scheduling
+listens on the configured shared connection, not a second driver socket. Driver
+mailbox broadcasts show a View requests toast elsewhere in the paid-rides driver
+workspace; events also invalidate cached schedule lists. Visible-list polling
+remains active to reconcile missed/process-local events.
 
 Private `scheduled:{id}` channels are subscribed only for the current participant;
 ACTIVATED bookings also subscribe to `ride:{rideId}`. Scheduled frames deduplicate
@@ -100,12 +108,12 @@ conflicts, with ten-second visible polling as fallback. Cleanup removes screen
 subscriptions and listeners. The existing five-second application heartbeat stays
 in place. API actions do not locally invent activation or completion.
 
-## Production gate and remaining backend checks
+## Production availability and remaining backend checks
 
-Both development mode AND a loopback hostname are required for simulation or API
-test screens. Production integrated routes always show **Coming soon**, including
-production served on localhost or a URL containing `source=api`. The standalone
-`/demo/schedule-trip` returns 404 in production. No public flag enables it.
+The integrated scheduling routes now use the API in production. Only the explicit
+simulation requires development mode plus a loopback hostname, and
+`/demo/schedule-trip` still returns 404 in production. Its sample records and
+simulation actions never stand in for a real backend booking.
 
 Before launch, verify the adapter against a deployed backend with test accounts,
 including cookie permissions, race/conflict behavior, worker activation and email
@@ -174,3 +182,19 @@ this contract-aligned revision. No real booking was created during implementatio
 OSRM deployment is separate. FCT road routing is live on the Hostinger VPS
 and connected to the hosted app and local preview, verified on 2026-10-23. See
 `../deploy/osrm/README.md` for deployment status and operating instructions.
+
+## API launch verification (2026-10-23)
+
+The supplied OpenAPI matches the service routes for create, passenger list,
+driver board/mine, detail, reschedule, passenger cancellation, driver accept and
+release. Requests send the documented DTO fields; opaque fare/option payloads,
+nullable metadata and optional references remain supported.
+The 41 scheduling, shared-transport and configuration tests, TypeScript and focused
+ESLint checks passed. Unauthenticated read-only calls to both published list
+routes returned 400; the inspected error was `Could not extract token.` This
+confirms authentication is required, not a successful signed-in booking test.
+No real booking, cancellation, assignment or notification was triggered during
+verification. The browser became unresponsive during page inspection, so
+interactive authenticated acceptance remains unverified. These frontend changes
+still require a normal frontend release; no Git push or production deploy was
+performed in this task.

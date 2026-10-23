@@ -4,11 +4,10 @@ import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/r
 import { CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Input, Select } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { EmptyState, ErrorState } from "@/components/ui/states";
-import { PAID_RIDES_CONFIG, PAID_RIDES_MODE } from "../config";
+import { PAID_RIDES_MODE } from "../config";
 import { getRideService } from "../services";
 import { getRealtimeClient } from "../realtime";
 import { useRideViewer } from "../hooks/use-ride-viewer";
@@ -18,7 +17,7 @@ import { apiScheduleService } from "./api-service";
 import { ScheduleApiError } from "./schedule-service";
 import { BookingCard, SCHEDULE_LABEL, scheduleError, type ScheduleAction } from "./booking-card";
 import { DAY, HOUR, localScheduleTime, preferNewerBooking, resolveScheduleTime, validateBookingTime, type CreateScheduledRide, type ScheduledRide, type ScheduledRidePage, type ScheduledStatus } from "./contract";
-import { scheduledSocketUrl } from "./scheduled-events";
+import { RouteLoader } from "@/components/ui/route-loader";
 import { ScheduledRoutePicker } from "./scheduled-route-picker";
 
 function ApiBookingForm({ onCreated, now }: { onCreated: () => void; now: number }) {
@@ -26,7 +25,7 @@ function ApiBookingForm({ onCreated, now }: { onCreated: () => void; now: number
   const [time, setTime] = useState(() => localScheduleTime(Date.now() + DAY)), [estimate, setEstimate] = useState<FareEstimate | null>(null), [optionId, setOptionId] = useState("");
   const [routePending, setRoutePending] = useState(false);
   const [pending, setPending] = useState<CreateScheduledRide | null>(null), [busy, setBusy] = useState(false), [message, setMessage] = useState("");
-  function clearQuote() { setEstimate(null); }
+  function clearQuote() { setEstimate(null); setOptionId(""); }
   async function quote() {
     if (!pickup || !destination || busy || routePending) return;
     setBusy(true); setMessage("");
@@ -45,7 +44,7 @@ function ApiBookingForm({ onCreated, now }: { onCreated: () => void; now: number
         if (!selected || !old || selected.fare.total.amountMinor !== old.fare.total.amountMinor || selected.fare.total.currency !== old.fare.total.currency) { setEstimate(fresh); setMessage("The fare or option changed. Review the fresh quote and confirm again."); return; }
         body = { estimateId: fresh.estimateId, optionId, scheduledAt, timezone: "Africa/Lagos" }; setPending(body);
       }
-      await apiScheduleService.create(body); setPending(null); setEstimate(null); setMessage("Booking confirmed with a locked fare. Email delivery is handled separately by the server."); onCreated();
+      await apiScheduleService.create(body); setPending(null); setEstimate(null); setMessage("Your scheduled trip is confirmed. We’ll update your booking when a driver accepts."); onCreated();
     } catch (e) {
       // An uncertain request may have committed: keep the exact estimate/payload for safe retry.
       if (!(e instanceof ScheduleApiError) || !e.uncertain) setPending(null);
@@ -99,19 +98,18 @@ function ApiSchedules({ role }: { role: "passenger" | "driver" | "admin" }) {
   const bookings = [...new Map(list.data?.pages.flatMap((p) => p.items).map((b) => [b.id, b])).values()].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
   const owned = bookings.filter((b) => b.passengerId === userId || b.driverId === userId || role === "driver" && mine);
   const subscriptions = owned.map((b) => b.id).sort().join(","), liveSubscriptions = owned.flatMap((b) => b.status === "ACTIVATED" && b.rideId ? [b.rideId] : []).sort().join(",");
-  const socketReady = PAID_RIDES_CONFIG.realtimeUrl.replace(/\/$/, "") === scheduledSocketUrl(PAID_RIDES_CONFIG.apiBaseUrl).replace(/\/$/, "");
   useEffect(() => {
     if (!userId) return;
-    const refresh = () => { void queries.invalidateQueries({ queryKey: ["paid-rides", "schedules", userId] }); };
+    const client = getRealtimeClient();
+    const refresh = () => { client.connect(); void queries.invalidateQueries({ queryKey: ["paid-rides", "schedules", userId] }); };
     const focus = () => { if (document.visibilityState === "visible") refresh(); };
-    window.addEventListener("focus", refresh); document.addEventListener("visibilitychange", focus);
-    const client = socketReady ? getRealtimeClient() : null;
+    window.addEventListener("focus", refresh); window.addEventListener("online", refresh); document.addEventListener("visibilitychange", focus);
     const ids = subscriptions ? subscriptions.split(",") : [], rides = liveSubscriptions ? liveSubscriptions.split(",") : [];
     ids.forEach((id) => client?.subscribeToSchedule(id)); rides.forEach((id) => client?.subscribeToRide(id));
     const detach = client?.onScheduledEvent(refresh), reconnect = client?.onReconnected(refresh);
     client?.connect();
-    return () => { detach?.(); reconnect?.(); ids.forEach((id) => client?.unsubscribeFromSchedule(id)); rides.forEach((id) => client?.unsubscribeFromRide(id)); window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", focus); };
-  }, [queries, userId, socketReady, subscriptions, liveSubscriptions]);
+    return () => { detach?.(); reconnect?.(); ids.forEach((id) => client?.unsubscribeFromSchedule(id)); rides.forEach((id) => client?.unsubscribeFromRide(id)); window.removeEventListener("focus", refresh); window.removeEventListener("online", refresh); document.removeEventListener("visibilitychange", focus); };
+  }, [queries, userId, subscriptions, liveSubscriptions]);
   async function action(booking: ScheduledRide, value: ScheduleAction) {
     if (busy) return; setBusy(true); setMessage("");
     try {
@@ -125,11 +123,10 @@ function ApiSchedules({ role }: { role: "passenger" | "driver" | "admin" }) {
       throw e;
     } finally { await queries.invalidateQueries({ queryKey: ["paid-rides", "schedules", userId] }); setBusy(false); }
   }
+  if (viewer.isPending) return <RouteLoader message="Loading your scheduled trips" />;
+  if (viewer.isError || !userId) return <ErrorState title="We couldn’t load your account" description="Check your connection and sign in again if your session has expired." onRetry={() => void viewer.refetch()} />;
   return <div className="space-y-6">
-    <Card radius="xl" className="space-y-3">
-      <CardHeader title="Scheduled trips" action={<Badge variant="gold">API test</Badge>} description="This local test uses your signed-in account and changes real backend bookings." />
-      <details className="ride-caption"><summary className="cursor-pointer font-medium">Connection details</summary><p className="mt-2 break-words">{socketReady ? "Scheduled updates use the shared live connection." : `Polling is active. Configure the shared socket as ${scheduledSocketUrl(PAID_RIDES_CONFIG.apiBaseUrl)} to enable scheduled events. No extra driver socket is opened.`} The server controls which bookings this account can see. Participant names are not supplied by this API; authorized IDs are shown.</p></details>
-    </Card>
+    <Card radius="xl"><CardHeader title={role === "driver" ? "Plan your upcoming journeys" : "Scheduled trips"} description={role === "passenger" ? "Book ahead, follow driver confirmations, and manage your upcoming journeys." : role === "driver" ? "Accept an upcoming request or manage your reserved trips." : "Review scheduled journeys and their driver assignments."} /></Card>
     {role === "passenger" && userId ? <ApiBookingForm key={userId} now={clock} onCreated={() => { void queries.invalidateQueries({ queryKey: root }); }} /> : null}
     {role === "driver" ? <SegmentedControl label="Driver schedules" value={mine ? "mine" : "open"} onChange={(value) => { setMine(value === "mine"); setStatus(""); }} options={[{ value: "open", label: "Open requests" }, { value: "mine", label: "My bookings" }]} /> : null}
     <section className="space-y-4" aria-label="Scheduled bookings">
@@ -149,6 +146,6 @@ function ApiSchedules({ role }: { role: "passenger" | "driver" | "admin" }) {
   </div>;
 }
 export default function ApiScheduleScreen({ role }: { role: "passenger" | "driver" | "admin" }) {
-  if (PAID_RIDES_MODE !== "api") return <EmptyState icon={CalendarClock} title="API testing is not enabled" description="Switch to the paid-rides API mode and sign in with a test account to connect scheduled bookings. The default preview uses sample data." />;
+  if (PAID_RIDES_MODE !== "api") return <EmptyState icon={CalendarClock} title="Connect to live rides to schedule a trip" description="Scheduled bookings require a signed-in account and the live rides service." />;
   return <ApiSchedules role={role} />;
 }

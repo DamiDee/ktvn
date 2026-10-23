@@ -28,7 +28,7 @@ export const PAID_RIDES_CONFIG = {
   /** REST base for `api` mode; the backend serves under /api/v1, e.g. https://api.example.com/api/v1 */
   apiBaseUrl: connection.apiBaseUrl,
   /**
-   * WebSocket endpoint for `api` mode, e.g. wss://api.example.com/api/v1/rides/ws.
+   * WebSocket endpoint for `api` mode, e.g. wss://api.example.com/rides/ws.
    * All roles use this URL. The backend identifies drivers from the session cookie.
    */
   realtimeUrl: connection.realtimeUrl,

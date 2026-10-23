@@ -19,6 +19,7 @@ import { useDriverSession, usePassengerSession } from "../state/use-ride-session
 import { useSilentLocation } from "../location/use-location";
 import { MockDevPanel } from "./mock-dev-panel";
 import { RideModeSwitch } from "./mode-switch";
+import { useScheduledDriverNotices } from "../scheduling/use-scheduled-driver-notices";
 import { DriverFloatingTracker } from "../pip/driver-floating-tracker";
 
 /**
@@ -101,6 +102,7 @@ export function RideModuleShell({ children }: { children: ReactNode }) {
   }, [role]);
 
   const viewer = useRideViewer();
+  useScheduledDriverNotices(role === "driver" ? viewer.data?.account?.id : undefined);
 
   const navItems: BubbleNavItem[] = useMemo(
     () =>

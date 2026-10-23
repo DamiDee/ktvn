@@ -45,7 +45,7 @@ export default function ScheduleDemo({ initialRole }: { initialRole: ScheduleRol
     <Card radius="xl" className="space-y-4">
       <CardHeader eyebrow="Preview" title="Scheduled trips" description="Try the passenger, driver and admin views using sample trips." action={<Badge variant="gold">Local demo</Badge>} />
       <SegmentedControl<ScheduleRole> label="Preview scheduled trips as" value={role} onChange={(view) => { setRole(view); setFilter("ALL"); setFeedback(""); }} options={[{ value: "passenger", label: "Passenger", icon: UserRound }, { value: "driver", label: "Driver", icon: Car }, { value: "admin", label: "Admin", icon: LayoutDashboard }]} />
-      <p className="ride-caption">Sample data only. No real trips or notifications are sent. Scheduling stays Coming soon in production.</p>
+      <p className="ride-caption">Sample data only. No real trips or notifications are sent. Real scheduling is available from the signed-in Schedule pages.</p>
       <details className="border-t border-line pt-3">
         <summary className="ride-body-sm cursor-pointer font-medium text-ink-secondary">Simulation controls</summary>
         <p className="ride-caption mt-3">Demo time: {scheduleDate(state.now, "Africa/Lagos")} · Africa/Lagos</p>

@@ -41,12 +41,12 @@ test("drivers go straight to paid rides; other role destinations are retained", 
 });
 
 test("live deployments use the API and matching socket; simulation requires demo or an explicit flag", () => {
-  assert.deepEqual(resolvePaidRidesConnection({}), { mode: "api", apiBaseUrl: "https://api.freebus.cloud/api/v1", realtimeUrl: "wss://api.freebus.cloud/api/v1/rides/ws" });
+  assert.deepEqual(resolvePaidRidesConnection({}), { mode: "api", apiBaseUrl: "https://api.freebus.cloud/api/v1", realtimeUrl: "wss://api.freebus.cloud/rides/ws" });
   assert.equal(resolvePaidRidesConnection({ freeBusesMode: "demo" }).mode, "mock");
   assert.equal(resolvePaidRidesConnection({ freeBusesMode: "live" }).mode, "api");
   assert.equal(resolvePaidRidesConnection({ mode: "off" }).mode, "off");
   assert.equal(resolvePaidRidesConnection({ mode: "mock" }).mode, "mock");
-  assert.deepEqual(resolvePaidRidesConnection({ apiBaseUrl: " ", realtimeUrl: " ", freeBusApiBaseUrl: "http://localhost:3009/api/v1/" }), { mode: "api", apiBaseUrl: "http://localhost:3009/api/v1", realtimeUrl: "ws://localhost:3009/api/v1/rides/ws" });
+  assert.deepEqual(resolvePaidRidesConnection({ apiBaseUrl: " ", realtimeUrl: " ", freeBusApiBaseUrl: "http://localhost:3009/api/v1/" }), { mode: "api", apiBaseUrl: "http://localhost:3009/api/v1", realtimeUrl: "ws://localhost:3009/rides/ws" });
   assert.equal(resolvePaidRidesConnection({ apiBaseUrl: "https://rides.example.test/v1", realtimeUrl: "wss://socket.example.test/rides" }).realtimeUrl, "wss://socket.example.test/rides");
 });
 
