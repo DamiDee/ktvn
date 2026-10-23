@@ -84,7 +84,7 @@ export function PassengerRideScreen() {
 
   // Pre-fill the pickup with the rider's location once, if they haven't chosen one.
   useEffect(() => {
-    if (draft.pickup || !fix || ride) return;
+    if (phase !== "IDLE" || draft.pickup || !fix || ride) return;
     let cancelled = false;
     void getMapProvider()
       .reverseGeocode(fix.point)
@@ -95,7 +95,7 @@ export function PassengerRideScreen() {
     return () => {
       cancelled = true;
     };
-  }, [draft.pickup, fix, ride, setDraft]);
+  }, [phase, draft.pickup, fix, ride, setDraft]);
 
   // Fare estimate: server state, keyed by the two ends of the trip.
   const estimate = useQuery({

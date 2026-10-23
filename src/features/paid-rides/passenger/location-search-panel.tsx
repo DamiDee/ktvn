@@ -32,6 +32,10 @@ export function LocationSearchPanel() {
   const draft = usePassengerStore((store) => store.draft);
   const setDraft = usePassengerStore((store) => store.setDraft);
   const choosePlace = usePassengerStore((store) => store.choosePlace);
+  const clearPlace = usePassengerStore((store) => store.clearPlace);
+  const backToBooking = usePassengerStore((store) => store.backToBooking);
+  const locationRequest = useRef(0);
+  useEffect(() => () => { locationRequest.current += 1; }, []);
   const recentPlaces = usePreferencesStore((state) => state.recentPlaces);
   const fix = useLocationStore((state) => state.fix);
   const requestLocation = useLocationStore((state) => state.request);
@@ -76,19 +80,23 @@ export function LocationSearchPanel() {
   const places: Place[] = searching ? (results.data ?? []) : recentPlaces;
 
   function close() {
-    setDraft({ step: draft.pickup && draft.destination ? "options" : "home" });
+    locationRequest.current += 1;
+    backToBooking();
   }
 
   function select(place: Place) {
+    locationRequest.current += 1;
     setQueries((current) => ({ ...current, [field]: place.name }));
     setActive(-1);
     choosePlace(field, place);
   }
 
   async function useCurrentLocation() {
+    const request = ++locationRequest.current;
     setLocating(true);
     setLocateError(null);
     const current = fix ?? (await requestLocation());
+    if (request !== locationRequest.current) return;
     if (!current) {
       setLocating(false);
       setLocateError(
@@ -99,6 +107,7 @@ export function LocationSearchPanel() {
       return;
     }
     const place = await getMapProvider().reverseGeocode(current.point);
+    if (request !== locationRequest.current) return;
     setLocating(false);
     select({ ...place, name: field === "pickup" ? "Current location" : place.name, secondary: place.name === "Pinned location" ? place.secondary : place.name, source: "current-location" });
   }
@@ -138,11 +147,18 @@ export function LocationSearchPanel() {
           ref={inputs[name]}
           value={queries[name]}
           onChange={(event) => {
+            locationRequest.current += 1;
+            setLocating(false);
+            if (draft[name] && event.target.value !== draft[name]?.name) clearPlace(name);
             setQueries((current) => ({ ...current, [name]: event.target.value }));
             setActive(-1);
           }}
           onFocus={() => {
-            if (draft.field !== name) setDraft({ field: name });
+            if (draft.field !== name) {
+              locationRequest.current += 1;
+              setLocating(false);
+              setDraft({ field: name });
+            }
           }}
           onKeyDown={onKeyDown}
           placeholder={name === "pickup" ? (draft.pickup?.source === "current-location" ? "Current location" : "Pickup location") : "Where are you going?"}
@@ -167,6 +183,9 @@ export function LocationSearchPanel() {
           <button
             type="button"
             onClick={() => {
+              locationRequest.current += 1;
+              setLocating(false);
+              clearPlace(name);
               setQueries((current) => ({ ...current, [name]: "" }));
               inputs[name].current?.focus();
             }}

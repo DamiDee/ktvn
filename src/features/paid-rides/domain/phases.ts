@@ -31,6 +31,16 @@ export const emptyDraft: BookingDraft = {
   paymentMethodId: null,
 };
 
+/** Back leaves the quote step, even when both selected places are retained. */
+export function bookingHome(draft: BookingDraft): BookingDraft {
+  return { ...draft, step: "home", optionId: null };
+}
+
+/** Edited text is not a confirmed location and must not reuse its old quote. */
+export function clearBookingPlace(draft: BookingDraft, field: BookingDraft["field"]): BookingDraft {
+  return { ...draft, [field]: null, field, step: "search", optionId: null };
+}
+
 export type PassengerPhase =
   | "RESTORING"
   | "IDLE"

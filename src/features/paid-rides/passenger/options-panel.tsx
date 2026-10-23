@@ -24,6 +24,7 @@ import type { SheetHostProps } from "./panel-types";
 export function OptionsPanel({ estimate, onCoverChange, bottomOffset }: SheetHostProps & { estimate: UseQueryResult<FareEstimate> }) {
   const draft = usePassengerStore((store) => store.draft);
   const setDraft = usePassengerStore((store) => store.setDraft);
+  const backToBooking = usePassengerStore((store) => store.backToBooking);
   const requestRide = usePassengerStore((store) => store.requestRide);
   const pending = usePassengerStore((store) => store.session.pending);
   const error = usePassengerStore((store) => (store.session.error?.action === "request" ? store.session.error.code : null));
@@ -69,8 +70,8 @@ export function OptionsPanel({ estimate, onCoverChange, bottomOffset }: SheetHos
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setDraft({ step: "search", field: "destination" })}
-            aria-label="Change destination"
+            onClick={backToBooking}
+            aria-label="Back to trip details"
             className="ride-press -ml-2 flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-[var(--surface-secondary)]"
           >
             <ArrowLeft className="size-5" aria-hidden />

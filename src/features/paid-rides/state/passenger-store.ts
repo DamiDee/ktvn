@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { accountSession, accountResult } from "@/lib/account-session";
 import { toRideError } from "../domain/errors";
-import { emptyDraft, type BookingDraft } from "../domain/phases";
+import { bookingHome, clearBookingPlace, emptyDraft, type BookingDraft } from "../domain/phases";
 import { initialRideSession, rideSessionReducer, type RideSessionMsg, type RideSessionState } from "../domain/ride-session";
 import type { FareEstimate, Place, RatingInput, RideMessage } from "../domain/types";
 import { getRideService, newIdempotencyKey } from "../services";
@@ -29,6 +29,8 @@ interface PassengerStore {
   dispatch(msg: RideSessionMsg): void;
   setDraft(patch: Partial<BookingDraft>): void;
   resetDraft(): void;
+  backToBooking(): void;
+  clearPlace(field: "pickup" | "destination"): void;
   choosePlace(field: "pickup" | "destination", place: Place): void;
 
   refreshCurrentRide(): Promise<void>;
@@ -56,6 +58,10 @@ export const usePassengerStore = create<PassengerStore>()((set, get) => {
     setDraft: (patch) => set((state) => ({ draft: { ...state.draft, ...patch } })),
 
     resetDraft: () => set((state) => ({ draft: { ...emptyDraft, pickup: state.draft.pickup }, requestKey: newIdempotencyKey() })),
+
+    backToBooking: () => set((state) => ({ draft: bookingHome(state.draft), requestKey: newIdempotencyKey() })),
+
+    clearPlace: (field) => set((state) => ({ draft: clearBookingPlace(state.draft, field), requestKey: newIdempotencyKey() })),
 
     choosePlace: (field, place) => {
       if (place.source === "search") rememberRecentPlace(place);
