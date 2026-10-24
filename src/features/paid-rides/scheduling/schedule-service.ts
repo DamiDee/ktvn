@@ -1,4 +1,4 @@
-import { acceptanceSchema, bookingSchema, createSchema, pageSchema, reasonSchema, scheduleListSearch, timeChangeSchema, uuid, type CreateScheduledRide, type ScheduledRide, type ScheduleListQuery } from "./contract.ts";
+import { assignmentSchema, acceptanceSchema, bookingSchema, createSchema, pageSchema, reasonSchema, scheduleListSearch, timeChangeSchema, uuid, type CreateScheduledRide, type ScheduledRide, type ScheduleListQuery } from "./contract.ts";
 
 export class ScheduleApiError extends Error {
   readonly status: number | null;
@@ -38,7 +38,14 @@ export function createScheduleService(send: ScheduleRequest) {
   return {
     create: async (input: CreateScheduledRide, signal?: AbortSignal) => booking("rides/scheduled", "POST", createSchema.parse(input), signal),
     async listBookings(query: ScheduleListQuery = {}, signal?: AbortSignal) { return pageSchema.parse(await request(`rides/scheduled${scheduleListSearch(query, false)}`, "GET", undefined, signal)); },
+    async listAdmin(query: ScheduleListQuery = {}, signal?: AbortSignal) { return pageSchema.parse(await request(`admin/scheduled-rides${scheduleListSearch(query, false)}`, "GET", undefined, signal)); },
     async listDriver(query: ScheduleListQuery = {}, signal?: AbortSignal) { return pageSchema.parse(await request(`driver/scheduled-requests${scheduleListSearch(query, true)}`, "GET", undefined, signal)); },
+    async assign(id: string, input: { driverId: string; version: number }, signal?: AbortSignal) {
+      const data = await request(`admin/scheduled-rides/${uuid.parse(id)}/assign`, "POST", assignmentSchema.parse(input), signal);
+      // Assignment response shape is unspecified; always reconcile the admin list.
+      const parsed = bookingSchema.safeParse(data);
+      return parsed.success ? parsed.data : null;
+    },
     get: async (id: string, signal?: AbortSignal) => booking(`rides/scheduled/${uuid.parse(id)}`, "GET", undefined, signal),
     reschedule: async (id: string, input: { scheduledAt: string; timezone: string }, signal?: AbortSignal) => booking(`rides/scheduled/${uuid.parse(id)}`, "PATCH", timeChangeSchema.parse(input), signal),
     cancelPassenger: async (id: string, reason: string, signal?: AbortSignal) => booking(`rides/scheduled/${uuid.parse(id)}/cancel`, "POST", reasonSchema.parse({ reason }), signal),

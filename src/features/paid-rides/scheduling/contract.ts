@@ -36,6 +36,7 @@ export const createSchema = z.object({ estimateId: uuid, optionId: z.string().mi
 export type CreateScheduledRide = z.infer<typeof createSchema>;
 export const timeChangeSchema = z.object({ scheduledAt: instant, timezone }).strict();
 export const reasonSchema = z.object({ reason: z.string().trim().min(1, "Give a reason.").refine((text) => new TextEncoder().encode(text).length <= 2000, "Use no more than 2,000 UTF-8 bytes.") }).strict();
+export const assignmentSchema = z.object({ driverId: uuid, version: z.number().int().nonnegative() }).strict();
 export const acceptanceSchema = z.object({ version: z.number().int().nonnegative() }).strict();
 export const listSchema = z.object({ cursor: uuid.optional(), limit: z.number().int().min(1).max(100).optional(), status: z.enum(scheduledStatuses).optional(), from: instant.optional(), to: instant.optional(), mine: z.boolean().optional() }).strict();
 export type ScheduleListQuery = z.infer<typeof listSchema>;

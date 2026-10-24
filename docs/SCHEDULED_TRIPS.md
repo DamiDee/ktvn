@@ -65,8 +65,7 @@ Sign in with the appropriate account and open:
 
 - Passenger: `/rides/schedule`
 - Driver: `/rides/driver/schedule`
-- Admin: `/admin/scheduled-trips` (the same booking list and `GET rides/scheduled`;
-  no separate admin endpoint)
+- Admin/Root: `/admin/scheduled-trips` using `GET admin/scheduled-rides` for all bookings.
 
 No `source=api` query parameter or loopback hostname is required. The API screen
 is the default in development and production; mock/off mode does not create real
@@ -123,13 +122,18 @@ has no typed inbox adapter; a durable scheduled-notification inbox remains pendi
 that response contract. WebSocket hints currently refresh booking lists. Demo
 notifications are synthetic and must not be treated as delivery evidence.
 
-Admin uses the same scheduled-booking list as the other roles, without requiring
-a separate admin endpoint. Driver requests still use the documented driver board.
-The API controls record visibility: the current OpenAPI describes
-`GET rides/scheduled` as the authenticated passenger's bookings. Reusing that
-endpoint for admin does not expand its server-side scope; if everyone should see
-all bookings, the backend must implement that shared visibility on the existing
-endpoint. No client-side identity override or unprovided query parameter is sent.
+Admin/Root now uses `GET admin/scheduled-rides`, with the same status, date-range,
+limit and cursor filters. Passenger lists remain on `GET rides/scheduled`, while
+drivers use their scheduled-request board and mine filter. Admin assignment calls
+`POST admin/scheduled-rides/{id}/assign` with exactly `{driverId, version}`. The
+picker searches the existing live professional-driver roster and allows a verified
+UUID entry when needed. Driver eligibility and overlap remain server decisions.
+An assignment form retains the version reviewed when it opened; a version/state
+change blocks submission until it is closed and reviewed again. A 409 refreshes
+the list and requires explicit review. Successful assignment always refetches;
+when supplied, a valid booking response also updates the existing card immediately.
+Only future OPEN/RESERVED records expose Assign/Reassign in the admin UI. These
+endpoints and access requirements were supplied by the owner on 2026-10-24.
 Booking actions remain role-specific and passenger changes are limited to owned
 bookings. The authenticated driver mine list supplies assignment context when an
 optional driver ID is absent. Participant names are not supplied, so real
@@ -198,3 +202,20 @@ verification. The browser became unresponsive during page inspection, so
 interactive authenticated acceptance remains unverified. These frontend changes
 still require a normal frontend release; no Git push or production deploy was
 performed in this task.
+
+## Desktop navigation (2026-10-24)
+
+The passenger transport-mode switch is grouped with the bottom navigation on
+laptops. It sits beside the route buttons at wide desktop widths and immediately
+above them at the narrower laptop breakpoint, avoiding overlap with the left map
+sheet. Mobile retains the top switch; driver screens still omit it.
+
+Admin assignment update checks: 34 scheduling/shared-transport tests passed,
+including the dedicated admin list URL, filter/cursor encoding, exact assignment
+payload, invalid UUID/version rejection, 409 without automatic retry, and empty
+success acknowledgements. TypeScript and focused ESLint passed. Browser layout
+checks verified navigation beside the switch at desktop width, stacked at 1100px,
+and the original top switch at 390px. Preview screenshot:
+`../previews/desktop-transport-navigation.png`. No real assignment was submitted;
+authenticated admin acceptance still requires a test account. Changes are local,
+not pushed or deployed.

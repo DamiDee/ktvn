@@ -90,7 +90,7 @@ function ApiSchedules({ role }: { role: "passenger" | "driver" | "admin" }) {
   } catch (e) { filterError = scheduleError(e); }
   const root = ["paid-rides", "schedules", userId, role] as const;
   const list = useInfiniteQuery({ queryKey: [...root, filter], initialPageParam: null as string | null,
-    queryFn: ({ pageParam, signal }) => (role === "driver" ? apiScheduleService.listDriver : apiScheduleService.listBookings)({ ...filter, ...(pageParam ? { cursor: pageParam } : {}) }, signal),
+    queryFn: ({ pageParam, signal }) => (role === "admin" ? apiScheduleService.listAdmin : role === "driver" ? apiScheduleService.listDriver : apiScheduleService.listBookings)({ ...filter, ...(pageParam ? { cursor: pageParam } : {}) }, signal),
     enabled: Boolean(userId) && !filterError, getNextPageParam: (page) => page.nextCursor ?? undefined, retry: false,
     structuralSharing: (old, fresh) => keepVersions(old, fresh as InfiniteData<ScheduledRidePage, string | null>),
     refetchInterval: () => document.visibilityState === "visible" ? 10_000 : false, refetchOnWindowFocus: true,
@@ -114,7 +114,7 @@ function ApiSchedules({ role }: { role: "passenger" | "driver" | "admin" }) {
     if (busy) return; setBusy(true); setMessage("");
     try {
       if (value.type === "reschedule") validateBookingTime({ scheduledAt: value.scheduledAt, timezone: value.timezone }, clock);
-      const result = value.type === "accept" ? await apiScheduleService.accept(booking.id, value.version) : value.type === "release" ? await apiScheduleService.release(booking.id, value.reason) : value.type === "cancel" ? await apiScheduleService.cancelPassenger(booking.id, value.reason) : value.type === "reschedule" ? await apiScheduleService.reschedule(booking.id, { scheduledAt: value.scheduledAt, timezone: value.timezone }) : null;
+      const result = value.type === "assign" ? await apiScheduleService.assign(booking.id, { driverId: value.driverId, version: value.version }) : value.type === "accept" ? await apiScheduleService.accept(booking.id, value.version) : value.type === "release" ? await apiScheduleService.release(booking.id, value.reason) : value.type === "cancel" ? await apiScheduleService.cancelPassenger(booking.id, value.reason) : value.type === "reschedule" ? await apiScheduleService.reschedule(booking.id, { scheduledAt: value.scheduledAt, timezone: value.timezone }) : null;
       if (result) queries.setQueriesData<InfiniteData<ScheduledRidePage, string | null>>({ queryKey: root }, (old) => old ? { ...old, pages: old.pages.map((page) => ({ ...page, items: page.items.map((row) => row.id === result.id ? preferNewerBooking(row, result) : row) })) } : old);
       setMessage("Booking updated. The server confirmed its current state.");
     } catch (e) {

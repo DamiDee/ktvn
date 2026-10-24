@@ -116,3 +116,40 @@ test("new response status strings remain displayable, and option labels use only
   assert.equal(scheduledOptionName({ name: "Comfort", extra: true }), "Comfort");
   for (const value of [null, [], 1, "go", {}, { name: null }, { name: {} }, { name: "  " }]) assert.equal(scheduledOptionName(value), "Private ride");
 });
+
+test("admin lists all schedules on its own endpoint with filters and cursor", async () => {
+  const { api, calls } = setup({ items: [booking], total: 1, nextCursor: demoId(91) });
+  const page = await api.listAdmin({ status: "OPEN", cursor: demoId(90), limit: 25, from: input.scheduledAt, mine: true });
+  const url = new URL(calls[0].path, "https://example.test");
+  assert.equal(url.pathname, "/admin/scheduled-rides");
+  assert.equal(url.searchParams.get("cursor"), demoId(90));
+  assert.equal(url.searchParams.get("status"), "OPEN");
+  assert.equal(url.searchParams.get("from"), input.scheduledAt);
+  assert.equal(url.searchParams.has("mine"), false);
+  assert.equal(page.nextCursor, demoId(91));
+  await api.listBookings();
+  assert.equal(calls[1].path, "rides/scheduled");
+});
+test("admin assignment sends only driver UUID and reviewed booking version", async () => {
+  const { api, calls } = setup({ ...booking, driverId: demoId(2), version: 8, status: "RESERVED" });
+  const result = await api.assign(booking.id, { driverId: demoId(2), version: 7 });
+  assert.equal(calls[0].path, `admin/scheduled-rides/${booking.id}/assign`);
+  assert.equal(calls[0].method, "POST");
+  assert.deepEqual(JSON.parse(calls[0].body), { driverId: demoId(2), version: 7 });
+  assert.equal(result.driverId, demoId(2));
+  assert.equal(result.version, 8);
+  await assert.rejects(api.assign(booking.id, { driverId: "bad-id", version: 7 }));
+  await assert.rejects(api.assign(booking.id, { driverId: demoId(2), version: -1 }));
+  await assert.rejects(api.assign(booking.id, { driverId: demoId(2), version: 7, passengerId: demoId(3) }));
+  assert.equal(calls.length, 1);
+});
+test("admin conflicts are not retried and empty acknowledgements are reconciled by listing", async () => {
+  let calls=0;
+  const api=createScheduleService(async()=>{calls++;return Response.json({message:"Booking changed"},{status:409});});
+  await assert.rejects(api.assign(booking.id,{driverId:demoId(2),version:7}),e=>e instanceof ScheduleApiError && e.status===409);
+  assert.equal(calls,1);
+  const empty=createScheduleService(async()=>new Response(null,{status:204}));
+  assert.equal(await empty.assign(booking.id,{driverId:demoId(2),version:7}),null);
+  const acknowledged=setup({success:true}).api;
+  assert.equal(await acknowledged.assign(booking.id,{driverId:demoId(2),version:7}),null);
+});

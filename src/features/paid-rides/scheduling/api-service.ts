@@ -12,6 +12,6 @@ export const apiScheduleService = createScheduleService(async (path, options) =>
     // Buffer under the account fence: a response completing after logout is unusable.
     const text = await response.text();
     scope.assertCurrent();
-    return new Response(text, { status: response.status, statusText: response.statusText, headers: response.headers });
+    return new Response([204, 205, 304].includes(response.status) ? null : text, { status: response.status, statusText: response.statusText, headers: response.headers });
   } finally { merged.dispose(); }
 });

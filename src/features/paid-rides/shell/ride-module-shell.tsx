@@ -167,18 +167,19 @@ export function RideModuleShell({ children }: { children: ReactNode }) {
         <div className="absolute inset-0">{body}</div>
         <div
           className={cn(
-            "pointer-events-none absolute inset-x-0 z-40 flex justify-center px-3 transition-[opacity,transform] duration-300 ease-[var(--ride-ease)] lg:right-6 lg:left-auto lg:px-0",
+            "pointer-events-none absolute inset-x-0 z-40 flex justify-center px-3 transition-[opacity,transform] duration-300 ease-[var(--ride-ease)] lg:right-6 lg:left-auto lg:flex-col lg:items-end lg:gap-3 lg:px-0 xl:flex-row xl:items-center",
             navHidden && "pointer-events-none translate-y-6 opacity-0",
           )}
           style={{ bottom: desktop ? 24 : `calc(${NAV_GAP}px + var(--ride-safe-bottom))` }}
           aria-hidden={navHidden || undefined}
           inert={navHidden || undefined}
         >
+          {role === "passenger" ? <div className="hidden lg:block"><RideModeSwitch /></div> : null}
           <BubbleNav items={navItems} label={role === "driver" ? "Driver navigation" : "Paid Rides navigation"} />
         </div>
         {role === "passenger" ? <div
           className={cn(
-            "pointer-events-none absolute left-3 z-30 transition-[opacity,transform] duration-300 ease-[var(--ride-ease)] lg:left-[calc(25rem+2.5rem)]",
+            "pointer-events-none absolute left-3 z-30 transition-[opacity,transform] duration-300 ease-[var(--ride-ease)] lg:hidden",
             navHidden && "-translate-y-3 opacity-0",
           )}
           style={{ top: desktop ? 16 : "calc(var(--ride-safe-top) + 12px)" }}
