@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/layout/app-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,8 @@ import { boardingProblem, qrImageSource, type BookingQr, type BookingVerificatio
 import { queryString } from "@/lib/freebus-contract";
 import { bookingLeg } from "@/lib/journey-experience";
 import { watParts } from "@/lib/trips";
-import type { ApiBooking, ApiBus, ApiRoute, ApiTrip, ApiUser } from "@/types/freebus-api";
+import { loadManifestPassenger, manifestPassengerIds } from "@/lib/manifest-passengers";
+import type { ApiBooking, ApiBus, ApiRoute, ApiTrip } from "@/types/freebus-api";
 import { useLiveQuery } from "./live-queries";
 import { WalkInBoarding } from "./walk-in-boarding";
 
@@ -82,7 +83,31 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
   const bookings = useLiveQuery<ApiBooking[]>(`bookings${queryString({ bus_id: busId })}`, Boolean(busId));
   const trips = useLiveQuery<ApiTrip[]>("trips");
   const routes = useLiveQuery<ApiRoute[]>("routes");
-  const users = useLiveQuery<ApiUser[]>("users", Boolean(busId) && oversight);
+  const tripById = new Map((trips.data ?? []).map((t) => [t.id, t]));
+  const allManifestBookings = (bookings.data ?? []).filter((b) => b.bus_id === busId);
+  // Default view: only people still waiting to board on a trip that hasn't finished.
+  const isCurrent = (b: ApiBooking) => {
+    const trip = tripById.get(b.trip_id ?? "");
+    return b.status === "Confirmed" && (!trip || (trip.status !== "Completed" && trip.status !== "Cancelled"));
+  };
+  const currentBookings = allManifestBookings.filter(isCurrent);
+  const hiddenCount = allManifestBookings.length - currentBookings.length;
+  const visibleBookings = showAll ? allManifestBookings : currentBookings;
+  const manifest = tripFilter === "all" ? visibleBookings : visibleBookings.filter(b => b.trip_id === tripFilter);
+  const passengerQueries = useQueries({
+    queries: manifestPassengerIds(manifest, busId).map((passengerId) => ({
+      queryKey: ["freebus-live", user.id, "manifest-passenger-name", busId, passengerId],
+      queryFn: ({ signal }: { signal: AbortSignal }) => loadManifestPassenger(freebusRequest, passengerId, signal),
+      staleTime: 10 * 60_000,
+      gcTime: 15 * 60_000,
+      retry: false,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+    })),
+  });
+  const passengerNames = new Map(passengerQueries.flatMap((query) => query.data ? [[query.data.id, query.data.name] as const] : []));
+  const namesLoading = passengerQueries.some((query) => query.isPending);
+  const namesError = passengerQueries.find((query) => query.error)?.error;
   function stopDevices() {
     generation.current += 1; controls.current?.stop(); controls.current = null;
     media.current?.getTracks().forEach((track) => track.stop()); media.current = null;
@@ -104,8 +129,8 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
     const boarded = await boardingRequest<ApiBooking>(`bookings/${booking.id}/board`, { method: "PATCH" });
     if (boarded.status !== "Boarded") throw new Error("The server has not confirmed boarding. Check the manifest before retrying.");
     successful.current.add(booking.id);
-    const member = users.data?.find((u) => u.id === boarded.user_id);
-    setResult({ ok: true, text: `Boarded · Seat ${boarded.seat_number}${member ? ` · ${member.first_name} ${member.last_name}` : ""} · ${boarded.booking_ref}` });
+    const name = passengerNames.get(boarded.user_id);
+    setResult({ ok: true, text: `Boarded · Seat ${boarded.seat_number}${name ? ` · ${name}` : ""} · ${boarded.booking_ref}` });
     navigator.vibrate?.(120);
     void client.invalidateQueries({ queryKey: ["freebus-live"] });
   }
@@ -198,17 +223,6 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
     } catch (e) { if (!controller.signal.aborted) setTagMessage(e instanceof Error ? e.message : "Could not write tag. Use the QR pass."); }
     finally { setTagBusy(false); }
   }
-  const tripById = new Map((trips.data ?? []).map((t) => [t.id, t]));
-  const allManifestBookings = (bookings.data ?? []).filter((b) => b.bus_id === busId);
-  // Default view: only people still waiting to board on a trip that hasn't finished.
-  const isCurrent = (b: ApiBooking) => {
-    const trip = tripById.get(b.trip_id ?? "");
-    return b.status === "Confirmed" && (!trip || (trip.status !== "Completed" && trip.status !== "Cancelled"));
-  };
-  const currentBookings = allManifestBookings.filter(isCurrent);
-  const hiddenCount = allManifestBookings.length - currentBookings.length;
-  const visibleBookings = showAll ? allManifestBookings : currentBookings;
-  const manifest = tripFilter === "all" ? visibleBookings : visibleBookings.filter(b => b.trip_id === tripFilter);
   const boardingBus = buses.data?.find((b) => b.id === busId);
   /**
    * Walk-ins are recorded only as an occupancy count (no named booking), so they can't be listed.
@@ -235,8 +249,7 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
     });
 
   const memberName = (booking: ApiBooking) => {
-    const user = users.data?.find((u) => u.id === booking.user_id);
-    return user ? `${user.first_name} ${user.last_name}` : "Member";
+    return passengerNames.get(booking.user_id) ?? (namesLoading ? "Loading name…" : "Name unavailable");
   };
 
   async function boardNow(booking: ApiBooking) {
@@ -277,6 +290,8 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
 
     <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 className="text-xl font-semibold text-ink">Passenger manifest{boardingBus ? <span className="type-meta ml-2 font-normal text-ink-muted">{boardingBus.license_plate}</span> : null}</h2>{busId && (hiddenCount > 0 || showAll) ? <Button size="sm" variant="ghost" aria-pressed={showAll} onClick={() => setShowAll((v) => !v)}>{showAll ? "Hide boarded & past" : `Show boarded, cancelled & past (${hiddenCount})`}</Button> : null}</div>
     {boardingBus ? <p className="mb-3 text-sm text-ink-secondary" data-testid="walk-in-summary">{boardingBus.current_passenger_count} occupied · {bookedPeople} with bookings · <span className="font-semibold text-ink">{walkInPeople} walk-in{walkInPeople === 1 ? "" : "s"}</span>. Walk-ins are recorded as a headcount only, so they have no name or seat in the list below.</p> : null}
+    {!bookings.error && namesLoading ? <p role="status" className="mb-3 text-sm text-ink-secondary">Loading passenger names…</p> : null}
+    {!bookings.error && namesError ? <p role="status" className="mb-3 text-sm text-ink-secondary">{namesError instanceof FreebusError && namesError.status === 403 ? "Passenger names are unavailable for this account. Ask an admin to arrange access. You can still search by booking reference or seat." : "Some passenger names could not be loaded. You can still search by booking reference or seat."} <button type="button" className="underline" onClick={() => { void Promise.all(passengerQueries.filter((query) => query.isError).map((query) => query.refetch())); }}>Retry names</button></p> : null}
     {!busId ? <p className="text-ink-secondary">Select a bus to see its passengers.</p>
       : bookings.error ? <ErrorState title="Manifest unavailable" description={!oversight && bookings.error instanceof FreebusError && bookings.error.status === 403 ? "The API has not enabled booking access for Route Coordinators yet. Ask the backend team to grant the boarding permissions; this app cannot override them." : bookings.error.message} onRetry={() => void bookings.refetch()} />
       : <RecordsTable
@@ -319,10 +334,6 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
                   ) : null}
                 </span>
               );
-            }},
-            { id: "kids", header: "Kids", meta: true, sortBy: (booking) => booking.num_of_kids ?? 0, cell: (booking) => {
-              const count = booking.num_of_kids ?? 0;
-              return count > 0 ? <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">🧒 {count}</span> : <span className="text-ink-muted">—</span>;
             }},
             { id: "status", header: "Status", meta: true, sortBy: (booking) => booking.status, cell: (booking) => <StatusChip tone={booking.status === "Boarded" ? "success" : booking.status === "Confirmed" ? "active" : "neutral"}>{booking.status}</StatusChip> },
             { id: "actions", header: "Actions", align: "end", actions: true, cell: (booking) => <Button size="sm" variant="secondary" onClick={() => setManaging(booking)}>Manage</Button> },

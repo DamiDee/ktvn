@@ -20,9 +20,6 @@ export function assignedBookingBuses(trip: ApiTrip, buses: ApiBus[]) {
     bus.status !== "Maintenance" && ["Stationary", "Boarding"].includes(bus.state));
 }
 
-/** The most children one booking may bring along. */
-export const MAX_KIDS = 5;
-
 /** People who hold a seat on each trip: every active booking is the member plus their children. */
 export function tripBookingSummary(bookings: ApiBooking[]) {
   const summary = new Map<string, { bookings: number; people: number; boarded: number }>();
@@ -37,12 +34,12 @@ export function tripBookingSummary(bookings: ApiBooking[]) {
   return summary;
 }
 
-export function bookingPayload(trip: ApiTrip, route: ApiRoute, bus: ApiBus, pickup: string, dropoff: string, kids: number, returning: boolean): CreateBookingDto {
+/** New bookings reserve one seat; the API still requires num_of_kids. */
+export function bookingPayload(trip: ApiTrip, route: ApiRoute, bus: ApiBus, pickup: string, dropoff: string, returning: boolean): CreateBookingDto {
   if (trip.route_id !== route.id || !bookingPointsValid(route, pickup, dropoff)) throw new Error("Choose a pickup point and a later drop-off on this route.");
-  if (!Number.isSafeInteger(kids) || kids < 0 || kids > MAX_KIDS) throw new Error(`Choose between 0 and ${MAX_KIDS} children.`);
-  if (!Number.isSafeInteger(bus.capacity) || !Number.isSafeInteger(bus.current_passenger_count) || bus.current_passenger_count < 0 || !assignedBookingBuses(trip, [bus]).length || bus.capacity - bus.current_passenger_count < 1 + kids) throw new Error("There are not enough seats on an assigned bus for your party.");
+  if (!Number.isSafeInteger(bus.capacity) || !Number.isSafeInteger(bus.current_passenger_count) || bus.current_passenger_count < 0 || !assignedBookingBuses(trip, [bus]).length || bus.capacity - bus.current_passenger_count < 1) throw new Error("There are no seats available on an assigned bus.");
   if (returning && (!trip.return_time || trip.ride_type === "Dropoff")) throw new Error("A return journey has not been scheduled for this departure.");
-  return { bus_id: bus.id, route_id: route.id, trip_id: trip.id, pickup_point: pickup, dropoff_point: dropoff, num_of_kids: kids, return_trip: returning };
+  return { bus_id: bus.id, route_id: route.id, trip_id: trip.id, pickup_point: pickup, dropoff_point: dropoff, num_of_kids: 0, return_trip: returning };
 }
 
 /** Label an actual server booking, never create a second pass from the first QR. */

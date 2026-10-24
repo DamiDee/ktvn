@@ -83,7 +83,7 @@ export function BoardingPass({ id }: { id: string }) {
         <dl className="order-2 mt-6 grid grid-cols-2 gap-4">{[
           ["Bus registration", bus.data?.license_plate ?? ticket.bus_id], ["Booking status", ticket.status],
           ["Boarding point", start.data?.name ?? "Stop details unavailable"], ["Destination", end.data?.name ?? "Stop details unavailable"],
-          ["Departure (WAT)", departure ? `${watParts(departure).date} · ${watParts(departure).time}` : "Schedule unavailable"], ["Route type", journeyTypeLabel(trip.data?.ride_type)], ["This pass", legLabel], ["Children", String(ticket.num_of_kids ?? 0)], ["Trip status", trip.data?.status ?? "Unavailable"],
+          ["Departure (WAT)", departure ? `${watParts(departure).date} · ${watParts(departure).time}` : "Schedule unavailable"], ["Route type", journeyTypeLabel(trip.data?.ride_type)], ["This pass", legLabel], ["Trip status", trip.data?.status ?? "Unavailable"],
           ["Meeting landmark", start.data?.landmark ?? "Not available"], ["Payment", ticket.payment_status],
           ["Boarding instructions", route.data?.description ?? "Not available"], ["Full route distance", route.data ? `${route.data.distance} km` : "Not available"],
           ["Booking reference", ticket.booking_ref], ["Booked at (API time)", ticket.created_at.replace("T", " ")],

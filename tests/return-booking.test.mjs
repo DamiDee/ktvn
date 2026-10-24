@@ -16,20 +16,21 @@ test("booking requires explicit, distinct points in route order, including inter
   assert.equal(bookingPointsValid(route, "airport", "utako"), true);
   for (const [from, to] of [["", "church"], ["lugbe", ""], ["airport", "airport"], ["church", "airport"], ["invented", "church"]]) assert.equal(bookingPointsValid(route, from, to), false);
 });
-test("return booking sends documented required fields once, including child count and both points", () => {
-  const payload = bookingPayload(trip, route, bus, "airport", "church", 2, true);
-  assert.deepEqual(payload, { bus_id: "b1", route_id: "r1", trip_id: "t1", pickup_point: "airport", dropoff_point: "church", num_of_kids: 2, return_trip: true });
+test("return booking reserves one seat and sends the API-required fields with no children", () => {
+  const payload = bookingPayload(trip, route, bus, "airport", "church", true);
+  assert.deepEqual(payload, { bus_id: "b1", route_id: "r1", trip_id: "t1", pickup_point: "airport", dropoff_point: "church", num_of_kids: 0, return_trip: true });
   const schema = JSON.parse(readFileSync(new URL("../public/openapi.json", import.meta.url))).components.schemas.CreateBookingDto;
   for (const field of schema.required) assert.ok(field in payload, field);
   for (const field of Object.keys(payload)) assert.ok(field in schema.properties, field);
-  assert.equal(bookingPayload(trip, route, bus, "airport", "church", 0, false).return_trip, false);
+  const oneWay = bookingPayload(trip, route, { ...bus, current_passenger_count: 17 }, "airport", "church", false);
+  assert.equal(oneWay.return_trip, false);
+  assert.equal(oneWay.num_of_kids, 0);
 });
 test("unrelated, in-transit, maintenance and full buses cannot supply a booking", () => {
   assert.deepEqual(assignedBookingBuses(trip, [{ ...bus, current_trip_id: null }]).map(b => b.id), ["b1"]);
-  for (const bad of [{ ...bus, id: "other", current_trip_id: null }, { ...bus, current_trip_id: "different" }, { ...bus, state: "Transit" }, { ...bus, status: "Maintenance" }]) assert.throws(() => bookingPayload(trip, route, bad, "airport", "church", 0, false));
-  for (const bad of [{ ...bus, capacity: NaN }, { ...bus, current_passenger_count: -1 }, { ...bus, current_passenger_count: undefined }]) assert.throws(() => bookingPayload(trip, route, bad, "airport", "church", 0, false));
-  for (const kids of [-1, 1.5, 3, NaN]) assert.throws(() => bookingPayload(trip, route, bus, "airport", "church", kids, true));
-  assert.throws(() => bookingPayload({ ...trip, return_time: null }, route, bus, "airport", "church", 0, true));
+  for (const bad of [{ ...bus, id: "other", current_trip_id: null }, { ...bus, current_trip_id: "different" }, { ...bus, state: "Transit" }, { ...bus, status: "Maintenance" }]) assert.throws(() => bookingPayload(trip, route, bad, "airport", "church", false));
+  for (const bad of [{ ...bus, capacity: NaN }, { ...bus, current_passenger_count: -1 }, { ...bus, current_passenger_count: undefined }, { ...bus, current_passenger_count: 18 }, { ...bus, current_passenger_count: 19 }]) assert.throws(() => bookingPayload(trip, route, bad, "airport", "church", false));
+  assert.throws(() => bookingPayload({ ...trip, return_time: null }, route, bus, "airport", "church", true));
 });
 test("only a valid scheduled return after outbound arrival enables round-trip booking", () => {
   assert.equal(tripHasReturn(trip), true);

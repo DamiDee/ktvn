@@ -33,6 +33,16 @@ The frontend already admits `RouteCoordinator` to Boarding and shows its scan co
 
 This confirms the published contract mismatch, not a live authenticated 403 for a particular coordinator account. No real booking or fleet writes were performed.
 
+## Coordinator manifest name search · 24 October 2026
+
+The manifest already had a search field, but its passenger names came from the global users list, fetched only for Admin/Root. Coordinator rows therefore displayed `Member`, so a name could never match.
+
+Names now load for all boarding roles from `GET /users/{user_id}`, only for unique passenger IDs in the selected bus's visible manifest. The display and existing case-insensitive search use the resolved full name. Responses are checked against the requested passenger ID, and the name cache retains only ID/name, scoped by signed-in operator and selected bus. The station no longer fetches the global users directory. Repeated outbound/return bookings share one name lookup.
+
+If lookups fail, the manifest remains usable by reference/seat, with a visible name-access message and retry control. No fallback to a broader directory or automatic request retries were added.
+
+The published OpenAPI document checked again on 24 October still grants `GET /users/{user_id}` only to the account owner or Admin/Root, and booking responses contain only `user_id`, without passenger names. To enable this fully for Route Coordinators, the backend must allow them to resolve names for passengers on their assigned buses. A name-only projection embedded in the authorized manifest is preferable to granting broad profile access; that would need a documented response update and a corresponding frontend adapter. Live coordinator lookup permissions were not tested with a real account.
+
 ## Validation
 
 27 focused tests passed, including intermediate-stop boarding on every trip type, separate outbound/return bookings, operational bus states during an active trip, walk-in capacity, mismatched assignments, payment clearance, maintenance, duplicate boarding and terminal trip states. TypeScript and ESLint checks passed for the affected code. Camera/NFC hardware and authenticated production boarding were not exercised.

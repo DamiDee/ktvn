@@ -26,7 +26,7 @@ import { extractArray, scheduledJourneys, tripCanBook, tripHasReturn, watParts, 
 import type { ApiBooking, ApiBus, ApiPoint, ApiRoute, ApiTrip } from "@/types/freebus-api";
 import { useLiveQuery } from "./live-queries";
 import { Checkbox, Select } from "@/components/ui/input";
-import { MAX_KIDS, assignedBookingBuses, bookingDeparture, bookingLegLabel, bookingPayload, bookingPointsValid, routePointIds } from "@/lib/journey-experience";
+import { assignedBookingBuses, bookingDeparture, bookingLegLabel, bookingPayload, bookingPointsValid, routePointIds } from "@/lib/journey-experience";
 
 const routeCanBook = (journey: ScheduledJourney) => tripCanBook(journey.trip, { ...journey, id: journey.route_id });
 
@@ -74,7 +74,6 @@ export function LiveMemberBuses() {
   const [returnRequested, setReturnRequested] = useState(false);
   const [pickup, setPickup] = useState("");
   const [dropoff, setDropoff] = useState("");
-  const [kids, setKids] = useState(0);
 
   // Everything is loaded once. Choosing a journey never waits on the network.
   const routeRecords = useLiveQuery<ApiRoute[]>("routes");
@@ -199,10 +198,10 @@ export function LiveMemberBuses() {
       const candidates = extractArray<ApiBus>(current);
       if (fresh.bus_id && !candidates.some((bus) => bus.id === fresh.bus_id)) candidates.push(await freebusRequest<ApiBus>(`buses/${fresh.bus_id}`));
       const next = assignedBookingBuses(fresh, candidates)
-        .filter((bus) => availableCapacity(bus) >= 1 + kids)
+        .filter((bus) => availableCapacity(bus) >= 1)
         .sort((a, b) => a.license_plate.localeCompare(b.license_plate))[0];
-      if (!next) throw new Error("No assigned bus has enough seats for your party. Please choose another journey.");
-      const payload = bookingPayload(fresh, currentRoute, next, pickup, dropoff, kids, returnRequested);
+      if (!next) throw new Error("No assigned bus has a seat available. Please choose another journey.");
+      const payload = bookingPayload(fresh, currentRoute, next, pickup, dropoff, returnRequested);
       const booking = await freebusRequest<ApiBooking>("bookings", {
         method: "POST",
         body: JSON.stringify(payload),
@@ -445,7 +444,6 @@ export function LiveMemberBuses() {
                               setReturnRequested(false);
                               setPickup("");
                               setDropoff("");
-                              setKids(0);
                               setPending(route);
                             }}
                           >
@@ -491,7 +489,6 @@ export function LiveMemberBuses() {
             <div className="mt-5 space-y-4">
               <Select label="Pickup point" required value={pickup} disabled={busy} onChange={(event) => { setPickup(event.target.value); setDropoff(""); }} options={[{ value: "", label: "Choose where you will board" }, ...routePointIds(pending).slice(0, -1).filter((id) => pointsById.has(id)).map((id) => ({ value: id, label: location(id) }))]} />
               <Select label="Drop-off point" required value={dropoff} disabled={busy || !pickup} onChange={(event) => setDropoff(event.target.value)} options={[{ value: "", label: "Choose where you will get off" }, ...routePointIds(pending).slice(routePointIds(pending).indexOf(pickup) + 1).filter((id) => pointsById.has(id)).map((id) => ({ value: id, label: location(id) }))]} />
-              <Select label="Children travelling with you" value={String(kids)} disabled={busy} onChange={(event) => setKids(Number(event.target.value))} options={Array.from({ length: Math.max(1, Math.min(MAX_KIDS + 1, Math.max(0, ...assignedBookingBuses(pending.trip, extractArray<ApiBus>(buses.data)).map(availableCapacity)))) }, (_, n) => ({ value: String(n), label: n === 0 ? "Just me" : `${n} ${n === 1 ? "child" : "children"} + me` }))} hint="Include each child who needs a seat. The server confirms availability for your party." />
             </div>
             {tripHasReturn(pending.trip) ? <div className="mt-5 rounded-xl border border-gold-500/25 bg-gold-500/5 p-4"><Checkbox label="Include my return journey" checked={returnRequested} onChange={(event) => setReturnRequested(event.target.checked)} disabled={busy} /><p className="mt-2 text-xs leading-relaxed text-ink-secondary">Return: {dayLabel(watParts(pending.trip.return_time!).date)} at {timeLabel(watParts(pending.trip.return_time!).time)} WAT.</p>{returnRequested && pickup && dropoff ? <p className="mt-2 text-sm text-ink">Homeward: {location(dropoff)} → {location(pickup)}</p> : null}</div> : <p className="mt-4 text-sm text-ink-muted">One-way departure. A return time has not been scheduled.</p>}
           </>
