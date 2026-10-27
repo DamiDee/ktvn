@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { accountSession, accountResult } from "@/lib/account-session";
 import { toRideError } from "../domain/errors";
+import { passengerRideForRestore } from "../domain/ride-status";
 import { bookingHome, clearBookingPlace, emptyDraft, type BookingDraft } from "../domain/phases";
 import { initialRideSession, rideSessionReducer, type RideSessionMsg, type RideSessionState } from "../domain/ride-session";
 import type { FareEstimate, Place, RatingInput, RideMessage } from "../domain/types";
@@ -46,7 +47,13 @@ interface PassengerStore {
 let refreshInFlight: Promise<void> | null = null;
 
 export const usePassengerStore = create<PassengerStore>()((set, get) => {
-  const dispatch = (msg: RideSessionMsg) => set((state) => ({ session: rideSessionReducer(state.session, msg) }));
+  const dispatch = (msg: RideSessionMsg) => set((state) => {
+    // Replayed outcomes must not reopen a previous request after sign-in or
+    // dismissal. Outcomes for a known ride or a new in-flight request still apply.
+    if (msg.type === "EVENT" && msg.event.payload.type === "ride.updated" &&
+      state.session.pending !== "request" && !passengerRideForRestore(msg.event.payload.ride, state.session.ride)) return state;
+    return { session: rideSessionReducer(state.session, msg) };
+  });
 
   return {
     session: initialRideSession,
@@ -85,7 +92,8 @@ export const usePassengerStore = create<PassengerStore>()((set, get) => {
         if (accountSession.isBlocked()) return;
         dispatch({ type: "BOOTSTRAP_START" });
         try {
-          const ride = withoutDismissed(await accountResult(scope, getRideService().getCurrentRide()));
+          const incoming = await accountResult(scope, getRideService().getCurrentRide());
+          const ride = withoutDismissed(passengerRideForRestore(incoming, get().session.ride));
           dispatch({ type: "BOOTSTRAP_SUCCESS", ride });
         } catch (error) {
           if (!scope.isCurrent()) return;

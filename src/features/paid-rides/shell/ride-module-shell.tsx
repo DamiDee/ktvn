@@ -117,7 +117,7 @@ export function RideModuleShell({ children }: { children: ReactNode }) {
           ]
         : [
             { href: "/rides", label: "Ride", icon: MapPinned, match: (path) => path === "/rides" || path === "/rides/current" },
-            { href: "/rides/schedule", label: "Schedule", icon: CalendarClock },
+            { href: "/rides/schedule", label: "Schedule", icon: CalendarClock, match: (path) => path === "/rides/schedule" || path.startsWith("/rides/schedule/") },
             { href: "/rides/history", label: "Activity", icon: History, match: (path) => path.startsWith("/rides/history") || /^\/rides\/(?!driver|messages|safety|account|schedule)[^/]+$/.test(path) },
             ...(PAID_RIDES_FEATURES.chat
               ? [{ href: "/rides/messages", label: "Messages", icon: MessageCircle, badge: passengerUnread, match: (path: string) => path === "/rides/messages" || path.endsWith("/chat") }]

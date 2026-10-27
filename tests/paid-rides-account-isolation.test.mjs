@@ -63,6 +63,62 @@ test("an old refresh finishing cannot clear a newer account's in-flight refresh"
   fresh.resolve(null); await b; assert.equal(store.getState().session.ride, null);
 });
 
+test("fresh logins do not restore old ride outcomes, including on later focus refreshes", async () => {
+  for (const status of ["NO_DRIVERS", "COMPLETED", "CANCELLED"]) {
+    accountSession.replace(false);
+    const store = loadStore("passenger", { getCurrentRide: async () => ({ id: "old-request", status, version: 1 }) });
+    await store.getState().refreshCurrentRide();
+    await store.getState().refreshCurrentRide();
+    assert.equal(store.getState().session.ride, null);
+    assert.equal(store.getState().draft.optionId, null);
+    assert.equal(phases.derivePassengerPhase(store.getState().draft, store.getState().session), "IDLE");
+  }
+});
+
+test("live rides restore after login and can still show their new outcome", async () => {
+  for (const status of ["SEARCHING", "DRIVER_ASSIGNED", "DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "IN_PROGRESS", "PAUSED"]) {
+    accountSession.replace(false);
+    let current = { id: "active-request", status, version: 1 };
+    const store = loadStore("passenger", { getCurrentRide: async () => current });
+    await store.getState().refreshCurrentRide();
+    assert.equal(store.getState().session.ride.id, current.id);
+    current = { ...current, status: "COMPLETED", version: 2 };
+    await store.getState().refreshCurrentRide();
+    assert.equal(store.getState().session.ride.status, "COMPLETED");
+  }
+});
+
+test("a selected ride option and route are cleared when the account session changes", () => {
+  accountSession.replace(false);
+  const store = loadStore("passenger", {});
+  store.getState().setDraft({ step: "options", optionId: "comfort", pickup: { id: "old-pickup" }, destination: { id: "old-destination" } });
+  accountSession.replace(true);
+  accountSession.replace(false);
+  assert.deepEqual(store.getState().draft, phases.emptyDraft);
+});
+
+test("replayed socket outcomes cannot relock a fresh login, but live assignments still restore", () => {
+  accountSession.replace(false);
+  const store = loadStore("passenger", {});
+  const update = (id, status, version = 1) => ({ type: "EVENT", event: { id: `${id}-${status}`, rideId: id, seq: null, occurredAt: new Date().toISOString(), payload: { type: "ride.updated", ride: { id, status, version } } } });
+  for (const status of ["NO_DRIVERS", "COMPLETED", "CANCELLED"]) {
+    store.getState().dispatch(update("old", status));
+    assert.equal(store.getState().session.ride, null);
+  }
+  store.getState().dispatch(update("active", "DRIVER_ASSIGNED"));
+  assert.equal(store.getState().session.ride.id, "active");
+  store.getState().dispatch(update("active", "COMPLETED", 2));
+  assert.equal(store.getState().session.ride.status, "COMPLETED");
+});
+
+test("a fast no-driver response for a newly submitted request remains visible", () => {
+  accountSession.replace(false);
+  const store = loadStore("passenger", {});
+  store.getState().dispatch({ type: "ACTION_START", action: "request" });
+  store.getState().dispatch({ type: "EVENT", event: { id: "new-outcome", rideId: "new", seq: null, occurredAt: new Date().toISOString(), payload: { type: "ride.updated", ride: { id: "new", status: "NO_DRIVERS", version: 1 } } } });
+  assert.equal(store.getState().session.ride.status, "NO_DRIVERS");
+});
+
 test("reconnect re-registers DB-online drivers without turning offline drivers on", async () => {
   for (const availability of ["ONLINE", "OFFLINE", "ON_TRIP"]) {
     accountSession.replace(false);

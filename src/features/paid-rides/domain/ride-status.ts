@@ -1,4 +1,4 @@
-import type { RideStatus } from "./types.ts";
+import type { Ride, RideStatus } from "./types.ts";
 
 /**
  * The ride status machine shared with the backend.
@@ -58,6 +58,12 @@ export function isTerminal(status: RideStatus): boolean {
 /** A ride the passenger is still part of — drives restore-after-reload. */
 export function isLive(status: RideStatus): boolean {
   return !isTerminal(status) && status !== "NO_DRIVERS";
+}
+
+/** A fresh login restores live trips, not the previous request's outcome. */
+export function passengerRideForRestore(incoming: Ride | null, current: Ride | null): Ride | null {
+  if (!incoming) return null;
+  return isLive(incoming.status) || current?.id === incoming.id ? incoming : null;
 }
 
 export function hasDriver(status: RideStatus): boolean {
