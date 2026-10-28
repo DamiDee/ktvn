@@ -1,12 +1,13 @@
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { PAID_RIDES_CONFIG } from "../config";
 import type { GeoPoint } from "../domain/types";
-import type { RideMapProps } from "./ride-map-types";
+import type { MapInsets, RideMapProps } from "./ride-map-types";
 import type { RideMapHandle } from "./map-provider";
 import { loadGoogleLibrary, onGoogleMapsAuthFailure } from "./google-maps-loader";
 import { MARKER_SIZES, destinationMarkerHtml, nearbyVehicleHtml, pickupMarkerHtml, radarHtml, userMarkerHtml, vehicleMarkerHtml } from "./markers";
+import "./google-ride-map.css";
 
 export type GoogleMapMarker = { id: string; point: GeoPoint; html: string; size: number; heading?: number; anchorY?: number; z?: number; label?: string; onClick?: () => void };
 type Marker = GoogleMapMarker;
@@ -18,6 +19,31 @@ export interface GoogleRideMapProps extends RideMapProps {
   zoomControl?: boolean;
 }
 type HtmlOverlay = google.maps.OverlayView & { update(marker: Marker): void };
+
+function cameraPadding(insets: MapInsets, gap = 36): google.maps.Padding {
+  return { top: insets.top + gap, right: insets.right + gap, bottom: insets.bottom + gap, left: insets.left + gap };
+}
+
+/** Convert between the canvas centre and the centre still visible beside panels. */
+function offsetPoint(instance: google.maps.Map, point: GeoPoint, zoom: number, insets: MapInsets, direction: 1 | -1): GeoPoint {
+  const projection = instance.getProjection();
+  const world = projection?.fromLatLngToPoint(new google.maps.LatLng(point));
+  if (!projection || !world) return point;
+  const scale = 2 ** zoom;
+  return projection.fromPointToLatLng(new google.maps.Point(
+    world.x + direction * (insets.left - insets.right) / (2 * scale),
+    world.y + direction * (insets.top - insets.bottom) / (2 * scale),
+  ))?.toJSON() ?? point;
+}
+
+function visibleCenter(instance: google.maps.Map, insets: MapInsets): GeoPoint | null {
+  const center = instance.getCenter();
+  return center ? offsetPoint(instance, center.toJSON(), instance.getZoom() ?? 15, insets, 1) : null;
+}
+
+function pointCamera(instance: google.maps.Map, point: GeoPoint, zoom: number, insets: MapInsets) {
+  instance.moveCamera({ center: offsetPoint(instance, point, zoom, insets, -1), zoom });
+}
 
 /** OverlayView keeps our existing markers without requiring a cloud map ID. */
 function createOverlay(marker: Marker, map: google.maps.Map): HtmlOverlay {
@@ -86,16 +112,16 @@ export const GoogleRideMap = forwardRef<RideMapHandle, GoogleRideMapProps>(funct
       if (!map.current || !points.length) return;
       moved.current = true;
       const bounds = new google.maps.LatLngBounds(); points.forEach((point) => bounds.extend(point));
-      map.current.fitBounds(bounds, 48);
+      map.current.fitBounds(bounds, cameraPadding(latest.current.insets, 48));
     },
     recenter() {
       const camera = latest.current.camera;
       if (!map.current || !camera) return;
       moved.current = false;
-      if (camera.kind === "point") { map.current.setCenter(camera.point); map.current.setZoom(camera.zoom ?? 15); }
-      else { const bounds = new google.maps.LatLngBounds(); camera.points.forEach((point) => bounds.extend(point)); map.current.fitBounds(bounds, 36); }
+      if (camera.kind === "point") pointCamera(map.current, camera.point, camera.zoom ?? 15, latest.current.insets);
+      else { const bounds = new google.maps.LatLngBounds(); camera.points.forEach((point) => bounds.extend(point)); map.current.fitBounds(bounds, cameraPadding(latest.current.insets)); }
     },
-    getCenter: () => map.current?.getCenter()?.toJSON() ?? null,
+    getCenter: () => map.current ? visibleCenter(map.current, latest.current.insets) : null,
   }), []);
 
   useEffect(() => {
@@ -116,7 +142,7 @@ export const GoogleRideMap = forwardRef<RideMapHandle, GoogleRideMapProps>(funct
       const instance = new GoogleMap(container.current, {
         center: initial?.kind === "point" ? initial.point : initial?.points[0] ?? PAID_RIDES_CONFIG.defaultCenter,
         zoom: initial?.kind === "point" ? initial.zoom ?? 15 : PAID_RIDES_CONFIG.defaultZoom,
-        mapTypeControl: false, fullscreenControl: false, streetViewControl: false,
+        mapTypeControl: false, fullscreenControl: false, streetViewControl: false, cameraControl: false,
         clickableIcons: false, gestureHandling: "greedy", keyboardShortcuts: true,
         colorScheme: "FOLLOW_SYSTEM", zoomControl: latest.current.zoomControl ?? false,
       });
@@ -124,8 +150,8 @@ export const GoogleRideMap = forwardRef<RideMapHandle, GoogleRideMapProps>(funct
       listeners.push(instance.addListener("click", (event: google.maps.MapMouseEvent) => { if (event.latLng && latest.current.interactive !== false) latest.current.onMapClick?.(event.latLng.toJSON()); }));
       listeners.push(instance.addListener("dragstart", () => { moved.current = true; latest.current.onUserMove?.(); }));
       const report = (settled: boolean) => {
-        const center = instance.getCenter();
-        if (center) latest.current.onCenterChange?.(center.toJSON(), settled);
+        const center = visibleCenter(instance, latest.current.insets);
+        if (center) latest.current.onCenterChange?.(center, settled);
       };
       listeners.push(instance.addListener("center_changed", () => report(false)));
       listeners.push(instance.addListener("idle", () => report(true)));
@@ -162,13 +188,16 @@ export const GoogleRideMap = forwardRef<RideMapHandle, GoogleRideMapProps>(funct
     // every such render would fight dragging and repeatedly unset readiness.
     if (!force && !resized && camera.kind !== "follow") return;
     if (camera.kind === "point") {
-      instance.setCenter(camera.point); instance.setZoom(camera.zoom ?? 15);
+      pointCamera(instance, camera.point, camera.zoom ?? 15, props.insets);
     } else {
       if (!camera.points.length || (!force && camera.kind === "follow" && Date.now() - lastFit.current < 4_000)) return;
       const bounds = new google.maps.LatLngBounds(); camera.points.forEach((point) => bounds.extend(point));
-      instance.fitBounds(bounds, 36); lastFit.current = Date.now();
+      instance.fitBounds(bounds, cameraPadding(props.insets)); lastFit.current = Date.now();
       google.maps.event.addListenerOnce(instance, "idle", () => {
-        if ((instance.getZoom() ?? 0) > 17) instance.setZoom(17);
+        if ((instance.getZoom() ?? 0) > 17) {
+          const center = visibleCenter(instance, latest.current.insets);
+          if (center) pointCamera(instance, center, 17, latest.current.insets);
+        }
       });
     }
   }, [ready, props.camera, props.cameraKey, props.recenterToken, props.insets]);
@@ -208,9 +237,10 @@ export const GoogleRideMap = forwardRef<RideMapHandle, GoogleRideMapProps>(funct
     return () => lines.forEach((line) => line.setMap(null));
   }, [ready, props.route, props.approachRoute, props.paths]);
 
-  // Size the actual map to the uncovered area. Its built-in Google logo and
-  // copyright remain visible above bottom sheets and beside desktop panels.
+  // Insets frame the camera and attribution; the map itself fills the workspace.
   return <div className={props.className}>
-    <div ref={container} className="absolute" style={{ top: props.insets.top, right: props.insets.right, bottom: props.insets.bottom, left: props.insets.left }} role="region" aria-label="Google Maps ride map" />
+    <div ref={container} className="ride-google-map absolute inset-0" style={{
+      "--ride-map-left": `${props.insets.left}px`, "--ride-map-right": `${props.insets.right}px`, "--ride-map-bottom": `${props.insets.bottom}px`,
+    } as CSSProperties} role="region" aria-label="Google Maps ride map" />
   </div>;
 });

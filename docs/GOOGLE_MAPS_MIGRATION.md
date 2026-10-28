@@ -47,6 +47,21 @@ permissions. Open the website and check a map and a place search as the final
 deployment check. A 404 means the new endpoint has not reached the running app;
 a 503 means the running app has no browser key.
 
+If verification fails on the deployment server, compare the public address with
+the app's local listener:
+
+```sh
+npm run maps:verify -- https://app.freebus.cloud
+npm run maps:verify -- http://127.0.0.1:4000
+```
+
+If the local check passes while the public check fails, the app has its settings;
+investigate the server's public-domain DNS, TLS certificate, network access, and
+reverse proxy. The verifier now distinguishes connection, timeout, TLS, missing
+endpoint, missing key, and gateway errors without printing keys or error pages.
+The previous generic error also covered HTML error responses and network
+failures; it did not identify which condition occurred.
+
 Normal development and production builds explicitly use Webpack. During this
 migration the installed Next.js Turbopack development server returned 404 for
 new API routes; the Webpack server served and passed those checks.

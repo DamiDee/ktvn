@@ -38,6 +38,7 @@ export interface RideMapProps {
   cameraKey: string;
   /** Increment to recenter after the person has explored the map. */
   recenterToken?: number;
+  /** Screen space covered by controls/panels, used for camera framing only. */
   insets: MapInsets;
   /** Centre-pin mode: report the point under the pin when the map settles. */
   onCenterChange?: (point: GeoPoint, settled: boolean) => void;

@@ -1,0 +1,9 @@
+/* Keep Google's own logo and complete attribution visible above ride sheets.
+   Only their placement changes; Google's content, links, sizing and colours stay intact. */
+.ride-google-map .gm-style > div > div:has(> a[href*="maps.google.com/maps"]) {
+  translate: var(--ride-map-left, 0px) calc(-1 * var(--ride-map-bottom, 0px));
+}
+
+.ride-google-map .gm-style > div > div:has(> .gm-style-cc) {
+  translate: calc(-1 * var(--ride-map-right, 0px)) calc(-1 * var(--ride-map-bottom, 0px));
+}
