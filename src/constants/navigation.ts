@@ -94,6 +94,7 @@ export const ADMIN_NAV: NavItem[] = [
     shortLabel: "Verify",
     matchPrefix: true,
   },
+  { href: "/admin/users", label: "System Users", icon: Users, matchPrefix: true },
   { href: "/admin/drivers", label: "Drivers", icon: Car, matchPrefix: true },
   {
     href: "/admin/passengers",

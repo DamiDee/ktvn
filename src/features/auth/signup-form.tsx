@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertCircle, ArrowRight, AtSign, Car, Globe2, LockKeyhole, Mail, MapPin, Phone, ShieldCheck, User } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRight, AtSign, Globe2, LockKeyhole, Mail, MapPin, Phone, ShieldCheck, User } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Input, PasswordInput } from "@/components/ui/input";
@@ -80,16 +80,11 @@ export function SignUpForm() {
 
   return (
     <div>
-      <h1 className="type-page-title text-ink">Create your account.</h1>
+      <Link href="/signup" className="mb-5 inline-flex items-center gap-2 text-sm text-ink-secondary hover:text-ink"><ArrowLeft className="size-4" aria-hidden />Change account type</Link>
+      <h1 className="type-page-title text-ink">Create your passenger account.</h1>
       <p className="type-body mt-2.5 text-ink-secondary">
-        A few details, and you’re one step closer to your next ride.
+        Book paid rides and reserve Freebus seats with your passenger account.
       </p>
-
-      <Link href="/driver/apply" className="mt-6 flex min-h-16 items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3 transition-colors hover:border-line-strong hover:bg-surface-nested">
-        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-gold-100 text-gold-800 dark:bg-gold-500/15 dark:text-gold-300"><Car className="size-5" aria-hidden /></span>
-        <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-ink">Sign up as a driver</span><span className="block text-xs text-ink-secondary">Your car. Your next opportunity.</span></span>
-        <ArrowRight className="size-4 shrink-0 text-ink-secondary" aria-hidden />
-      </Link>
 
       <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-5" noValidate>
         {formError ? (

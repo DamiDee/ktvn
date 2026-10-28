@@ -6,6 +6,10 @@ import { Car, Star } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { DataTable, type DataColumn } from "@/components/ui/data-table";
 import { FilterBar, SearchInput, ListControls } from "@/components/ui/filter-bar";
+import { freebusRequest } from "@/services/freebus-api";
+import type { ApiUser } from "@/types/freebus-api";
+import { LIVE_FREE_BUSES } from "@/lib/freebus-config";
+import { ContactPhone } from "./accounts/account-details";
 import { Avatar } from "@/components/ui/avatar";
 import { StatusBadge, StatusChip } from "@/components/ui/badge";
 import { EmptyState, ErrorState } from "@/components/ui/states";
@@ -40,6 +44,12 @@ export function DriversList() {
   const [search, setSearch] = useState("");
 
   const query = useDebouncedValue(search.trim());
+  const accounts = useQuery({
+    queryKey: ["admin", "driver-contacts"],
+    queryFn: ({ signal }) => freebusRequest<ApiUser[]>("users", { signal }),
+    enabled: LIVE_FREE_BUSES, retry: false,
+  });
+  const contacts = new Map((accounts.data ?? []).map((account) => [account.id, account]));
 
   // Unfiltered, for chip counts and the header.
   const { data: everything } = useQuery({
@@ -82,6 +92,7 @@ export function DriversList() {
         </div>
       ),
     },
+    { id: "contact", header: "Phone", meta: true, cell: (driver) => <ContactPhone value={contacts.get(driver.id)?.phone || driver.phone} /> },
     {
       id: "track",
       header: "Track",
@@ -159,7 +170,7 @@ export function DriversList() {
       <PageHeader
         eyebrow="System Users"
         title="Drivers"
-        description="Everyone approved to carry members, on either track."
+        description="Driver contact information, vehicle details, and account status. Open a driver to view their full profile."
         action={
           <StatusChip tone="neutral" size="md">
             {total} {pluralise(total, "driver")}

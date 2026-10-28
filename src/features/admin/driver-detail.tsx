@@ -28,6 +28,7 @@ import { PageLoader } from "@/components/ui/route-loader";
 import { PageHeader } from "@/components/layout/app-shell";
 import { queryKeys } from "@/constants/query-keys";
 import { adminData } from "./data/admin-data";
+import { DriverContactCard } from "./accounts/driver-contact-card";
 import {
   DRIVER_AVAILABILITY_PRESENTATION,
   RIDE_STATUS_PRESENTATION,
@@ -185,6 +186,8 @@ export function DriverDetail({ driverId }: { driverId: string }) {
               {TRACK_DESCRIPTION[driver.track]}
             </p>
           </Card>
+
+          <DriverContactCard driver={driver} />
 
           {/* Service or earnings — never both */}
           <Card radius="xl">

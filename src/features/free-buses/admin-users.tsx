@@ -2,15 +2,15 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Users, ShieldAlert, UserX, UserCheck, Trash2 } from "lucide-react";
+import { ShieldAlert, UserX, UserCheck, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/app-shell";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { Modal, ConfirmDialog } from "@/components/ui/modal";
 import { StatusChip } from "@/components/ui/badge";
-import { RecordsTable } from "@/components/ui/records-table";
-import { EmptyState, ErrorState } from "@/components/ui/states";
+import { AccountsTable } from "@/features/admin/accounts/accounts-table";
+import { AccountDetails } from "@/features/admin/accounts/account-details";
+import { ErrorState } from "@/components/ui/states";
 import { PageLoader } from "@/components/ui/route-loader";
 import { freebusRequest } from "@/services/freebus-api";
 import { isOversight } from "@/lib/freebus-contract";
@@ -19,7 +19,6 @@ import { useLiveQuery } from "./live-queries";
 import { useLiveUser } from "./live-shell";
 import { CityPicker } from "@/components/ui/city-picker";
 import { PassengerStrikes } from "./passenger-strikes";
-import { displayName, displayPhone } from "@/lib/account-display";
 
 const ROLES: { value: ApiRole; label: string; short?: string; description: string }[] = [
   { value: "User", label: "Member", description: "Books a free seat and carries a boarding pass." },
@@ -29,15 +28,17 @@ const ROLES: { value: ApiRole; label: string; short?: string; description: strin
   { value: "Root", label: "Root", description: "Admin, plus the ability to manage other admins." },
 ];
 
-const ROLE_LABEL = Object.fromEntries(ROLES.map((r) => [r.value, r.label])) as Record<string, string>;
-
 type Pending =
   | { kind: "role"; user: ApiUser; role: ApiRole }
   | { kind: "deactivate"; user: ApiUser }
   | { kind: "activate"; user: ApiUser }
   | { kind: "delete"; user: ApiUser };
 
-export function AdminUsers() {
+export function AdminUsers({ workspace = "free-buses" }: { workspace?: "free-buses" | "paid-rides" }) {
+  const paid = workspace === "paid-rides";
+  const roles = ROLES.map((role) => paid && role.value === "User" ? { ...role, label: "Passenger", description: "Books paid rides and reserves Freebus seats." } : role);
+  const roleLabel = Object.fromEntries(roles.map((role) => [role.value, role.label]));
+  const eyebrow = paid ? "Paid Rides · Oversight" : "Free Buses · Oversight";
   const me = useLiveUser();
   const client = useQueryClient();
   const users = useLiveQuery<ApiUser[]>("users");
@@ -48,7 +49,10 @@ export function AdminUsers() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  const refresh = () => client.invalidateQueries({ queryKey: ["freebus-live"] });
+  const refresh = () => Promise.all([
+    client.invalidateQueries({ queryKey: ["freebus-live"] }),
+    client.invalidateQueries({ queryKey: ["admin"] }),
+  ]);
 
   async function run(fn: () => Promise<unknown>, done: string) {
     setBusy(true);
@@ -71,7 +75,7 @@ export function AdminUsers() {
   if (users.error)
     return (
       <>
-        <PageHeader eyebrow="Free Buses · Oversight" title="System Users" />
+        <PageHeader eyebrow={eyebrow} title="System Users" />
         <ErrorState
           title="Could not load accounts"
           description={users.error.message}
@@ -90,7 +94,7 @@ export function AdminUsers() {
       title: `Change ${p.user.first_name}'s role?`,
       description:
         p.kind === "role"
-          ? `${p.user.first_name} ${p.user.last_name} becomes ${ROLE_LABEL[p.role]}. ${
+          ? `${p.user.first_name} ${p.user.last_name} becomes ${roleLabel[p.role]}. ${
               isOversight(p.role)
                 ? "They will be able to manage the fleet, journeys, points and other people's accounts."
                 : p.role === "Driver" || p.role === "RouteCoordinator"
@@ -136,7 +140,7 @@ export function AdminUsers() {
             method: "PATCH",
             body: JSON.stringify({ role: pending.role }),
           }),
-        `${name} is now ${ROLE_LABEL[pending.role]}.`,
+        `${name} is now ${roleLabel[pending.role]}.`,
       );
     else if (pending.kind === "deactivate")
       await run(
@@ -155,7 +159,7 @@ export function AdminUsers() {
       );
   }
 
-  const counts = ROLES.map((role) => ({
+  const counts = roles.map((role) => ({
     ...role,
     count: users.data.filter((user) => user.role === role.value).length,
   }));
@@ -163,7 +167,7 @@ export function AdminUsers() {
   return (
     <>
       <PageHeader
-        eyebrow="Free Buses · Oversight"
+        eyebrow={eyebrow}
         title="System Users"
         description="Every account on the platform, and what it is allowed to do."
       />
@@ -188,93 +192,9 @@ export function AdminUsers() {
         ))}
       </div>
 
-      <RecordsTable
-        caption="Platform accounts"
-        rows={users.data.map((user) => ({ ...user, first_name: displayName(user.first_name), last_name: displayName(user.last_name) }))}
-        rowKey={(user) => user.id}
-        searchIn={(user) =>
-          `${user.first_name} ${user.last_name} ${user.email} ${user.username} ${user.phone} ${displayPhone(user.phone)} ${user.phone?.replace(/\D/g, "")} ${ROLE_LABEL[user.role] ?? user.role}`
-        }
-        searchPlaceholder="Search name, email, username or phone"
-        initialSort={{ id: "name", direction: "asc" }}
-        empty={
-          <Card radius="xl">
-            <EmptyState icon={Users} size="sm" title="No accounts yet" description="Create the first account to get started." />
-          </Card>
-        }
-        action={<Button onClick={() => { setError(""); setCreate(true); }}>Create account</Button>}
-        columns={[
-          {
-            id: "name",
-            header: "Name",
-            primary: true,
-            sortBy: (user) => `${user.first_name} ${user.last_name}`,
-            cell: (user) => (
-              <span className="whitespace-nowrap font-medium text-ink">
-                {user.first_name} {user.last_name}
-                {isSelf(user) ? <span className="type-meta ml-1.5 text-ink-muted">(you)</span> : null}
-              </span>
-            ),
-          },
-          {
-            id: "email",
-            header: "Email",
-            secondary: true,
-            sortBy: (user) => user.email,
-            cell: (user) => <span className="break-all text-ink-secondary">{user.email}</span>,
-          },
-          {
-            id: "username",
-            header: "Username",
-            meta: true,
-            hideBelow: "xl",
-            sortBy: (user) => user.username,
-            cell: (user) => <span className="type-numeric text-ink-secondary">{user.username}</span>,
-          },
-          {
-            id: "phone",
-            header: "Phone",
-            meta: true,
-            hideBelow: "xl",
-            cell: (user) => <span className="type-numeric whitespace-nowrap text-ink-secondary">{displayPhone(user.phone)}</span>,
-          },
-          {
-            id: "role",
-            header: "Role",
-            meta: true,
-            sortBy: (user) => user.role,
-            cell: (user) => (
-              <StatusChip tone={isOversight(user.role) ? "active" : user.role === "User" ? "neutral" : "info"}>
-                {ROLE_LABEL[user.role] ?? user.role}
-              </StatusChip>
-            ),
-          },
-          {
-            id: "state",
-            header: "Account",
-            meta: true,
-            sortBy: (user) => (user.is_active ? 0 : 1),
-            cell: (user) => (
-              <StatusChip tone={user.is_active ? "success" : "danger"}>
-                {user.is_active ? "Active" : "Deactivated"}
-              </StatusChip>
-            ),
-          },
-          {
-            id: "actions",
-            header: "Actions",
-            align: "end",
-            actions: true,
-            cell: (user) => {
-              return (
-                <Button size="sm" variant="secondary" onClick={() => { setError(""); setManaging(user); }}>
-                  Manage
-                </Button>
-              );
-            },
-          },
-        ]}
-      />
+      <AccountsTable users={users.data} paid={paid} currentUserId={me.id}
+        onCreate={() => { setError(""); setCreate(true); }}
+        onManage={(user) => { setError(""); setManaging(user); }} />
 
       {!canChangeOversight ? (
         <p className="type-meta mt-4 inline-flex items-start gap-2 text-ink-muted">
@@ -292,13 +212,14 @@ export function AdminUsers() {
         size="lg"
       >
         <CreateUserForm
+          paid={paid}
           busy={busy}
           error={error}
           canChangeOversight={canChangeOversight}
           onSubmit={(payload) =>
             run(
               () => freebusRequest("users/admin", { method: "POST", body: JSON.stringify(payload) }),
-              `${payload.first_name} ${payload.last_name} was created as ${ROLE_LABEL[payload.role]}.`,
+              `${payload.first_name} ${payload.last_name} was created as ${roleLabel[payload.role]}.`,
             )
           }
         />
@@ -308,11 +229,13 @@ export function AdminUsers() {
         open={Boolean(managing)}
         onClose={() => { if (!busy && !pending) setManaging(null); }}
         title={managing ? `Manage ${managing.first_name} ${managing.last_name}` : "Manage account"}
+        size="lg"
       >
         {managing ? (() => {
           const locked = isSelf(managing) || (isOversight(managing.role) && !canChangeOversight);
           return (
             <div className="space-y-6">
+              <AccountDetails user={managing} paid={paid} />
               <div>
                 <label className="mb-2 block text-sm font-medium text-ink-secondary">Account Role</label>
                 <Select
@@ -324,7 +247,7 @@ export function AdminUsers() {
                     setPending({ kind: "role", user: managing, role: event.target.value as ApiRole });
                     setManaging(null);
                   }}
-                  options={ROLES.map((role) => ({
+                  options={roles.map((role) => ({
                     value: role.value,
                     label: role.label,
                     disabled: isOversight(role.value) && !canChangeOversight
@@ -410,11 +333,13 @@ interface CreatePayload {
 }
 
 function CreateUserForm({
+  paid,
   busy,
   error,
   canChangeOversight,
   onSubmit,
 }: {
+  paid: boolean;
   busy: boolean;
   error: string;
   canChangeOversight: boolean;
@@ -423,7 +348,8 @@ function CreateUserForm({
   const [role, setRole] = useState<ApiRole>("User");
   const [city, setCity] = useState("");
   const [validation, setValidation] = useState("");
-  const chosen = ROLES.find((r) => r.value === role);
+  const roles = ROLES.map((item) => paid && item.value === "User" ? { ...item, label: "Passenger", description: "Books paid rides and reserves Freebus seats." } : paid && item.value === "Driver" ? { ...item, description: "Driver access. Vehicle setup and driving approval are handled separately." } : item);
+  const chosen = roles.find((r) => r.value === role);
 
   return (
     <form
@@ -473,7 +399,7 @@ function CreateUserForm({
         label="Role"
         value={role}
         onChange={(event) => setRole(event.target.value as ApiRole)}
-        options={ROLES.filter((option) => canChangeOversight || !isOversight(option.value)).map(
+        options={roles.filter((option) => canChangeOversight || !isOversight(option.value)).map(
           (option) => ({ value: option.value, label: option.label }),
         )}
       />

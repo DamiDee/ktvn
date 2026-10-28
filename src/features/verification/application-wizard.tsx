@@ -158,6 +158,7 @@ export function ApplicationWizard() {
     <div className="premium-driver-layout">
       <ApplicationUploadProgress state={uploadState} onClose={() => { if (!submissionLock.current) setUploadState(null); }} />
       <aside className="premium-driver-story">
+        <Link href="/signup" className="mb-6 inline-flex items-center gap-2 text-sm text-ink-secondary hover:text-ink"><ArrowLeft className="size-4" aria-hidden />Change account type</Link>
         <p className="mb-4 text-xs font-semibold tracking-[.18em] text-ink-muted uppercase">K-Rides / Drive with us</p>
         <h1 className="text-4xl font-medium leading-[1.08] tracking-[-.055em] text-ink sm:text-5xl">Your next chapter.<br /><span className="text-gold-800 dark:text-gold-300">Behind the wheel.</span></h1>
         <p className="mt-5 max-w-sm text-sm leading-relaxed text-ink-secondary">Bring your ambition. We’ll guide you through the details, one simple step at a time.</p>
