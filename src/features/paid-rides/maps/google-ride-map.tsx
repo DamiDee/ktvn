@@ -1,13 +1,22 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import { PAID_RIDES_CONFIG } from "../config";
 import type { GeoPoint } from "../domain/types";
-import type { RideMapProps } from "./leaflet-ride-map";
+import type { RideMapProps } from "./ride-map-types";
+import type { RideMapHandle } from "./map-provider";
 import { loadGoogleLibrary, onGoogleMapsAuthFailure } from "./google-maps-loader";
 import { MARKER_SIZES, destinationMarkerHtml, nearbyVehicleHtml, pickupMarkerHtml, radarHtml, userMarkerHtml, vehicleMarkerHtml } from "./markers";
 
-type Marker = { id: string; point: GeoPoint; html: string; size: number; heading?: number; anchorY?: number; z?: number };
+export type GoogleMapMarker = { id: string; point: GeoPoint; html: string; size: number; heading?: number; anchorY?: number; z?: number; label?: string; onClick?: () => void };
+type Marker = GoogleMapMarker;
+export interface GoogleMapPath { id: string; points: GeoPoint[]; color: string; width?: number; opacity?: number }
+export interface GoogleRideMapProps extends RideMapProps {
+  markers?: GoogleMapMarker[];
+  paths?: GoogleMapPath[];
+  onMapClick?: (point: GeoPoint) => void;
+  zoomControl?: boolean;
+}
 type HtmlOverlay = google.maps.OverlayView & { update(marker: Marker): void };
 
 /** OverlayView keeps our existing markers without requiring a cloud map ID. */
@@ -18,7 +27,16 @@ function createOverlay(marker: Marker, map: google.maps.Map): HtmlOverlay {
     private frame = 0;
     private point = marker.point;
     private heading = marker.heading ?? 0;
-    onAdd() { this.element.style.position = "absolute"; this.element.style.pointerEvents = "none"; this.getPanes()?.overlayLayer.append(this.element); this.paint(); }
+    onAdd() {
+      this.element.style.position = "absolute";
+      if (this.marker.onClick) {
+        this.getPanes()?.overlayMouseTarget.append(this.element);
+        google.maps.OverlayView.preventMapHitsAndGesturesFrom(this.element);
+        this.element.onclick = () => this.marker.onClick?.();
+        this.element.onkeydown = (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); this.marker.onClick?.(); } };
+      } else this.getPanes()?.overlayLayer.append(this.element);
+      this.paint();
+    }
     draw() {
       const pixel = this.getProjection()?.fromLatLngToDivPixel(new google.maps.LatLng(this.point));
       if (!pixel) return;
@@ -26,6 +44,10 @@ function createOverlay(marker: Marker, map: google.maps.Map): HtmlOverlay {
     }
     private paint() {
       this.element.innerHTML = this.marker.html;
+      this.element.style.pointerEvents = this.marker.onClick ? "auto" : "none";
+      this.element.setAttribute("aria-label", this.marker.label ?? "Map marker");
+      this.element.setAttribute("role", this.marker.onClick ? "button" : "img");
+      this.element.tabIndex = this.marker.onClick ? 0 : -1;
       this.element.style.width = `${this.marker.size}px`; this.element.style.height = `${this.marker.size}px`;
       this.element.style.zIndex = String(this.marker.z ?? 1);
       this.element.style.transform = `translate(-50%, -${(this.marker.anchorY ?? 0.5) * 100}%) rotate(${this.heading}deg)`;
@@ -53,12 +75,28 @@ function createOverlay(marker: Marker, map: google.maps.Map): HtmlOverlay {
   const overlay = new Overlay(); overlay.setMap(map); return overlay;
 }
 
-export function GoogleRideMap(props: RideMapProps) {
+export const GoogleRideMap = forwardRef<RideMapHandle, GoogleRideMapProps>(function GoogleRideMap(props, ref) {
   const container = useRef<HTMLDivElement>(null), map = useRef<google.maps.Map | null>(null);
   const latest = useRef(props), moved = useRef(false), lastFit = useRef(0);
   const overlays = useRef(new Map<string, HtmlOverlay>());
   const [ready, setReady] = useState(false);
   useLayoutEffect(() => { latest.current = props; });
+  useImperativeHandle(ref, () => ({
+    fitRouteBounds(points) {
+      if (!map.current || !points.length) return;
+      moved.current = true;
+      const bounds = new google.maps.LatLngBounds(); points.forEach((point) => bounds.extend(point));
+      map.current.fitBounds(bounds, 48);
+    },
+    recenter() {
+      const camera = latest.current.camera;
+      if (!map.current || !camera) return;
+      moved.current = false;
+      if (camera.kind === "point") { map.current.setCenter(camera.point); map.current.setZoom(camera.zoom ?? 15); }
+      else { const bounds = new google.maps.LatLngBounds(); camera.points.forEach((point) => bounds.extend(point)); map.current.fitBounds(bounds, 36); }
+    },
+    getCenter: () => map.current?.getCenter()?.toJSON() ?? null,
+  }), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,9 +118,10 @@ export function GoogleRideMap(props: RideMapProps) {
         zoom: initial?.kind === "point" ? initial.zoom ?? 15 : PAID_RIDES_CONFIG.defaultZoom,
         mapTypeControl: false, fullscreenControl: false, streetViewControl: false,
         clickableIcons: false, gestureHandling: "greedy", keyboardShortcuts: true,
-        colorScheme: "FOLLOW_SYSTEM", zoomControl: false,
+        colorScheme: "FOLLOW_SYSTEM", zoomControl: latest.current.zoomControl ?? false,
       });
       map.current = instance;
+      listeners.push(instance.addListener("click", (event: google.maps.MapMouseEvent) => { if (event.latLng && latest.current.interactive !== false) latest.current.onMapClick?.(event.latLng.toJSON()); }));
       listeners.push(instance.addListener("dragstart", () => { moved.current = true; latest.current.onUserMove?.(); }));
       const report = (settled: boolean) => {
         const center = instance.getCenter();
@@ -141,7 +180,7 @@ export function GoogleRideMap(props: RideMapProps) {
 
   useEffect(() => {
     if (!ready || !map.current) return;
-    const markers: Marker[] = [];
+    const markers: Marker[] = [...(props.markers ?? [])];
     if (props.pickup) markers.push({ id: "pickup", point: props.pickup, html: pickupMarkerHtml(props.pickupLabel), size: MARKER_SIZES.pickup });
     if (props.destination) markers.push({ id: "destination", point: props.destination, html: destinationMarkerHtml(props.destinationLabel), size: MARKER_SIZES.destination, anchorY: 1 });
     if (props.user) markers.push({ id: "user", point: props.user, html: userMarkerHtml(), size: MARKER_SIZES.user });
@@ -155,7 +194,7 @@ export function GoogleRideMap(props: RideMapProps) {
       if (existing) existing.update(marker);
       else overlays.current.set(marker.id, createOverlay(marker, map.current!));
     });
-  }, [ready, props.pickup, props.pickupLabel, props.destination, props.destinationLabel, props.user, props.vehicle, props.radar, props.nearby]);
+  }, [ready, props.pickup, props.pickupLabel, props.destination, props.destinationLabel, props.user, props.vehicle, props.radar, props.nearby, props.markers]);
 
   useEffect(() => {
     if (!ready || !map.current) return;
@@ -165,12 +204,13 @@ export function GoogleRideMap(props: RideMapProps) {
     };
     if (props.route?.source === "road") { add(props.route.points, "#ffffff", 8, 0.85); add(props.route.points, "#174b3d", 5, 1); }
     if (props.approachRoute?.source === "road") add(props.approachRoute.points, "#b38228", 5, 0.95);
+    props.paths?.forEach((path) => add(path.points, path.color, path.width ?? 5, path.opacity ?? 1));
     return () => lines.forEach((line) => line.setMap(null));
-  }, [ready, props.route, props.approachRoute]);
+  }, [ready, props.route, props.approachRoute, props.paths]);
 
   // Size the actual map to the uncovered area. Its built-in Google logo and
   // copyright remain visible above bottom sheets and beside desktop panels.
   return <div className={props.className}>
     <div ref={container} className="absolute" style={{ top: props.insets.top, right: props.insets.right, bottom: props.insets.bottom, left: props.insets.left }} role="region" aria-label="Google Maps ride map" />
   </div>;
-}
+});

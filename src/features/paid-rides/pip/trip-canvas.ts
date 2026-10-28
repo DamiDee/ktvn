@@ -4,7 +4,7 @@ import type { GeoPoint } from "../domain/types";
 /**
  * Lightweight canvas renderer for the floating tracker.
  *
- * A second Leaflet instance inside a 320-pixel PiP window would download
+ * A second Google Maps instance inside a 320-pixel PiP window would download
  * tiles, hold a full map in memory and redraw constantly. Instead this draws
  * a calm schematic — route, car, target, ETA — in a few milliseconds, at a
  * low frame rate. It powers both Document PiP (as the mini-map) and video

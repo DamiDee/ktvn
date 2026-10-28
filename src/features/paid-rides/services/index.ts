@@ -1,5 +1,4 @@
-import { PAID_RIDES_MODE, USE_GOOGLE_MAPS } from "../config";
-import { osmMapProvider } from "../maps/osm-map-provider";
+import { PAID_RIDES_MODE } from "../config";
 import type { MapProvider } from "../maps/map-provider";
 import { googleMapProvider } from "../maps/google-map-provider";
 import { createApiRideService } from "./ride-api-service";
@@ -21,7 +20,7 @@ export function getRideService(): RideService {
 }
 
 export function getMapProvider(): MapProvider {
-  return USE_GOOGLE_MAPS ? googleMapProvider : osmMapProvider;
+  return googleMapProvider;
 }
 
 export function newIdempotencyKey(): string {

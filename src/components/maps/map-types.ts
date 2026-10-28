@@ -4,9 +4,8 @@ import type { DriverTrack } from "@/types/enums";
 /**
  * Provider-agnostic map contract.
  *
- * `MapCanvas` renders these props today with a self-contained renderer that
- * needs no API key. A Mapbox or Google implementation satisfies the same
- * props, so swapping providers does not touch any calling component.
+ * `MapCanvas` adapts these props to the shared Google Maps renderer.
+ * Calling screens continue to supply routes, markers, and viewport insets.
  */
 
 export type MarkerKind =

@@ -1,28 +1,13 @@
-import { fetchRoadRoute, RoutingConfigurationError } from "@/lib/osrm-client";
-import { routingCoordinates, type Coordinates } from "@/lib/transport-locations";
-
-/**
- * GET /api/rides/geo/route?points=[{lat,lng},…]
- *
- * Road route with geometry from the configured OSRM service (the same
- * `ROUTING_API_BASE_URL` Free Buses uses). Never falls back to a straight
- * line here — the client labels its own fallback as approximate.
- */
+import { guardGoogleRequest } from "@/lib/google-request-guard";
+import { fetchGoogleRoadRoute, GoogleRoutingConfigurationError } from "@/lib/google-routes";
+import { validCoordinates, type Coordinates } from "@/lib/transport-locations";
 export async function GET(request: Request) {
-  const raw = new URL(request.url).searchParams.get("points");
-  let coordinates: string;
+  const limited = guardGoogleRequest(request); if (limited) return limited;
+  let points: Coordinates[];
   try {
-    const parsed: unknown = JSON.parse(raw ?? "null");
-    if (!Array.isArray(parsed) || parsed.some((p) => !p || typeof p.lat !== "number" || typeof p.lng !== "number")) throw new Error();
-    coordinates = routingCoordinates(parsed as Coordinates[]);
-  } catch {
-    return Response.json({ message: "Provide 2–25 valid coordinates." }, { status: 400 });
-  }
-
-  try {
-    return Response.json(await fetchRoadRoute(coordinates));
-  } catch (error) {
-    if (error instanceof RoutingConfigurationError) return Response.json({ message: error.message }, { status: 503 });
-    return Response.json({ message: "Road routing is unavailable." }, { status: 502 });
-  }
+    points = JSON.parse(new URL(request.url).searchParams.get("points") ?? "null");
+    if (!Array.isArray(points) || points.length < 2 || points.length > 25 || points.some((point) => !point || !validCoordinates(point))) throw new Error();
+  } catch { return Response.json({ message: "Provide 2–25 valid coordinates." }, { status: 400 }); }
+  try { return Response.json({ ...await fetchGoogleRoadRoute(points), source: "road", provider: "google" }, { headers: { "Cache-Control": "no-store" } }); }
+  catch (error) { return Response.json({ message: error instanceof GoogleRoutingConfigurationError ? error.message : "Google road routing is unavailable." }, { status: error instanceof GoogleRoutingConfigurationError ? 503 : 502 }); }
 }

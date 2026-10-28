@@ -1,5 +1,8 @@
 # Driver connection recovery and Google Maps
 
+> Map-provider and deployment instructions were superseded on 28 October 2026.
+> See the [Google Maps migration guide](../GOOGLE_MAPS_MIGRATION.md).
+
 ## Driver behaviour
 
 The saved availability flag is no longer treated as proof of a working live connection. Drivers waiting for requests see a centered, non-dismissible **You are offline** notice if the WebSocket disconnects. It explains that requests and location updates may be interrupted, offers **Retry connection** and **Go offline**, and clears automatically after recovery. An active trip instead keeps an alert above the screen, preserving access to safety and navigation.

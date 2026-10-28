@@ -20,7 +20,7 @@ import { useHideRideNav, useRideShell } from "../shell/ride-module-shell";
 import { RideMap } from "../components/ride-map";
 import { RideSheet } from "../components/ride-sheet";
 import { DriverCardSkeleton } from "../components/ride-ui";
-import type { CameraIntent, MapInsets, MapVehicle } from "../maps/leaflet-ride-map";
+import type { CameraIntent, MapInsets, MapVehicle } from "../maps/ride-map-types";
 import { ConnectionPill, LiveAnnouncer, MapControlButton } from "../components/status-overlays";
 import { SosSheet } from "../safety/sos-sheet";
 import { PictureInPictureHost, trackerFrameFor, usePipControls } from "../pip/floating-tracker";

@@ -1,6 +1,6 @@
 import { RideServiceError } from "../domain/errors";
 import type { FareEstimate } from "../domain/types";
-import { osmMapProvider } from "../maps/osm-map-provider";
+import { googleMapProvider } from "../maps/google-map-provider";
 import { MOCK_PAYMENT_METHODS, MOCK_SELF_DRIVER, MOCK_SELF_PASSENGER } from "./mock/mock-fixtures";
 import { MockBackend } from "./mock/mock-backend";
 import type { RideService } from "./ride-service";
@@ -17,7 +17,7 @@ let backend: MockBackend | null = null;
 
 /** Shared with the mock realtime client and the dev panel. */
 export function getMockBackend(): MockBackend {
-  backend ??= new MockBackend(osmMapProvider);
+  backend ??= new MockBackend(googleMapProvider);
   return backend;
 }
 

@@ -1,22 +1,15 @@
-import { fetchRoadRoute, RoutingConfigurationError } from "@/lib/osrm-client";
-import { routingCoordinates, type Coordinates } from "@/lib/transport-locations";
-
-/** Only public stop coordinates are sent to the configured road-routing service. */
+import { guardGoogleRequest } from "@/lib/google-request-guard";
+import { fetchGoogleRoadRoute, GoogleRoutingConfigurationError } from "@/lib/google-routes";
+import { validCoordinates, type Coordinates } from "@/lib/transport-locations";
 export async function GET(request: Request) {
-  const raw = new URL(request.url).searchParams.get("points");
-  let coordinates: string;
+  const limited = guardGoogleRequest(request); if (limited) return limited;
+  let points: Coordinates[];
   try {
-    const parsed: unknown = JSON.parse(raw ?? "null");
-    if (!Array.isArray(parsed) || parsed.some((p) => !p || typeof p.lat !== "number" || typeof p.lng !== "number")) throw new Error();
-    coordinates = routingCoordinates(parsed as Coordinates[]);
+    points = JSON.parse(new URL(request.url).searchParams.get("points") ?? "null");
+    if (!Array.isArray(points) || points.length < 2 || points.length > 25 || points.some((point) => !point || !validCoordinates(point))) throw new Error();
   } catch { return Response.json({ message: "Provide 2–25 valid coordinates." }, { status: 400 }); }
   try {
-    const route = await fetchRoadRoute(coordinates, process.env, 3600);
-    const metres = route.distanceMeters;
-    if (metres <= 0) throw new Error();
-    return Response.json({ distance_km: Math.round(metres / 10) / 100, source: "Road-route estimate" });
-  } catch (error) {
-    if (error instanceof RoutingConfigurationError) return Response.json({ message: error.message }, { status: 503 });
-    return Response.json({ message: "Road distance is unavailable. Retry or enter a verified distance manually." }, { status: 502 });
-  }
+    const route = await fetchGoogleRoadRoute(points);
+    return Response.json({ distance_km: Math.round(route.distanceMeters / 10) / 100, duration_seconds: route.durationSeconds, source: "Google road-route estimate" }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) { return Response.json({ message: error instanceof GoogleRoutingConfigurationError ? error.message : "Google road distance is unavailable." }, { status: error instanceof GoogleRoutingConfigurationError ? 503 : 502 }); }
 }

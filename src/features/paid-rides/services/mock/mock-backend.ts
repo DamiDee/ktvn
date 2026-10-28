@@ -15,7 +15,7 @@ import type {
   RouteGeometry,
 } from "../../domain/types";
 import type { MapProvider } from "../../maps/map-provider";
-import { approximateRoute } from "../../maps/osm-map-provider";
+import { approximateRoute } from "../../maps/approximate-route";
 import {
   MOCK_DRIVERS,
   MOCK_PLACES,

@@ -164,34 +164,8 @@
   transform: scale(0.97);
 }
 
-/* ─── Leaflet integration ───────────────────────────────────────────────── */
+/* ─── Map overlays ──────────────────────────────────────────────────────── */
 
-.kx-rides .leaflet-container {
-  background: var(--kx-map-land);
-  font-family: var(--font-sans);
-  outline: none;
-}
-/* OSM's default palette is loud; soften it towards the brand neutrals. */
-.ride-tiles-default {
-  filter: saturate(0.5) contrast(0.94) brightness(1.04);
-}
-.dark .ride-tiles-default {
-  filter: invert(1) hue-rotate(180deg) saturate(0.18) brightness(0.86) contrast(0.88);
-}
-.kx-rides .leaflet-control-attribution {
-  font-size: 10px;
-  background: var(--surface-glass) !important;
-  color: var(--text-tertiary);
-  border-radius: 6px 0 0 0;
-  backdrop-filter: blur(8px);
-}
-.kx-rides .leaflet-control-attribution a {
-  color: var(--text-secondary);
-}
-.kx-rides .leaflet-div-icon.ride-marker {
-  background: none;
-  border: none;
-}
 .ride-vehicle-glyph {
   transition: transform 0.9s linear;
   will-change: transform;

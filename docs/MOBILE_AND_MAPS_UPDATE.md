@@ -1,5 +1,8 @@
 # Paid rides: Android, maps and account changes
 
+> Map-provider and deployment instructions were superseded on 28 October 2026.
+> See the [Google Maps migration guide](GOOGLE_MAPS_MIGRATION.md).
+
 ## Delivered in source
 
 - `/admin/ride-history`: server-filtered Completed and Cancelled lists, search,

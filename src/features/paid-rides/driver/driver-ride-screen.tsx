@@ -13,7 +13,7 @@ import { RideMap } from "../components/ride-map";
 import { RideSheet } from "../components/ride-sheet";
 import { DriverCardSkeleton } from "../components/ride-ui";
 import { ConnectionPill, LiveAnnouncer, MapControlButton } from "../components/status-overlays";
-import type { CameraIntent, MapInsets, MapVehicle } from "../maps/leaflet-ride-map";
+import type { CameraIntent, MapInsets, MapVehicle } from "../maps/ride-map-types";
 import { AvailabilityPanel, DriverSummaryPanel, DriverTripPanel, PickupPanel } from "./driver-panels";
 import { RequestSheet } from "./request-sheet";
 

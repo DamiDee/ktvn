@@ -3,22 +3,22 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3000",
-    "build": "next build",
+    "dev": "next dev --webpack -p 3000",
+    "build": "next build --webpack",
     "start": "next start -p 4000",
     "lint": "eslint",
     "test:free-buses": "node --experimental-strip-types --test tests/*.test.mjs",
-    "test:paid-rides": "node --experimental-strip-types --test tests/paid-rides.test.mjs"
+    "test:paid-rides": "node --experimental-strip-types --test tests/paid-rides.test.mjs",
+    "maps:configure": "node scripts/configure-google-maps.mjs",
+    "maps:verify": "node scripts/verify-google-maps.mjs"
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^2.1.3",
     "@hookform/resolvers": "^5.9.1",
     "@tanstack/react-query": "^5.102.8",
-    "@types/leaflet": "^1.9.22",
     "@zxing/browser": "^0.1.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "leaflet": "^1.9.4",
     "lucide-react": "^1.43.0",
     "motion": "^13.2.0",
     "next": "16.3.4",

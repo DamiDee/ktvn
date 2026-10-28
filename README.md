@@ -68,17 +68,16 @@ RideStatus: IDLE → REQUESTING → SEARCHING → AWAITING_DRIVER → MATCHED
 
 ## The map layer
 
-`components/maps/` is provider-agnostic. `MapCanvas` accepts routes, markers
-and a viewport; today a self-contained renderer draws them — procedural
-terrain, animated route drawing, and vehicle markers interpolated along the
-path by distance with heading-based rotation (`lib/geo.ts`,
-`features/rides/use-ride-simulation.ts`).
+All active map surfaces use Google Maps, including passenger and driver rides,
+admin driver tracking, the Free Buses location picker, and `MapCanvas`.
+Place search uses Places API (New); road geometry and distance use Routes API.
+Maps never silently fall back to OpenStreetMap when the hosting key is missing.
 
-Swapping in Mapbox or Google Maps means writing one component that satisfies
-`MapCanvasProps`. No calling screen changes.
-
-The projection fits the container's measured aspect ratio, so routes are never
-distorted and markers are never cropped out of frame.
+For server deployment, run `npm run maps:configure`, rebuild, and restart the
+website. The key is saved outside Git. `npm run maps:verify -- https://app.freebus.cloud`
+checks the deployed configuration without printing the key. See
+[the Google migration and deployment guide](docs/GOOGLE_MAPS_MIGRATION.md), including
+the separate change required for backend fare calculations.
 
 ## Demo product rules enforced in code
 

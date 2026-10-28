@@ -1,5 +1,8 @@
 # Paid Rides — Frontend Architecture
 
+> Map-provider and deployment instructions were superseded on 28 October 2026.
+> See the [Google Maps migration guide](../GOOGLE_MAPS_MIGRATION.md).
+
 Paid Rides adds on-demand, paid ride-hailing to K-Rides: a rider books a verified driver and follows the trip live; a driver goes online, accepts requests and completes trips. This document describes how the frontend is built. The backend contract it expects is in [PAID_RIDES_BACKEND_REQUIREMENTS.md](./PAID_RIDES_BACKEND_REQUIREMENTS.md); the audit that shaped it is in [PAID_RIDES_CODEBASE_INTEGRATION_ASSESSMENT.md](./PAID_RIDES_CODEBASE_INTEGRATION_ASSESSMENT.md).
 
 ## 1. Module overview
