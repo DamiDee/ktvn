@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { accountSession } from "@/lib/account-session";
-import { STORAGE_KEYS } from "../config";
+import { PAID_RIDES_CONFIG, STORAGE_KEYS } from "../config";
 import { isLive } from "../domain/ride-status";
 import { useLifecycleRecovery } from "../hooks/use-lifecycle-recovery";
 import { useWakeLock } from "../hooks/use-wake-lock";
@@ -11,6 +11,8 @@ import { useDriverLocationReporter } from "../location/use-location";
 import { useLocationStore } from "../location/location-store";
 import { useDriverStore } from "./driver-store";
 import { usePassengerStore } from "./passenger-store";
+import { useDriverPresenceStore } from "./driver-presence-store";
+import { getRideService } from "../services";
 
 /**
  * Session orchestration. Mounted once by the Paid Rides shell for the active
@@ -134,24 +136,51 @@ export function useDriverSession() {
   );
 
   useEffect(() => {
-    if (connection !== "open") return;
+    useDriverPresenceStore.setState({ phase: "idle", error: null });
+    if (connection !== "open" || availability === "GOING_ONLINE" || availability === "GOING_OFFLINE") return;
+    const scope = accountSession.capture();
     let cancelled = false;
     let retry: ReturnType<typeof setTimeout> | undefined;
-    const recover = async () => {
-      const restored = await recoverConnection();
-      if (cancelled) return;
-      if (!restored) {
+    const current = () => !cancelled && scope.isCurrent();
+    const recover = async (background = false) => {
+      if (!background) useDriverPresenceStore.setState({ phase: "syncing", error: null });
+      let recoveryError = "Your online status could not be restored. Retrying automatically.";
+      try {
+        if (!await recoverConnection()) throw new Error("Availability recovery failed");
+        if (!current()) return;
+        const status = useDriverStore.getState().state.availability;
+        if (status !== "ONLINE" && status !== "ON_TRIP") {
+          useDriverPresenceStore.setState({ phase: "idle", error: null });
+          return;
+        }
+        recoveryError = "We need a fresh location. Allow location access and keep this page open.";
+        const fix = await useLocationStore.getState().request();
+        if (!current()) return;
+        if (!fix || Date.now() - fix.timestamp > PAID_RIDES_CONFIG.location.maxFixAgeMs) {
+          throw new Error("Fresh location unavailable");
+        }
+        // Confirm the presence write over HTTP; a successful socket.send only
+        // confirms a local queue, not that the server received the location.
+        recoveryError = "Your live location could not be confirmed. Retrying automatically. Please keep K-Rides open.";
+        await getRideService().updateDriverLocation({
+          point: fix.point, heading: fix.heading, speedMps: fix.speedMps,
+          accuracyMeters: fix.accuracyMeters, recordedAt: new Date(fix.timestamp).toISOString(),
+        });
+        if (current()) {
+          useDriverPresenceStore.setState({ phase: "ready", error: null });
+          // Reconcile even on an open socket: registry/location presence can
+          // expire independently of the transport. Successful checks stay quiet.
+          retry = setTimeout(() => void recover(true), 20_000);
+        }
+      } catch {
+        if (!current()) return;
+        useDriverPresenceStore.setState({ phase: "failed", error: recoveryError });
         retry = setTimeout(() => void recover(), 5_000);
-        return;
-      }
-      const availability = useDriverStore.getState().state.availability;
-      if (availability === "ONLINE" || availability === "ON_TRIP") {
-        void useLocationStore.getState().request();
       }
     };
     void recover();
     return () => { cancelled = true; clearTimeout(retry); };
-  }, [connection, recoverConnection]);
+  }, [connection, availability, recoverConnection]);
 
   useEffect(() => {
     void refresh();

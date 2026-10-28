@@ -10,7 +10,9 @@ import { useIsDesktop } from "@/hooks/use-media-query";
 import { PAID_RIDES_CONFIG } from "../config";
 import { trackRideEvent } from "../analytics";
 import { ERROR_COPY, toRideError } from "../domain/errors";
-import type { Place } from "../domain/types";
+import type { PlaceSuggestion } from "../domain/types";
+import { resolvePlaceSelection } from "../maps/resolve-place";
+import { PlaceAttribution } from "../components/place-attribution";
 import { useLocationStore } from "../location/location-store";
 import { getMapProvider } from "../services";
 import { usePassengerStore } from "../state/passenger-store";
@@ -77,18 +79,23 @@ export function LocationSearchPanel() {
   });
 
   const typingAhead = query.trim() !== debounced;
-  const places: Place[] = searching ? (results.data ?? []) : recentPlaces;
+  const places: PlaceSuggestion[] = searching ? (typingAhead ? [] : results.data ?? []) : recentPlaces;
 
   function close() {
     locationRequest.current += 1;
     backToBooking();
   }
 
-  function select(place: Place) {
-    locationRequest.current += 1;
-    setQueries((current) => ({ ...current, [field]: place.name }));
-    setActive(-1);
-    choosePlace(field, place);
+  async function select(suggestion: PlaceSuggestion) {
+    const request = ++locationRequest.current;
+    setLocating(true); setLocateError(null);
+    try {
+      const place = await resolvePlaceSelection(getMapProvider(), suggestion);
+      if (request !== locationRequest.current) return;
+      setQueries((current) => ({ ...current, [field]: place.name }));
+      setActive(-1); choosePlace(field, place);
+    } catch { if (request === locationRequest.current) setLocateError("This place could not be confirmed. Try again or choose it on the map."); }
+    finally { if (request === locationRequest.current) setLocating(false); }
   }
 
   async function useCurrentLocation() {
@@ -106,10 +113,16 @@ export function LocationSearchPanel() {
       );
       return;
     }
-    const place = await getMapProvider().reverseGeocode(current.point);
-    if (request !== locationRequest.current) return;
-    setLocating(false);
-    select({ ...place, name: field === "pickup" ? "Current location" : place.name, secondary: place.name === "Pinned location" ? place.secondary : place.name, source: "current-location" });
+    try {
+      const place = await getMapProvider().reverseGeocode(current.point);
+      if (request !== locationRequest.current) return;
+      setLocating(false);
+      void select({ ...place, name: field === "pickup" ? "Current location" : place.name, secondary: place.name === "Pinned location" ? place.secondary : place.name, source: "current-location" });
+    } catch {
+      if (request !== locationRequest.current) return;
+      setLocating(false);
+      setLocateError("We couldn't confirm this address. Try again, search for a place, or choose it on the map.");
+    }
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -226,6 +239,8 @@ export function LocationSearchPanel() {
       </div>
 
       <div className="kx-scroll-thin min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-[calc(var(--ride-safe-bottom)+16px)]">
+        {locating ? <p role="status" className="ride-caption px-4 py-2">Confirming location…</p> : null}
+        {searching && locateError ? <p role="alert" className="px-4 py-2 text-sm text-danger-600">{locateError}</p> : null}
         {!searching ? (
           <div className="px-2 pt-1">
             <ShortcutRow
@@ -235,7 +250,7 @@ export function LocationSearchPanel() {
               onClick={useCurrentLocation}
               disabled={locating}
             />
-            <ShortcutRow icon={MapPinned} title="Choose on map" subtitle="Move the map to place the pin" onClick={() => setDraft({ step: "pickup-pin" })} />
+            <ShortcutRow icon={MapPinned} title="Choose on map" subtitle="Move the map to place the pin" onClick={() => { locationRequest.current += 1; setLocating(false); setDraft({ step: "pickup-pin" }); }} />
             {locateError ? (
               <p role="alert" className="ride-body-sm mx-2 mt-1 rounded-[var(--ride-radius-sm)] bg-[var(--kx-pending-50)] px-3 py-2.5 text-[var(--kx-pending-700)] dark:bg-[color-mix(in_srgb,var(--kx-pending-500)_14%,transparent)] dark:text-[var(--kx-gold-200)]">
                 {locateError}
@@ -302,7 +317,7 @@ export function LocationSearchPanel() {
           ))}
         </ul>
         {searching && places.length > 0 ? (
-          <p className="ride-caption px-5 pt-4 pb-2">Place data © {getMapProvider().name} contributors</p>
+          <PlaceAttribution />
         ) : null}
       </div>
     </motion.div>

@@ -118,7 +118,7 @@ export function Modal({
   return createPortal(
     <AnimatePresence>
       {open ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+        <div className={cn("fixed inset-0 z-50 flex justify-center", asSheet ? "items-end sm:items-center" : "items-center")}>
           <motion.div
             variants={backdropVariants}
             initial="initial"

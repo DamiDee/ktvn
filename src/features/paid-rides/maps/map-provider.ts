@@ -1,4 +1,4 @@
-import type { GeoPoint, Place, RouteGeometry } from "../domain/types";
+import type { GeoPoint, Place, PlaceSuggestion, RouteGeometry } from "../domain/types";
 
 /**
  * Map data provider. Rendering lives separately in `RideMap`; this is the
@@ -9,7 +9,8 @@ export interface MapProvider {
   readonly name: string;
   /** Attribution required by the data/tile providers. */
   readonly attribution: string;
-  searchPlaces(query: string, options: { near?: GeoPoint; signal?: AbortSignal }): Promise<Place[]>;
+  searchPlaces(query: string, options: { near?: GeoPoint; signal?: AbortSignal }): Promise<PlaceSuggestion[]>;
+  resolvePlace?(suggestion: PlaceSuggestion, signal?: AbortSignal): Promise<Place>;
   reverseGeocode(point: GeoPoint, signal?: AbortSignal): Promise<Place>;
   calculateRoute(points: GeoPoint[], signal?: AbortSignal): Promise<RouteGeometry>;
 }

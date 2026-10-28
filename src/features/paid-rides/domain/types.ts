@@ -31,6 +31,9 @@ export interface Place {
   source: PlaceSource;
 }
 
+/** Predictions are not bookable until their real coordinates are resolved. */
+export type PlaceSuggestion = Omit<Place, "point"> & { point: GeoPoint | null };
+
 export interface RouteGeometry {
   points: GeoPoint[];
   distanceMeters: number;

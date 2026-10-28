@@ -9,6 +9,7 @@ import * as format from "../src/features/paid-rides/domain/format.ts";
 import * as contract from "../src/features/paid-rides/scheduling/contract.ts";
 import * as scheduleService from "../src/features/paid-rides/scheduling/schedule-service.ts";
 import * as passengerSchedules from "../src/features/paid-rides/scheduling/passenger-schedules.ts";
+import { resolvePlaceSelection } from "../src/features/paid-rides/maps/resolve-place.ts";
 import { useDebouncedValue } from "../src/hooks/use-debounced-value.ts";
 
 // Real React event/state handling with synthetic network responses. This checks
@@ -56,6 +57,8 @@ function loadComponent(name, dependencies) {
 }
 const shared = {
   ...ui,
+  "../maps/resolve-place": { resolvePlaceSelection },
+  "../components/place-attribution": { PlaceAttribution: () => null },
   "@tanstack/react-query": query,
   "@/hooks/use-debounced-value": { useDebouncedValue },
   "../config": { PAID_RIDES_MODE: "api", PAID_RIDES_CONFIG: { defaultCenter: places[0].point, defaultZoom: 13, searchDebounceMs: 5, searchMinChars: 2 } },
@@ -216,4 +219,25 @@ test("an uncertain booking keeps the exact payload for retry and locks editing",
   await click(button(host, "Retry same booking"));
   assert.equal(requests.length, 2);
   assert.deepEqual(requests[0], requests[1]);
+});
+
+test("Google predictions wait for place details before saving coordinates or allowing fare review", async () => {
+  const originalSearch = provider.searchPlaces;
+  let complete;
+  const pending = new Promise((resolve) => { complete = resolve; });
+  provider.searchPlaces = async () => [{ ...places[0], id: 'google:lugbe', point: null }];
+  provider.resolvePlace = async () => pending;
+  const chosen = [], pendingStates = [];
+  try {
+    const host = await mount(h(ScheduledRoutePicker, { pickup: null, destination: null, disabled: false, onPendingChange: (pending) => pendingStates.push(pending), onChange: (field, place) => chosen.push({ field, place }) }));
+    const input = host.querySelector('input');
+    await click(input); await type(input, 'Lugbe');
+    await click(host.querySelector('[role=option]'));
+    assert.equal(input.disabled, true);
+    assert.equal(chosen.filter((selection) => selection.place).length, 0);
+    assert.equal(pendingStates.at(-1), true);
+    await act(async () => complete(places[0]));
+    assert.deepEqual(chosen.at(-1).place.point, places[0].point);
+    assert.equal(pendingStates.at(-1), false);
+  } finally { provider.searchPlaces = originalSearch; delete provider.resolvePlace; }
 });

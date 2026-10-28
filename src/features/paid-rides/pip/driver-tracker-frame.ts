@@ -4,7 +4,7 @@ import { isLive } from "../domain/ride-status.ts";
 import type { DeviceFix } from "../location/location-store";
 import type { TrackerFrame } from "./trip-canvas";
 
-export function driverTrackerFrame(state: DriverSessionState, fix: DeviceFix | null, now: number, lastReplyAt: number | null = null): TrackerFrame | null {
+export function driverTrackerFrame(state: DriverSessionState, fix: DeviceFix | null, now: number, lastReplyAt: number | null = null, presenceReady = true): TrackerFrame | null {
   const ride = state.ride.ride;
   const live = ride && isLive(ride.status);
   if (!live && !["ONLINE", "ON_TRIP", "GOING_OFFLINE"].includes(state.availability)) return null;
@@ -19,7 +19,7 @@ export function driverTrackerFrame(state: DriverSessionState, fix: DeviceFix | n
     targetKind: onTrip ? "destination" : "pickup",
     etaValue: stale ? "GPS?" : "GPS",
     etaUnit: "",
-    status: state.ride.connection !== "open" ? "Reconnecting — return to K-Rides" : stale ? "Location paused — return to K-Rides" : state.offer?.phase === "incoming" ? "New request — open K-Rides" : target ? `To ${target.name}` : "Waiting for requests",
+    status: state.ride.connection !== "open" ? "Reconnecting — return to K-Rides" : stale ? "Location paused — return to K-Rides" : !presenceReady ? "Restoring online status — open K-Rides" : state.offer?.phase === "incoming" ? "New request — open K-Rides" : target ? `To ${target.name}` : "Waiting for requests",
     detail: fix ? `GPS at ${new Date(fix.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : "Waiting for GPS",
     dark: false,
     heartbeat: { lastReplyAt, connected: state.ride.connection === "open", timeoutMs: PAID_RIDES_CONFIG.heartbeatIntervalMs * 2 },

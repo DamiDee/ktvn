@@ -51,7 +51,7 @@ export const usePreferencesStore = create<PreferencesState>()(
       storage: createJSONStorage(() => localStorage),
       // Coordinates are rounded so the stored list isn't a precise location log.
       partialize: (state) => ({
-        recentPlaces: state.recentPlaces.map((place) => ({
+        recentPlaces: state.recentPlaces.filter((place) => !place.id.startsWith("google:")).map((place) => ({
           ...place,
           point: { lat: Math.round(place.point.lat * 1e4) / 1e4, lng: Math.round(place.point.lng * 1e4) / 1e4 },
         })),

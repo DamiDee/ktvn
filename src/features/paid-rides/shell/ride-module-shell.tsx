@@ -21,6 +21,7 @@ import { MockDevPanel } from "./mock-dev-panel";
 import { RideModeSwitch } from "./mode-switch";
 import { useScheduledDriverNotices } from "../scheduling/use-scheduled-driver-notices";
 import { DriverFloatingTracker } from "../pip/driver-floating-tracker";
+import { DriverConnectionGuard } from "../driver/driver-connection-guard";
 
 /**
  * Paid Rides shell: an immersive, full-viewport frame with its own bubble
@@ -74,6 +75,7 @@ function DriverSession() {
   return (
     <>
     <DriverFloatingTracker />
+    <DriverConnectionGuard />
     {wakeStatus === "unavailable" ? <div role="status" className="absolute inset-x-3 z-40 mx-auto max-w-sm rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950 shadow-sm" style={{ top: "calc(var(--ride-safe-top) + 56px)" }}>
       Screen stay-awake is unavailable. Keep K-Rides open and turn off auto-lock in your phone settings while online.
     </div> : null}

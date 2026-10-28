@@ -23,6 +23,9 @@ const connection = resolvePaidRidesConnection({
 
 export const PAID_RIDES_MODE = connection.mode;
 export const PAID_RIDES_ENABLED = PAID_RIDES_MODE !== "off";
+export const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim() ?? "";
+export const USE_GOOGLE_MAPS = process.env.NEXT_PUBLIC_RIDES_MAP_PROVIDER === "google"
+  || (process.env.NEXT_PUBLIC_RIDES_MAP_PROVIDER !== "osm" && Boolean(GOOGLE_MAPS_API_KEY));
 
 export const PAID_RIDES_CONFIG = {
   /** REST base for `api` mode; the backend serves under /api/v1, e.g. https://api.example.com/api/v1 */

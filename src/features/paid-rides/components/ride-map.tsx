@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
 import { LoaderCircle } from "lucide-react";
 import { getMapProvider } from "../services";
+import { USE_GOOGLE_MAPS } from "../config";
 import type { GeoPoint, RouteGeometry } from "../domain/types";
 import { useState } from "react";
 import { MapPinOff } from "lucide-react";
@@ -40,6 +41,10 @@ const LeafletRideMap = dynamic(() => import("../maps/leaflet-ride-map").then((mo
   ssr: false,
   loading: () => <MapSkeleton />,
 });
+const GoogleRideMap = dynamic(() => import("../maps/google-ride-map").then((module) => module.GoogleRideMap), {
+  ssr: false,
+  loading: () => <MapSkeleton />,
+});
 
 function useRoadRoute(route: RouteGeometry | null | undefined, from?: GeoPoint | null, to?: GeoPoint | null, moving = false) {
   const start = route?.points[0] ?? from;
@@ -65,7 +70,8 @@ function useRoadRoute(route: RouteGeometry | null | undefined, from?: GeoPoint |
   return { route: route?.source === "road" ? route : needsRoad ? query.data ?? null : null, loading: needsRoad && query.isFetching, failed: needsRoad && query.isError };
 }
 
-export function RideMap(props: Omit<RideMapProps, "onError"> & { failureMessage?: string }) {
+export function RideMap(props: RideMapProps & { failureMessage?: string }) {
+  const MapComponent = USE_GOOGLE_MAPS ? GoogleRideMap : LeafletRideMap;
   const road = useRoadRoute(props.route);
   const approach = useRoadRoute(props.approaching ? props.approachRoute : null,
     props.approaching ? props.vehicle?.point : null, props.approaching ? props.pickup : null, true);
@@ -92,7 +98,7 @@ export function RideMap(props: Omit<RideMapProps, "onError"> & { failureMessage?
     // sheets, nav and overlays always sit above it.
     <div className="absolute inset-0 isolate z-0">
       {!ready ? <MapSkeleton /> : null}
-      <LeafletRideMap
+      <MapComponent
         {...props}
         route={road.route}
         approachRoute={approach.route}
@@ -101,7 +107,7 @@ export function RideMap(props: Omit<RideMapProps, "onError"> & { failureMessage?
           setReady(true);
           props.onReady?.();
         }}
-        onError={() => setFailed(true)}
+        onError={() => { setReady(false); setFailed(true); props.onError?.(); }}
       />
       {routing || routingFailed ? <div role="status" className="pointer-events-none absolute left-4 top-20 z-[500] flex items-center gap-2 rounded-full bg-[var(--surface-primary)] px-3 py-2 text-xs shadow-sm">
         {routing ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden /> : null}

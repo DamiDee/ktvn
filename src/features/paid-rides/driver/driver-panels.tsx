@@ -21,6 +21,7 @@ import { RideSheet } from "../components/ride-sheet";
 import { EtaValue, MetricRow, PersonAvatar, RatingPill, RouteStops, WaitingNote } from "../components/ride-ui";
 import { SafetyCenter } from "../safety/safety-center";
 import { useDriverStore } from "../state/driver-store";
+import { useDriverPresenceStore } from "../state/driver-presence-store";
 
 /**
  * Driver sheets. Read at a glance, one-handed, in a car: one primary action
@@ -37,11 +38,15 @@ function navigationHref(point: GeoPoint): string {
 export function AvailabilityPanel({ online, transitioning, onCoverChange, bottomOffset, viewer }: CoverProps & { online: boolean; transitioning: boolean; viewer?: Viewer }) {
   const setOnline = useDriverStore((store) => store.setOnline);
   const error = useDriverStore((store) => store.state.availabilityError);
+  const connected = useDriverStore((store) => store.state.ride.connection === "open");
+  const presenceReady = useDriverPresenceStore((store) => store.phase === "ready");
+  const ready = online && connected && presenceReady;
+  const statusLabel = online ? ready ? "You're online" : "Reconnecting" : "You're offline";
   const eligibility = driverOnlineEligibility(viewer);
 
   return (
     <RideSheet
-      label={online ? "You're online" : "You're offline"}
+      label={statusLabel}
       collapsible={false}
       onCoverChange={onCoverChange}
       bottomOffset={bottomOffset}
@@ -57,13 +62,13 @@ export function AvailabilityPanel({ online, transitioning, onCoverChange, bottom
         </Link> : null}
         <div className="flex items-center gap-4 pt-1">
           <span className="relative flex size-12 shrink-0 items-center justify-center">
-            {online ? <span className="ride-pulse-ring absolute inset-0 rounded-full bg-[var(--ride-success)] opacity-30" /> : null}
-            <span className={cn("relative size-4 rounded-full", online ? "bg-[var(--ride-success)]" : "bg-[var(--kx-neutral-400)]")} />
+            {ready ? <span className="ride-pulse-ring absolute inset-0 rounded-full bg-[var(--ride-success)] opacity-30" /> : null}
+            <span className={cn("relative size-4 rounded-full", ready ? "bg-[var(--ride-success)]" : online ? "bg-amber-500" : "bg-[var(--kx-neutral-400)]")} />
           </span>
           <div className="min-w-0 flex-1">
-            <h2 className="ride-heading-lg">{online ? "You're online" : "You're offline"}</h2>
+            <h2 className="ride-heading-lg">{statusLabel}</h2>
             <p className="ride-body-sm text-[var(--text-secondary)]">
-              {online ? "Waiting for ride requests near you" : "Go online to start receiving ride requests"}
+              {online ? ready ? "Waiting for ride requests near you" : "Restoring your connection and live location" : "Go online to start receiving ride requests"}
             </p>
           </div>
         </div>

@@ -7,21 +7,26 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { PAID_RIDES_CONFIG } from "../config";
-import type { GeoPoint, Place } from "../domain/types";
+import type { GeoPoint, Place, PlaceSuggestion } from "../domain/types";
 import { formatDistance, formatDuration } from "../domain/format";
 import { RideMap } from "../components/ride-map";
 import { MetricRow } from "../components/ride-ui";
 import { getMapProvider } from "../services";
+import { resolvePlaceSelection } from "../maps/resolve-place";
+import { PlaceAttribution } from "../components/place-attribution";
 import { scheduleError } from "./booking-card";
 
 type Field = "pickup" | "destination";
 
-function AddressField({ field, value, near, disabled, suggestions, onChange, onPin, onLocate }: {
+function AddressField({ field, value, near, disabled, suggestions, onChange, onPin, onLocate, onResolving }: {
   field: Field; value: Place | null; near?: GeoPoint; disabled: boolean; suggestions: Place[];
-  onChange: (value: Place | null) => void; onPin: () => void; onLocate?: () => void;
+  onChange: (value: Place | null) => void; onPin: () => void; onLocate?: () => void; onResolving: (working: boolean) => void;
 }) {
   const [text, setText] = useState(""), [editing, setEditing] = useState(false), [active, setActive] = useState(-1);
   const container = useRef<HTMLDivElement>(null);
+  const operation = useRef(0);
+  const [resolving, setResolving] = useState(false), [selectionError, setSelectionError] = useState("");
+  useEffect(() => () => { operation.current += 1; }, []);
   const debounced = useDebouncedValue(text.trim(), PAID_RIDES_CONFIG.searchDebounceMs);
   const id = useId(), label = field === "pickup" ? "Pickup" : "Destination";
   const searching = editing && debounced.length >= PAID_RIDES_CONFIG.searchMinChars;
@@ -49,9 +54,18 @@ function AddressField({ field, value, near, disabled, suggestions, onChange, onP
       document.removeEventListener("focusin", dismissOutside);
     };
   }, [expanded]);
-  function select(place: Place) { onChange(place); setText(place.name); setEditing(false); setActive(-1); }
+  async function select(suggestion: PlaceSuggestion) {
+    const token = ++operation.current;
+    setResolving(true); onResolving(true); setSelectionError("");
+    try {
+      const place = await resolvePlaceSelection(getMapProvider(), suggestion);
+      if (token !== operation.current) return;
+      onChange(place); setText(place.name); setEditing(false); setActive(-1);
+    } catch { if (token === operation.current) setSelectionError("This place could not be confirmed. Try again or choose on the map."); }
+    finally { if (token === operation.current) { setResolving(false); onResolving(false); } }
+  }
   return <div ref={container} className="min-w-0 space-y-2">
-    <Input label={label} icon={MapPin} className="text-base" disabled={disabled} value={editing ? text : value?.name ?? ""}
+    <Input label={label} icon={MapPin} className="text-base" disabled={disabled || resolving} value={editing ? text : value?.name ?? ""}
       placeholder={field === "pickup" ? "Where should we pick you up?" : "Where are you going?"}
       role="combobox" aria-expanded={expanded} aria-controls={id} aria-autocomplete="list"
       aria-activedescendant={expanded && places[active] ? `${id}-${active}` : undefined}
@@ -66,16 +80,19 @@ function AddressField({ field, value, near, disabled, suggestions, onChange, onP
         if (event.key === "Escape") { setEditing(false); setActive(-1); }
       }}
     />
+    {resolving ? <p role="status" className="ride-caption">Confirming location…</p> : null}
+    {selectionError ? <p role="alert" className="ride-caption text-danger-600">{selectionError}</p> : null}
     {expanded ? <div className="rounded-[var(--kx-radius-md)] border border-line bg-surface-nested p-2">
       {searching && (typing || results.isFetching) ? <div className="space-y-2 p-2" role="status" aria-label="Finding places"><div className="kx-skeleton h-4 w-3/4" /><div className="kx-skeleton h-4 w-1/2" /></div> : null}
       {searching && results.isError && !typing ? <div role="alert" className="p-2"><p className="ride-body-sm">Search could not load. Try again or choose the spot on the map.</p><Button size="sm" variant="ghost" onClick={() => void results.refetch()}>Try again</Button></div> : null}
       <ul id={id} role="listbox" aria-label={`${label} locations`} className="max-h-56 overflow-y-auto">
-        {places.map((place, index) => <li key={`${place.id}-${index}`} role="presentation"><button id={`${id}-${index}`} role="option" aria-selected={index === active} type="button" onClick={() => select(place)} className={`ride-press w-full rounded-xl px-3 py-3 text-left ${active === index ? "bg-surface" : "hover:bg-surface"}`}><span className="ride-body-sm block font-medium">{place.name}</span><span className="ride-caption block">{place.secondary}</span></button></li>)}
+        {places.map((place, index) => <li key={`${place.id}-${index}`} role="presentation"><button id={`${id}-${index}`} role="option" aria-selected={index === active} type="button" disabled={resolving} onClick={() => void select(place)} className={`ride-press w-full rounded-xl px-3 py-3 text-left ${active === index ? "bg-surface" : "hover:bg-surface"}`}><span className="ride-body-sm block font-medium">{place.name}</span><span className="ride-caption block">{place.secondary}</span></button></li>)}
       </ul>
+      {searching && places.length ? <PlaceAttribution /> : null}
       {searching && !typing && results.isSuccess && !places.length ? <p className="ride-caption p-2">No matching places. Add the area name or choose on the map.</p> : null}
       <div className="flex flex-wrap gap-1 border-t border-line pt-2">
-      {onLocate ? <Button pill size="sm" variant="ghost" icon={LocateFixed} disabled={disabled} onClick={() => { setEditing(false); onLocate(); }}>Use current location</Button> : null}
-      <Button pill size="sm" variant="ghost" icon={MapPinned} disabled={disabled} onClick={() => { setEditing(false); onPin(); }}>Choose on map</Button>
+      {onLocate ? <Button pill size="sm" variant="ghost" icon={LocateFixed} disabled={disabled || resolving} onClick={() => { setEditing(false); onLocate(); }}>Use current location</Button> : null}
+      <Button pill size="sm" variant="ghost" icon={MapPinned} disabled={disabled || resolving} onClick={() => { setEditing(false); onPin(); }}>Choose on map</Button>
       <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Close suggestions</Button>
       </div>
     </div> : null}
@@ -92,10 +109,11 @@ export function ScheduledRoutePicker({ pickup, destination, disabled, suggestion
   const [recenter, setRecenter] = useState(0);
   const [mapReady, setMapReady] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [resolving, setResolving] = useState<Record<Field, boolean>>({ pickup: false, destination: false });
   const showMap = Boolean(pin) || previewOpen;
   const operation = useRef(0);
   useEffect(() => () => { operation.current += 1; }, []);
-  useEffect(() => { onPendingChange(Boolean(pin) || working); }, [pin, working, onPendingChange]);
+  useEffect(() => { onPendingChange(Boolean(pin) || working || resolving.pickup || resolving.destination); }, [pin, working, resolving, onPendingChange]);
   const route = useQuery({
     queryKey: ["paid-rides", "scheduled-route", pickup?.point.lat, pickup?.point.lng, destination?.point.lat, destination?.point.lng],
     queryFn: ({ signal }) => getMapProvider().calculateRoute([pickup!.point, destination!.point], signal),
@@ -138,12 +156,12 @@ export function ScheduledRoutePicker({ pickup, destination, disabled, suggestion
   }
   return <div className="space-y-4">
     <div className="grid gap-4 sm:grid-cols-2">
-      <AddressField field="pickup" value={pickup} near={pickup?.point} disabled={disabled || working || !!pin} suggestions={suggestions} onChange={(place) => onChange("pickup", place)} onPin={() => choosePin("pickup")} onLocate={() => void locate()} />
-      <AddressField field="destination" value={destination} near={pickup?.point} disabled={disabled || working || !!pin} suggestions={suggestions} onChange={(place) => onChange("destination", place)} onPin={() => choosePin("destination")} />
+      <AddressField onResolving={(working) => setResolving((s) => ({ ...s, pickup: working }))} field="pickup" value={pickup} near={pickup?.point} disabled={disabled || working || !!pin} suggestions={suggestions} onChange={(place) => onChange("pickup", place)} onPin={() => choosePin("pickup")} onLocate={() => void locate()} />
+      <AddressField onResolving={(working) => setResolving((s) => ({ ...s, destination: working }))} field="destination" value={destination} near={pickup?.point} disabled={disabled || working || !!pin} suggestions={suggestions} onChange={(place) => onChange("destination", place)} onPin={() => choosePin("destination")} />
     </div>
     {!pin && pickup && destination ? <Button pill size="sm" variant="ghost" icon={MapPinned} disabled={disabled || working} aria-expanded={previewOpen} onClick={() => { if (!previewOpen) setMapReady(false); setPreviewOpen((open) => !open); }}>{previewOpen ? "Close route preview" : "Preview route"}</Button> : null}
     {showMap ? <div className="relative isolate h-72 overflow-hidden rounded-[var(--ride-radius-lg)] border border-line sm:h-80" role="region" aria-label={pin ? `Choose ${pin} on map` : "Scheduled trip route preview"}>
-      <RideMap onReady={() => setMapReady(true)} failureMessage="The map could not load. Search for your pickup and destination above to keep planning your trip." route={road} pickup={pin === "pickup" ? null : pickup?.point} pickupLabel={pickup?.name} destination={pin === "destination" ? null : destination?.point} destinationLabel={destination?.name} camera={camera} cameraKey={cameraKey} recenterToken={recenter} insets={{ top: 0, right: 0, bottom: 0, left: 0 }} interactive={!disabled && !working}
+      <RideMap onError={() => setMapReady(false)} onReady={() => setMapReady(true)} failureMessage="The map could not load. Search for your pickup and destination above to keep planning your trip." route={road} pickup={pin === "pickup" ? null : pickup?.point} pickupLabel={pickup?.name} destination={pin === "destination" ? null : destination?.point} destinationLabel={destination?.name} camera={camera} cameraKey={cameraKey} recenterToken={recenter} insets={{ top: 0, right: 0, bottom: 0, left: 0 }} interactive={!disabled && !working}
         onCenterChange={pin ? (next, settled) => { setPoint(next); setMoving(!settled); } : undefined} />
       {pin ? <div className="pointer-events-none absolute inset-0 z-[600] flex items-center justify-center"><MapPin className={`size-10 -translate-y-1/2 fill-gold-500 text-forest-900 drop-shadow-lg ${moving ? "-mt-2" : ""}`} aria-hidden /></div> : null}
       <Button pill size="sm" variant="secondary" icon={Navigation} disabled={disabled || working || !mapReady} className="absolute right-3 top-3 z-[600]" onClick={() => setRecenter((value) => value + 1)}>Recenter</Button>
