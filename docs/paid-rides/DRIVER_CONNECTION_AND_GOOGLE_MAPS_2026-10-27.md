@@ -16,17 +16,25 @@ Paid Rides now supports Google Maps rendering, Places API (New) autocomplete/det
 
 Google results use the Google map renderer. The actual map occupies the area outside the ride panels so its logo and copyright remain visible. Compact suggestion lists include Google Maps text attribution. Google recent-place details remain in memory and are excluded from persisted device preferences.
 
-### Current local setup
+### Current local setup — verified 28 October 2026
 
-The supplied key is saved only in ignored `.env.local`. It is absent from committed source, this document, and test fixtures. The original key returned a billing-disabled error. The replacement key supplied later was saved in `.env.local`; live tests now return `REQUEST_DENIED` for Geocoding and HTTP 403 `PERMISSION_DENIED` for Places Autocomplete and Routes, stating that requests to those APIs are blocked. Enable these services and include them in this key's API restrictions. `.env.local` continues to set `NEXT_PUBLIC_RIDES_MAP_PROVIDER=osm`, retaining the working map until Google accepts all required services. The Google code is installed and ready to enable.
+The latest supplied key is saved only in ignored `.env.local`; it is not included in this document, source, or test fixtures. `.env.local` now selects `NEXT_PUBLIC_RIDES_MAP_PROVIDER=google`.
 
-To activate Google Maps:
+Live checks with the latest key passed for:
 
-1. Enable billing for the key's Google Cloud project.
-2. Enable **Maps JavaScript API**, **Places API (New)**, **Geocoding API**, and **Routes API**.
-3. Configure the browser key's website restrictions for the actual app origins, including localhost for local testing, and allow the four APIs above.
-4. Set `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` in the hosting build environment and `NEXT_PUBLIC_RIDES_MAP_PROVIDER=google`, then rebuild. Change the provider flag in `.env.local` for local testing too.
-5. Verify a map, an FCT search result, its selected coordinates, and a road route in the actual browser. Geocoding billing denial prevented live end-to-end Google verification in this run.
+- Maps JavaScript API: the actual app map wrapper rendered Google Maps in the browser.
+- Places API (New): autocomplete returned Jabi Lake Mall suggestions.
+- Place Details: selecting Jabi Lake Mall resolved actual coordinates and displayed the pickup marker on the Google map.
+- Geocoding: both a direct API test and the browser address lookup succeeded.
+
+After Routes API was enabled, a live check on 28 October returned HTTP 200 with a 3,441-metre road route, a 540-second estimate, and encoded road geometry. All four services used by the current integration have now passed live API or browser checks: Maps JavaScript, Places (New), Geocoding, and Routes. There is no remaining API-activation blocker for these features. Backend matching and fare calculation remain with the existing ride service.
+
+Deployment settings:
+
+1. Routes API is now enabled and returns live road geometry; no additional Google APIs are required by the current implementation.
+2. Keep **Maps JavaScript API**, **Places API (New)**, **Geocoding API**, and **Routes API** enabled for the project and allowed by the key's API restrictions.
+3. Configure website restrictions for actual app origins, including localhost for local testing.
+4. Set `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` in the hosting build environment and `NEXT_PUBLIC_RIDES_MAP_PROVIDER=google`, then rebuild/redeploy. The local build environment has been updated; hosted deployment settings were not changed.
 
 Without a provider override, a configured key selects Google Maps; `osm` explicitly retains the existing provider. Real ride matching/fare calculation stays with the backend. This migration covers the Paid Rides screens; separate Free Buses/admin map components retain their current renderer.
 
@@ -43,3 +51,5 @@ Official references:
 - Expanded focused suite: 23 passed, including confirmed HTTP presence, online/socket race, disconnect/reconnect, stale GPS, failed writes, late account results, background reconciliation, modal/banner behaviour, and deferred Google selection.
 - TypeScript and scoped lint passed. The Webpack production build completed successfully (83 pages).
 - A 390 × 844 browser preview verified readable offline copy and automatic dismissal after simulated recovery. This was desktop responsive testing, not physical iPhone Safari testing or a live authenticated driver session.
+
+Latest Google verification (28 October): a temporary local browser harness exercised the actual app map wrapper and selected provider with real Google responses. It was removed after verification. No ride was booked and no live account data was changed. Routes API was subsequently enabled and verified with a live road-geometry response; no activation blocker remains.
