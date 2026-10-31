@@ -143,6 +143,11 @@ function ApiSchedules({ role, view }: { role: "passenger" | "driver" | "admin"; 
     {role === "driver" ? <SegmentedControl label="Driver schedules" value={mine ? "mine" : "open"} onChange={(value) => { setMine(value === "mine"); setStatus(""); }} options={[{ value: "open", label: "Open requests" }, { value: "mine", label: "My bookings" }]} /> : null}
     <section className="space-y-4" aria-label="Scheduled bookings">
       <h2 className="ride-label px-1">{role === "passenger" ? view === "history" ? "Past bookings" : "Upcoming trips" : role === "driver" && !mine ? "Open requests" : role === "admin" ? "Scheduled trips" : "Your scheduled trips"}</h2>
+      {role === "admin" ? <div className="flex flex-wrap gap-2" role="group" aria-label="Schedule shortcuts">
+        <Button size="sm" variant="secondary" onClick={() => { const today = localScheduleTime(clock).slice(0, 10); setFrom(`${today}T00:00`); setTo(`${localScheduleTime(Date.parse(resolveScheduleTime(`${today}T00:00`, "Africa/Lagos")) + DAY).slice(0, 10)}T00:00`); setStatus(""); }}>Today’s pickups</Button>
+        <Button size="sm" variant="secondary" onClick={() => { setFrom(""); setTo(""); setStatus("RESERVED"); }}>Driver confirmed</Button>
+        <Button size="sm" variant="ghost" onClick={() => { setFrom(""); setTo(""); setStatus(""); }}>All scheduled trips</Button>
+      </div> : null}
       {role !== "passenger" ? <div className="grid gap-3 sm:grid-cols-3">
         <Select label="Status" value={status} onChange={(e) => setStatus(e.target.value as ScheduledStatus | "")} options={[{ value: "", label: "All statuses" }, ...Object.entries(SCHEDULE_LABEL).map(([value, label]) => ({ value, label }))]} />
         <Input label="From" hint="Africa/Lagos" type="datetime-local" value={from} onChange={(e) => setFrom(e.target.value)} />

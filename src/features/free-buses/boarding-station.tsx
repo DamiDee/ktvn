@@ -121,13 +121,14 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
   }, []);
 
   async function board(booking: ApiBooking, session?: number) {
+    if (successful.current.has(booking.id)) throw new Error("This pass has already been used. Do not board another passenger with it.");
     if (!booking.trip_id) throw new Error("This older pass has no trip assignment. Ask an admin to resolve it before boarding.");
     const [currentBus, trip] = await Promise.all([boardingRequest<ApiBus>(`buses/${busId}`), boardingRequest<ApiTrip>(`trips/${booking.trip_id}`)]);
     const problem = boardingProblem(booking, currentBus, trip);
     if (problem) throw new Error(problem);
     if (session !== undefined && session !== generation.current) return;
     const boarded = await boardingRequest<ApiBooking>(`bookings/${booking.id}/board`, { method: "PATCH" });
-    if (boarded.status !== "Boarded") throw new Error("The server has not confirmed boarding. Check the manifest before retrying.");
+    if (boarded.id !== booking.id || boarded.bus_id !== busId || boarded.trip_id !== booking.trip_id || boarded.status !== "Boarded") throw new Error("The server has not confirmed boarding. Check the manifest before retrying.");
     successful.current.add(booking.id);
     const name = passengerNames.get(boarded.user_id);
     setResult({ ok: true, text: `Boarded · Seat ${boarded.seat_number}${name ? ` · ${name}` : ""} · ${boarded.booking_ref}` });
@@ -280,7 +281,7 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
         <div className="flex gap-3"><Button disabled={!busId || running || busy} loading={starting} onClick={() => void start()}>Start scanner</Button><Button variant="secondary" disabled={!running && !starting} onClick={stop}>Stop scanner</Button></div>
         <p className="mt-3 text-sm text-ink-muted">{running ? "Scanner active with no time limit. Verified passes for this bus board automatically. Boarding from the manifest stops the scanner." : "Camera / NFC permission is required once. No extra confirmation per successful scan. Completed and cancelled trips stay closed."}</p>
       </> : (
-        <p className="mt-4 text-sm text-ink-muted">The scanner is off while you search. Board a passenger from the manifest below, show their QR pass, or write it to an NFC tag.</p>
+        <p className="mt-4 text-sm text-ink-muted">Check the passenger’s identity against their name before boarding. The scanner is off while you search. Board a passenger from the manifest below, show their QR pass, or write it to an NFC tag.</p>
       )}
 
       <div role="status" aria-live="polite" className="mt-4">{busy ? <p className="text-ink">Checking ticket with the server…</p> : result ? <p className={`rounded-xl border p-4 font-semibold ${result.ok ? "border-forest-500 bg-forest-50 text-forest-900 dark:bg-forest-500/12 dark:text-forest-100" : "border-danger-500 text-danger-600"}`}>{result.text}</p> : null}</div>
@@ -382,7 +383,7 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
           : <div className="flex size-56 items-center justify-center rounded-xl border border-line bg-surface-nested"><QrCode className="size-10 text-ink-muted" aria-hidden /></div>}
         <p className="type-numeric break-all text-center text-ink">{qrBooking?.booking_ref}</p>
         {qrBusy || qrMessage ? <p role="status" className={qrMessage && !qrBusy ? "text-danger-600" : "text-ink-secondary"}>{qrBusy ? "Fetching the signed pass…" : qrMessage}</p> : null}
-        <p className="type-meta text-center text-ink-muted">This pass is signed by the server. Anyone holding it can board this seat, so show it only to the booked passenger.</p>
+        <p className="type-meta text-center text-ink-muted">This pass is signed by the server. It is for the named passenger and one boarding only. Check their identity before boarding; a screenshot does not prove identity.</p>
       </div>
     </Modal>
 
