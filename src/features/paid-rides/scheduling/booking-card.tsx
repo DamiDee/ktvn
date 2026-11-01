@@ -10,6 +10,7 @@ import { RouteStops, MetricRow } from "../components/ride-ui";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { formatMoney } from "../domain/format";
 import { DAY, HOUR, scheduledOptionName, localScheduleTime, resolveScheduleTime, reasonSchema, validateBookingTime, type ScheduledRide, type ScheduleRole, type ScheduledStatus } from "./contract";
+const BookingContact = dynamic(() => import("./booking-contact"));
 const AdminBookingParticipants = dynamic(() => import("./admin-booking-participants"));
 const AdminAssignmentForm = dynamic(() => import("./admin-assignment-form"));
 export const SCHEDULE_LABEL: Record<ScheduledStatus, string> = { OPEN: "Finding a driver", RESERVED: "Driver confirmed", ACTIVATED: "Ride ready", COMPLETED: "Completed", CANCELLED: "Cancelled", EXPIRED: "No ride available" };
@@ -47,7 +48,7 @@ export function BookingCard({ booking, role, driverId, viewerId, assignedToViewe
         <div><p className="ride-caption">{booking.fareLocked ? "Locked fare" : "Fare"}</p><p className="ride-num text-2xl font-semibold tracking-tight">{formatMoney(booking.total)}</p></div>
         <div className="text-right"><p className="ride-body-sm font-medium">{scheduledOptionName(booking.option)}</p><p className="ride-caption">{Math.ceil(booking.durationSeconds / 60)} min journey</p></div>
       </div>
-      {role === "admin" && !demo ? <AdminBookingParticipants booking={booking} viewerId={viewerId} /> : <div className="rounded-[var(--kx-radius-md)] bg-surface-nested p-3">
+      {role === "admin" && !demo ? <AdminBookingParticipants booking={booking} viewerId={viewerId} /> : !demo && viewerId && ((role === "passenger" && ownsBooking && booking.driverId) || (role === "driver" && assignedDriver && booking.status !== "OPEN")) ? <BookingContact userId={role === "driver" ? booking.passengerId : booking.driverId!} viewerId={viewerId} label={role === "driver" ? "Passenger" : "Assigned driver"} /> : <div className="rounded-[var(--kx-radius-md)] bg-surface-nested p-3">
         <p className="ride-body-sm flex items-start gap-2"><UserRound className="mt-0.5 size-4 shrink-0 text-ink-muted" aria-hidden /><span className="min-w-0 break-words">Driver: {booking.driverId ? driverName ?? booking.driverId : ["RESERVED", "ACTIVATED", "COMPLETED"].includes(booking.status) ? "Details not provided" : "Not assigned"}</span></p>
         {role === "admin" ? <p className="ride-caption mt-2 break-words">Passenger: {passengerName ?? booking.passengerId}</p> : null}
       </div>}

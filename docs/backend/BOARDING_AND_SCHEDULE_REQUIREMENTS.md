@@ -80,3 +80,7 @@ Acceptance: reason preserved after driver release/reassignment; justified cancel
 4. Provide staging accounts for passenger, assigned coordinator, driver, Admin and Root, with seeded passes and scheduled rides.
 5. Provide event payloads and authorization, migration/backfill plans for existing round-trip passes and accepted schedules, and automated concurrency/permission tests.
 6. Confirm the penalty policy with the product owner before implementing enforcement.
+
+## Scheduled participant contact access (1 November 2026)
+
+Passenger and assigned-driver schedule cards now resolve the other participant through authenticated `GET users/{id}`, using the booking's passengerId/driverId. The frontend retains and displays only name and phone. Confirm that assigned drivers and booking-owning passengers can access those contacts; an admin's successful request does not establish participant permissions. Return 403 for unrelated accounts. Prefer a booking-scoped contact response exposing only name/phone rather than the full user response (which currently includes identity documents and other private fields). Test both roles after acceptance, reassignment, release and logout. No administrative credentials or admin-only endpoints are used in participant views.
