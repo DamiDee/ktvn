@@ -2,7 +2,7 @@
 
 Backend handoff · Updated 31 October 2026
 
-Scope: Freebus boarding and existing scheduled rides. Vehicle hire/rental and company registration are deferred and must remain off; they are not requirements for this release.
+Scope: Freebus boarding and existing scheduled rides. Update 1 November 2026: the newly supplied rental-request API is now integrated separately; see `../api/RENTAL_RESET_FRONTEND.md`. Full vehicle inventory/pricing and company registration remain deferred.
 
 ## Delivery status and existing integration
 

@@ -85,6 +85,7 @@ export const ADMIN_NAV: NavItem[] = [
     matchPrefix: true,
   },
   { href: "/admin/scheduled-trips", label: "Scheduled Trips", icon: CalendarClock, shortLabel: "Scheduled" },
+  { href: "/admin/rentals", label: "Rental Requests", icon: CalendarClock, shortLabel: "Rentals" },
   { href: "/admin/ride-history", label: "Ride History", icon: FileText, shortLabel: "History" },
   { href: "/admin/driver-map", label: "Driver Map", icon: LocateFixed, shortLabel: "Map" },
   {
