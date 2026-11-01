@@ -13,20 +13,26 @@ import { scheduleError } from "@/features/paid-rides/scheduling/booking-card";
 import BookingContact from "@/features/paid-rides/scheduling/booking-contact";
 import { rentalService } from "./service";
 import { RentalError, validateRental, type Rental } from "./contract";
+import { ScheduledRoutePicker } from "@/features/paid-rides/scheduling/scheduled-route-picker";
+import { rentalPickupPlace, rentalPickupText } from "./pickup";
 const zone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "Africa/Lagos";
 function RentalForm({ record, busy, onSave, onClose }: { record?: Rental; busy: boolean; onSave: (input: ReturnType<typeof validateRental>) => Promise<void>; onClose: () => void }) {
   const [timezone] = useState(zone);
   const [start, setStart] = useState(record ? localScheduleTime(record.startsAt, timezone) : "");
   const [end, setEnd] = useState(record ? localScheduleTime(record.endsAt, timezone) : "");
   const [pickup, setPickup] = useState(record?.pickupLocation ?? ""), [notes, setNotes] = useState(record?.notes ?? ""), [error, setError] = useState("");
-  return <Card><form className="space-y-4" onSubmit={async e => { e.preventDefault(); if (busy) return; setError(""); try { await onSave(validateRental({ startsAt: resolveScheduleTime(start, timezone), endsAt: resolveScheduleTime(end, timezone), pickupLocation: pickup, notes })); } catch (e) { setError(scheduleError(e)); } }}>
+  const [place, setPlace] = useState(() => rentalPickupPlace(record?.pickupLocation));
+  const [locating, setLocating] = useState(false);
+  return <Card><form className="space-y-4" onSubmit={async e => { e.preventDefault(); if (busy || locating) return; setError(""); try { if (!place && (!record || pickup !== record.pickupLocation)) throw new Error("Select your pickup from search or the map."); await onSave(validateRental({ startsAt: resolveScheduleTime(start, timezone), endsAt: resolveScheduleTime(end, timezone), pickupLocation: place ? rentalPickupText(place) : pickup, notes })); } catch (e) { setError(scheduleError(e)); } }}>
     <h2 className="text-lg font-semibold">{record ? "Edit rental request" : "Request a car rental"}</h2>
     <p className="text-sm text-ink-secondary">Choose at least 24 consecutive hours. Our team will contact you to arrange the car and agree the price. Submitting this request does not reserve or pay for a vehicle.</p>
     <div className="grid gap-4 sm:grid-cols-2"><Input label={`Start · ${timezone}`} type="datetime-local" required value={start} disabled={busy} onChange={e => setStart(e.target.value)} /><Input label={`End · ${timezone}`} type="datetime-local" required value={end} disabled={busy} onChange={e => setEnd(e.target.value)} /></div>
-    <Input label="Pickup location" required maxLength={1000} value={pickup} disabled={busy} onChange={e => setPickup(e.target.value)} />
+    {record && !place && pickup ? <p className="text-sm">Saved pickup: {pickup}. Select it on the map to add coordinates.</p> : null}
+    <ScheduledRoutePicker pickupOnly pickup={place} destination={null} disabled={busy} onPendingChange={setLocating} onChange={(_, value) => { setPlace(value); setPickup(value ? rentalPickupText(value) : ""); }} />
+    {place ? <p className="text-xs text-ink-secondary">Latitude {place.point.lat.toFixed(6)} · Longitude {place.point.lng.toFixed(6)}</p> : null}
     <Textarea label="Requirements (optional)" hint="For example, passenger count and luggage space." maxLength={5000} value={notes} disabled={busy} onChange={e => setNotes(e.target.value)} />
     {error ? <p role="alert" className="text-sm text-danger-600">{error}</p> : null}
-    <div className="flex gap-3"><Button type="submit" loading={busy}>{record ? "Save changes" : "Send request"}</Button><Button variant="ghost" disabled={busy} onClick={onClose}>Close</Button></div>
+    <div className="flex gap-3"><Button type="submit" loading={busy} disabled={locating}>{record ? "Save changes" : "Send request"}</Button><Button variant="ghost" disabled={busy} onClick={onClose}>Close</Button></div>
   </form></Card>;
 }
 export function RentalsPage({ admin = false }: { admin?: boolean }) {

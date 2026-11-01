@@ -89,6 +89,7 @@ export function HomePanel({ onCoverChange, bottomOffset }: SheetHostProps) {
         <Link href="/rides/schedule" className="ride-press flex items-center justify-between rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-primary)] p-4">
           <span className="flex items-center gap-3"><Clock3 className="size-5" aria-hidden /><span><span className="ride-body-sm block font-semibold">Schedule trip</span><span className="ride-caption">Plan a journey ahead</span></span></span><ChevronRight className="size-4" aria-hidden />
         </Link>
+        <Link href="/rides/rentals" className="ride-press mt-3 flex items-center justify-between rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-primary)] p-4"><span className="ride-body-sm font-semibold">Car renta rides</span><ChevronRight className="size-4" aria-hidden /></Link>
 
         {recent.length ? (
           <div>

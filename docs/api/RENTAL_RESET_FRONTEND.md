@@ -17,3 +17,7 @@ Session cookies authenticate rental calls using the existing API client. Reset c
 ## Validation
 
 Contract tests cover duration boundaries, strict payloads, pagination, bodyless assignment, 204 deletion, conflicts, uncertain writes without retries, OTP leading zeros, password preservation, credential omission and plain-text errors. Production email delivery, production rental migrations and role permissions require verification on the deployed backend.
+
+## Rental pickup map
+
+The rides home screen and navigation include “Car renta rides” immediately after Schedule. Rental pickup reuses Google place search, current location and map-pin selection. The API currently accepts only a pickupLocation string and rejects extra fields, so the frontend saves the selected address followed by `Coordinates: latitude, longitude` in that field. Editing restores the pin from that suffix. Existing text-only pickups remain editable without invented coordinates. A future structured coordinate API should add validated latitude/longitude fields and migrate this representation explicitly.

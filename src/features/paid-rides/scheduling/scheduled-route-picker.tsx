@@ -100,8 +100,8 @@ function AddressField({ field, value, near, disabled, suggestions, onChange, onP
 }
 
 const NO_SUGGESTIONS: Place[] = [];
-export function ScheduledRoutePicker({ pickup, destination, disabled, suggestions = NO_SUGGESTIONS, onChange, onPendingChange }: {
-  pickup: Place | null; destination: Place | null; disabled: boolean; suggestions?: Place[];
+export function ScheduledRoutePicker({ pickup, destination, disabled, suggestions = NO_SUGGESTIONS, pickupOnly = false, onChange, onPendingChange }: {
+  pickup: Place | null; destination: Place | null; disabled: boolean; suggestions?: Place[]; pickupOnly?: boolean;
   onChange: (field: Field, place: Place | null) => void; onPendingChange: (pending: boolean) => void;
 }) {
   const [pin, setPin] = useState<Field | null>(null), [point, setPoint] = useState<GeoPoint>(PAID_RIDES_CONFIG.defaultCenter);
@@ -155,10 +155,11 @@ export function ScheduledRoutePicker({ pickup, destination, disabled, suggestion
     finally { if (token === operation.current) setWorking(false); }
   }
   return <div className="space-y-4">
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className={pickupOnly ? "space-y-4" : "grid gap-4 sm:grid-cols-2"}>
       <AddressField onResolving={(working) => setResolving((s) => ({ ...s, pickup: working }))} field="pickup" value={pickup} near={pickup?.point} disabled={disabled || working || !!pin} suggestions={suggestions} onChange={(place) => onChange("pickup", place)} onPin={() => choosePin("pickup")} onLocate={() => void locate()} />
-      <AddressField onResolving={(working) => setResolving((s) => ({ ...s, destination: working }))} field="destination" value={destination} near={pickup?.point} disabled={disabled || working || !!pin} suggestions={suggestions} onChange={(place) => onChange("destination", place)} onPin={() => choosePin("destination")} />
+      {!pickupOnly ? <AddressField onResolving={(working) => setResolving((s) => ({ ...s, destination: working }))} field="destination" value={destination} near={pickup?.point} disabled={disabled || working || !!pin} suggestions={suggestions} onChange={(place) => onChange("destination", place)} onPin={() => choosePin("destination")} /> : null}
     </div>
+    {pickupOnly && !pin ? <Button size="sm" variant="secondary" disabled={disabled || working} onClick={() => choosePin("pickup")}>Choose pickup on map</Button> : null}
     {!pin && pickup && destination ? <Button pill size="sm" variant="ghost" icon={MapPinned} disabled={disabled || working} aria-expanded={previewOpen} onClick={() => { if (!previewOpen) setMapReady(false); setPreviewOpen((open) => !open); }}>{previewOpen ? "Close route preview" : "Preview route"}</Button> : null}
     {showMap ? <div className="relative isolate h-72 overflow-hidden rounded-[var(--ride-radius-lg)] border border-line sm:h-80" role="region" aria-label={pin ? `Choose ${pin} on map` : "Scheduled trip route preview"}>
       <RideMap onError={() => setMapReady(false)} onReady={() => setMapReady(true)} failureMessage="The map could not load. Search for your pickup and destination above to keep planning your trip." route={road} pickup={pin === "pickup" ? null : pickup?.point} pickupLabel={pickup?.name} destination={pin === "destination" ? null : destination?.point} destinationLabel={destination?.name} camera={camera} cameraKey={cameraKey} recenterToken={recenter} insets={{ top: 0, right: 0, bottom: 0, left: 0 }} interactive={!disabled && !working}
