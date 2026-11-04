@@ -51,7 +51,7 @@ export function CoordinatorTrips() {
   }
 
   return <>
-    <PageHeader eyebrow="Free Buses · Route Coordinator" title="Trips" description="Start when the bus leaves the first pickup point. Scan valid passes at later stops while the trip stays in progress. Complete a round trip only after the return journey ends." />
+    <PageHeader eyebrow="Free Buses · Route Coordinator" title="Trips" description="Start at the first departure. Keep scanning at later stops. Complete round trips only after the return journey." />
     {notice ? <p role="status" className="mb-4 rounded-xl border border-forest-500/30 bg-forest-50 p-4 font-medium text-forest-900 dark:bg-forest-500/12 dark:text-forest-100">{notice}</p> : null}
     {bookingsError ? <p role="alert" className="mb-4 text-sm text-danger-600">Booked counts are unavailable right now: {bookingsError.message}</p> : null}
     {open.length === 0 ? <Card radius="xl"><EmptyState icon={CalendarClock} size="sm" title="No open trips" description="Scheduled and running trips appear here." /></Card> : <div className="grid gap-4 md:grid-cols-2">

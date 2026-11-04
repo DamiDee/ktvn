@@ -170,7 +170,7 @@ export function DriversList() {
       <PageHeader
         eyebrow="System Users"
         title="Drivers"
-        description="Driver contact information, vehicle details, and account status. Open a driver to view their full profile."
+        description="Driver contacts, vehicles and status. Open a driver for their full profile."
         action={
           <StatusChip tone="neutral" size="md">
             {total} {pluralise(total, "driver")}

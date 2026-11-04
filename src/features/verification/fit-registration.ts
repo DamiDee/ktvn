@@ -65,6 +65,6 @@ export async function fitRegistration(payload: CreateUserDto, documents: Applica
     if (!improved) break;
   }
   checkDocumentAbort(options.signal);
-  if (totalBytes > target) throw new Error("We couldn't make the application small enough while keeping your documents readable. Your answers and files are safe on this page. Contact support for help completing your application.");
+  if (totalBytes > target) throw new Error("Your application files are too large. Your answers and files are still here. Contact support for help.");
   return { payload: result, prepared, totalBytes, originalBytes };
 }

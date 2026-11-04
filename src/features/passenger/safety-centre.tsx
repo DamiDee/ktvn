@@ -93,10 +93,8 @@ export function SafetyCentre() {
             <div className="min-w-0">
               <p className="type-card-title text-ink">SOS</p>
               <p className="type-meta mt-1.5 text-ink-secondary">
-                During any active trip, SOS sits at the bottom of your journey
-                screen — never inside a menu. Hold it for a moment and your
-                location is sent to the safety team, who acknowledge and
-                respond.
+                During a trip, hold SOS at the bottom of the screen to send
+                your location to the safety team.
               </p>
               <p className="type-meta mt-2 text-ink-muted">
                 Holding rather than tapping means it can&rsquo;t fire from a

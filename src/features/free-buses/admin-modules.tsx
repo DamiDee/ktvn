@@ -79,7 +79,7 @@ function AdminModule({ module, assignTrip }: { module: Module; assignTrip: strin
         searchPlaceholder="Search plate, state or route"
         initialSort={{ id: "plate", direction: "asc" }}
         empty={<Card radius="xl"><EmptyState icon={BusFront} size="sm" title="No buses registered yet" description="Register a vehicle to start assigning it to journeys." /></Card>}
-        action={<div className="flex flex-wrap gap-2"><Button onClick={() => open("bus")}>Register bus</Button><Button variant="secondary" onClick={() => open("assign")}>Assign a bus</Button><Button variant="danger" onClick={() => confirm({ danger: true, title: "Reset the entire fleet?", description: "This clears trip assignments and passenger counts on EVERY bus and returns them all to Stationary / Available. Only do this after all trips have ended. Existing bookings are not cancelled.", path: "buses/reset-trips", method: "POST", done: "The fleet was reset. Every bus is Stationary and unassigned." })}>Reset fleet</Button></div>}
+        action={<div className="flex flex-wrap gap-2"><Button onClick={() => open("bus")}>Register bus</Button><Button variant="secondary" onClick={() => open("assign")}>Assign a bus</Button><Button variant="danger" onClick={() => confirm({ danger: true, title: "Reset the entire fleet?", description: "Resets ALL buses to Stationary / Available and clears assignments and counts. Bookings remain. Use only after all trips end.", path: "buses/reset-trips", method: "POST", done: "The fleet was reset. Every bus is Stationary and unassigned." })}>Reset fleet</Button></div>}
         columns={[
           { id: "plate", header: "Plate", primary: true, sortBy: (bus) => bus.license_plate, cell: (bus) => <span className="type-numeric font-semibold text-ink">{bus.license_plate}</span> },
           { id: "route", header: "Assigned trip", secondary: true, sortBy: (bus) => routes.data.find((r) => r.id === trips.data.find((t) => t.id === bus.current_trip_id)?.route_id)?.name ?? "\uffff", cell: (bus) => <span className="text-ink-secondary">{routes.data.find((r) => r.id === trips.data.find((t) => t.id === bus.current_trip_id)?.route_id)?.name ?? "Unassigned"}</span> },
@@ -90,7 +90,7 @@ function AdminModule({ module, assignTrip }: { module: Module; assignTrip: strin
             <Button size="sm" variant="secondary" onClick={() => modify({ kind: "bus", value: bus })}>Manage</Button>
             <ButtonLink size="sm" variant="ghost" href={`/admin/free-buses/boarding?bus=${encodeURIComponent(bus.id)}`}>Boarding</ButtonLink>
             <Button size="sm" variant="ghost" onClick={() => confirm({ danger: true, title: `Reset ${bus.license_plate}?`, description: `This clears the trip assignment and passenger count on ${bus.license_plate} and returns it to Stationary / Available. Finish the current trip first. Tickets are not cancelled.`, path: `buses/${bus.id}/reset`, method: "POST", done: `${bus.license_plate} was reset.` })}>Reset</Button>
-            <Button size="sm" variant="ghost" className="!text-danger-600" onClick={() => confirm({ danger: true, title: `Delete ${bus.license_plate} permanently?`, description: `This removes the vehicle from the fleet for good and cannot be undone. Any history that references it stays, but the bus will no longer be assignable. The API will refuse if it still has active bookings.`, path: `buses/${bus.id}`, method: "DELETE", done: `${bus.license_plate} was deleted.` })}>Delete</Button>
+            <Button size="sm" variant="ghost" className="!text-danger-600" onClick={() => confirm({ danger: true, title: `Delete ${bus.license_plate} permanently?`, description: `Permanently removes this bus; history stays. Active bookings must be resolved first. This cannot be undone.`, path: `buses/${bus.id}`, method: "DELETE", done: `${bus.license_plate} was deleted.` })}>Delete</Button>
           </div> },
         ]}
       />
@@ -112,7 +112,7 @@ function AdminModule({ module, assignTrip }: { module: Module; assignTrip: strin
           { id: "actions", header: "Actions", align: "end", actions: true, cell: (route) => <div className="flex flex-wrap justify-end gap-1.5">
             <Button size="sm" variant="secondary" onClick={() => modify({ kind: "route", value: route })}>Edit</Button>
             <Button size="sm" variant="ghost" onClick={() => { setError(""); setScheduleRoute(route); }}>Schedule trip</Button>
-            <Button size="sm" variant="ghost" className="!text-danger-600" onClick={() => confirm({ danger: true, title: `Delete ${route.name} permanently?`, description: `This permanently deletes the reusable route. Its trips and bookings may prevent deletion; the server decides. Cancel individual departures in Trips instead.`, path: `routes/${route.id}`, method: "DELETE", done: `${route.name} was deleted.` })}>Delete</Button>
+            <Button size="sm" variant="ghost" className="!text-danger-600" onClick={() => confirm({ danger: true, title: `Delete ${route.name} permanently?`, description: `Permanently deletes this route unless trips or bookings block it. To cancel a departure, use Trips.`, path: `routes/${route.id}`, method: "DELETE", done: `${route.name} was deleted.` })}>Delete</Button>
           </div> },
         ]}
       />

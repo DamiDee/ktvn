@@ -43,3 +43,36 @@ test('reset form keeps OTP zeros, blocks resend, validates confirmation and clea
     assert.equal(host.querySelector('input'), null); assert.ok(host.querySelector('a[href="/login"]'));
   } finally { await act(async () => root.unmount()); host.remove(); }
 });
+
+test('live login exposes password recovery beneath the password field', async () => {
+  const loginFile = new URL('../src/features/auth/login-form.tsx', import.meta.url);
+  const login = new Module(loginFile.pathname);
+  const deps = {
+    ...dependencies,
+    '@/services/freebus-api': { liveAuth: {}, FreebusError: class extends Error {} },
+    '@/lib/freebus-contract': { loginDestination: () => '/rides' },
+    'next/link': ({ children, ...props }) => h('a', props, children),
+    'next/navigation': { useRouter: () => ({}) },
+    'react-hook-form': { useForm: () => ({ register: () => ({}), handleSubmit: () => () => {}, formState: { errors: {}, isSubmitting: false } }) },
+    '@hookform/resolvers/zod': { zodResolver: () => undefined },
+    '@/lib/cn': { cn: (...values) => values.filter(Boolean).join(' ') },
+    '@/services': { userService: {}, ApiError: class extends Error {} },
+    '@/types/enums': { UserRole: { PASSENGER: 'PASSENGER', DRIVER: 'DRIVER', ADMIN: 'ADMIN' } },
+    '@/stores/session-store': { useSessionStore: selector => selector({}) },
+    './schemas': { loginSchema: {}, liveLoginSchema: {} },
+    '@/lib/freebus-config': { LIVE_FREE_BUSES: true },
+    '@/features/paid-rides/config': { PAID_RIDES_MODE: 'live' },
+    '@/components/ui/input': { Input, PasswordInput: Input },
+    '@/components/ui/button': { Button: ({ children }) => h('button', null, children) },
+  };
+  login.require = path => path in deps ? deps[path] : require(path);
+  login._compile(ts.transpileModule(fs.readFileSync(loginFile, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText, loginFile.pathname);
+  const host = document.createElement('div'); document.body.append(host); const root = createRoot(host);
+  try {
+    await act(async () => root.render(h(login.exports.LoginForm)));
+    const link = host.querySelector('a[href="/forgot-password"]');
+    assert.equal(link?.textContent, 'Forgot password?');
+    assert.ok(host.querySelector('form').contains(link));
+    assert.ok([...host.querySelectorAll('label')].find(label => label.textContent === 'Password').compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING);
+  } finally { await act(async () => root.unmount()); host.remove(); }
+});

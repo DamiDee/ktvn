@@ -246,15 +246,15 @@ export function LoginForm() {
           {...register("password")}
         />
 
-        {!LIVE_FREE_BUSES ? <div className="flex items-center justify-between gap-4">
-          <Checkbox label="Remember me" {...register("remember")} />
+        <div className="flex flex-wrap items-center justify-end gap-4">
+          {!LIVE_FREE_BUSES ? <Checkbox className="mr-auto" label="Remember me" {...register("remember")} /> : null}
           <Link
             href="/forgot-password"
             className="kx-tap inline-flex items-center text-[0.8125rem] font-medium text-forest-700 underline-offset-4 hover:underline dark:text-gold-300"
           >
-            Forgot password? Reset by email
+            Forgot password?
           </Link>
-        </div> : null}
+        </div>
 
         <Button
           type="submit"

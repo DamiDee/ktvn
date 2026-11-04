@@ -30,7 +30,7 @@ function RentalForm({ record, busy, onSave, onClose }: { record?: Rental; busy: 
   const [locating, setLocating] = useState(false);
   return <Card><form className="space-y-4" onSubmit={async e => { e.preventDefault(); if (busy || locating) return; setError(""); try { if (!carType) throw new Error("Choose a car type."); if (!place && (!record || pickup !== record.pickupLocation)) throw new Error("Select your pickup from search or the map."); await onSave(validateRental({ carType, startsAt: resolveScheduleTime(start, timezone), endsAt: resolveScheduleTime(end, timezone), pickupLocation: place ? rentalPickupText(place) : pickup, notes })); } catch (e) { setError(scheduleError(e)); } }}>
     <h2 className="text-lg font-semibold">{record ? "Edit rental request" : "Request a car rental"}</h2>
-    <p className="text-sm text-ink-secondary">Choose at least 24 consecutive hours. Choose a car category and our team will confirm the arrangement. Submitting this request does not reserve or pay for a vehicle.</p>
+    <p className="text-sm text-ink-secondary">Minimum hire: 24 hours. Choose a car for our team to confirm. This request is not a reservation or payment.</p>
     <VehicleChoices value={carType} disabled={busy} onChange={setCarType} />
     <div className="grid gap-4 sm:grid-cols-2"><Input label={`Start · ${timezone}`} type="datetime-local" required value={start} disabled={busy} onChange={e => setStart(e.target.value)} /><Input label={`End · ${timezone}`} type="datetime-local" required value={end} disabled={busy} onChange={e => setEnd(e.target.value)} /></div>
     {record && !place && pickup ? <p className="text-sm">Saved pickup: {rentalPickupLabel(pickup)}. Select it on the map to add coordinates.</p> : null}

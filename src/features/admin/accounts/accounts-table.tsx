@@ -60,7 +60,7 @@ export function AccountsTable({ users, paid, currentUserId, onCreate, onManage }
         <Input label="Registered until" type="date" value={filters.until} min={filters.since || undefined} onChange={(event) => update("until", event.target.value)} />
       </div>
     </div>
-    {paid ? <p className="text-xs text-ink-secondary">Shared platform accounts · Scroll across the table to see all account and driver information. Open Manage for the full profile and account actions.</p> : null}
+    {paid ? <p className="text-xs text-ink-secondary">Scroll across for more details. Open Manage for the full profile and account actions.</p> : null}
     <RecordsTable caption="Platform accounts" rows={rows} columns={columns} rowKey={(user) => user.id} searchIn={accountSearchText} searchPlaceholder="Search name, email, phone, username or area" initialSort={{ id: "name", direction: "asc" }} action={<Button onClick={onCreate}>Create account</Button>}
       empty={<EmptyState icon={Users} title={filtered ? "No accounts match these filters" : "No accounts yet"} description={filtered ? "Clear a filter to see more accounts." : "Create an account to get started."} />} />
   </div>;

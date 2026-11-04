@@ -139,7 +139,7 @@ export function ApplicationWizard() {
         setStepIndex(error.stepIndex);
       }
       const message = error instanceof FreebusError && error.status === 413
-        ? "The server couldn't accept the application even after automatic file preparation. Your files are still available. Contact support for help completing your application."
+        ? "Your application could not be submitted. Your files are still here. Contact support for help."
         : error instanceof FreebusError || error instanceof DriverApplicationError ? error.message : "We couldn't submit your application. Please try again.";
       if (error instanceof FreebusError && error.status === 413) {
         setDirection(-1);
@@ -187,7 +187,7 @@ export function ApplicationWizard() {
         className="mb-6"
       />
 
-      {complete ? <Card radius="xl"><span className="mb-5 grid size-14 place-items-center rounded-full bg-gold-100 text-gold-800"><Check className="size-7" aria-hidden /></span><h2 className="type-section-title text-ink">{LIVE_FREE_BUSES ? "Your driver account is ready." : "You’ve explored the full application."}</h2><p className="mt-3 text-sm leading-relaxed text-ink-secondary">{LIVE_FREE_BUSES ? "Your application has been submitted. Sign in with your email or username to access your account. Your documents and vehicle still need approval before you can drive." : "Demo mode: your driver account has not been created and no documents were sent."}</p><Link href="/login" className="mt-6 inline-flex min-h-11 items-center text-sm font-semibold text-gold-800 dark:text-gold-300">Sign in <ArrowRight className="ml-2 size-4" aria-hidden /></Link></Card> : <Card radius="xl">
+      {complete ? <Card radius="xl"><span className="mb-5 grid size-14 place-items-center rounded-full bg-gold-100 text-gold-800"><Check className="size-7" aria-hidden /></span><h2 className="type-section-title text-ink">{LIVE_FREE_BUSES ? "Your driver account is ready." : "You’ve explored the full application."}</h2><p className="mt-3 text-sm leading-relaxed text-ink-secondary">{LIVE_FREE_BUSES ? "Application submitted. Sign in with your email or username. You need document and vehicle approval before driving." : "Demo mode: your driver account has not been created and no documents were sent."}</p><Link href="/login" className="mt-6 inline-flex min-h-11 items-center text-sm font-semibold text-gold-800 dark:text-gold-300">Sign in <ArrowRight className="ml-2 size-4" aria-hidden /></Link></Card> : <Card radius="xl">
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             ref={stepContentRef}
@@ -992,7 +992,7 @@ function ReviewStep({
       </fieldset>
 
       <SafetyNote className="mt-5">
-        {LIVE_FREE_BUSES ? "Submitting creates your driver account and sends your application for review. Document review and a physical vehicle inspection are required before you can drive." : "Demo mode: no documents will be sent and no driver account will be created."}
+        {LIVE_FREE_BUSES ? "Submit to create your driver account. Document approval and a vehicle inspection are required before driving." : "Demo mode: no documents will be sent and no driver account will be created."}
       </SafetyNote>
 
       <div className="mt-7 flex flex-col-reverse gap-2.5 border-t border-line pt-6 sm:flex-row sm:justify-end">

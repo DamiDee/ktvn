@@ -281,7 +281,7 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
         <div className="flex gap-3"><Button disabled={!busId || running || busy} loading={starting} onClick={() => void start()}>Start scanner</Button><Button variant="secondary" disabled={!running && !starting} onClick={stop}>Stop scanner</Button></div>
         <p className="mt-3 text-sm text-ink-muted">{running ? "Scanner active with no time limit. Verified passes for this bus board automatically. Boarding from the manifest stops the scanner." : "Camera / NFC permission is required once. No extra confirmation per successful scan. Completed and cancelled trips stay closed."}</p>
       </> : (
-        <p className="mt-4 text-sm text-ink-muted">Check the passenger’s identity against their name before boarding. The scanner is off while you search. Board a passenger from the manifest below, show their QR pass, or write it to an NFC tag.</p>
+        <p className="mt-4 text-sm text-ink-muted">Check the passenger’s identity, then board from the manifest or use their QR/NFC pass. Searching pauses the scanner.</p>
       )}
 
       <div role="status" aria-live="polite" className="mt-4">{busy ? <p className="text-ink">Checking ticket with the server…</p> : result ? <p className={`rounded-xl border p-4 font-semibold ${result.ok ? "border-forest-500 bg-forest-50 text-forest-900 dark:bg-forest-500/12 dark:text-forest-100" : "border-danger-500 text-danger-600"}`}>{result.text}</p> : null}</div>
@@ -294,7 +294,7 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
     {!bookings.error && namesLoading ? <p role="status" className="mb-3 text-sm text-ink-secondary">Loading passenger names…</p> : null}
     {!bookings.error && namesError ? <p role="status" className="mb-3 text-sm text-ink-secondary">{namesError instanceof FreebusError && namesError.status === 403 ? "Passenger names are unavailable for this account. Ask an admin to arrange access. You can still search by booking reference or seat." : "Some passenger names could not be loaded. You can still search by booking reference or seat."} <button type="button" className="underline" onClick={() => { void Promise.all(passengerQueries.filter((query) => query.isError).map((query) => query.refetch())); }}>Retry names</button></p> : null}
     {!busId ? <p className="text-ink-secondary">Select a bus to see its passengers.</p>
-      : bookings.error ? <ErrorState title="Manifest unavailable" description={!oversight && bookings.error instanceof FreebusError && bookings.error.status === 403 ? "The API has not enabled booking access for Route Coordinators yet. Ask the backend team to grant the boarding permissions; this app cannot override them." : bookings.error.message} onRetry={() => void bookings.refetch()} />
+      : bookings.error ? <ErrorState title="Manifest unavailable" description={!oversight && bookings.error instanceof FreebusError && bookings.error.status === 403 ? "Boarding access is not enabled for coordinators. Contact your administrator." : bookings.error.message} onRetry={() => void bookings.refetch()} />
       : <RecordsTable
           caption="Passengers on this bus"
           rows={manifest}
@@ -383,7 +383,7 @@ export function BoardingStation({ initialBus = "" }: { initialBus?: string }) {
           : <div className="flex size-56 items-center justify-center rounded-xl border border-line bg-surface-nested"><QrCode className="size-10 text-ink-muted" aria-hidden /></div>}
         <p className="type-numeric break-all text-center text-ink">{qrBooking?.booking_ref}</p>
         {qrBusy || qrMessage ? <p role="status" className={qrMessage && !qrBusy ? "text-danger-600" : "text-ink-secondary"}>{qrBusy ? "Fetching the signed pass…" : qrMessage}</p> : null}
-        <p className="type-meta text-center text-ink-muted">This pass is signed by the server. It is for the named passenger and one boarding only. Check their identity before boarding; a screenshot does not prove identity.</p>
+        <p className="type-meta text-center text-ink-muted">Valid for the named passenger and one boarding only. Check their identity; a screenshot is not proof.</p>
       </div>
     </Modal>
 

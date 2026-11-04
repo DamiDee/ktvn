@@ -33,32 +33,31 @@ export function DriverConnectionGuard() {
   useEffect(() => {
     if (attention && !previous.current) {
       navigator.vibrate?.([180, 90, 180]);
-      void notifyRide("Driver connection interrupted", "K-Rides is restoring your connection. Open the driver screen to check your status.", { tag: "driver-connection", url: "/rides/driver" });
+      void notifyRide("Driver connection interrupted", "Reconnecting. Open the driver screen to check your status.", { tag: "driver-connection", url: "/rides/driver" });
     }
     previous.current = attention;
   }, [attention]);
 
   const title = disconnected ? "Live connection interrupted" : stale || locationStatus === "denied" ? "Your live location is unavailable" : "Restoring your online status";
   const body = disconnected
-    ? "Your live connection to K-Rides has been interrupted. New ride requests and live location updates may not reach you. We are reconnecting automatically."
+    ? "Connection lost. Ride requests and location updates may be delayed. Reconnecting…"
     : locationStatus === "unavailable" || locationStatus === "timeout" || locationStatus === "unsupported"
-      ? "Your device could not provide a current location. On a laptop, enable Location Services for your browser in system settings and allow location for this site. If it still cannot locate you, use a location-enabled phone for driving."
+      ? "Location unavailable. Enable location in your device and browser settings, then retry."
     : locationStatus === "denied"
-      ? "Location access is blocked for K-Rides. Allow location access in your browser settings, then retry. Your live location cannot update until access is restored."
+      ? "Location is blocked. Allow access in your browser settings, then retry."
       : presence.error ?? (stale && presence.phase === "ready"
-        ? "Your location has stopped updating. Keep K-Rides open while we try again, or use Retry connection."
-        : "Your account may be marked online, but we still need to confirm a fresh location update. Select Retry connection to allow location access.");
+        ? "Location updates stopped. Keep K-Rides open or retry."
+        : "You’re marked online, but live tracking isn’t ready. Retry to reconnect.");
   const retry = () => { void useLocationStore.getState().request(); getRealtimeClient().reconnectNow(); };
 
   if (live) return attention ? <div role="alert" className="absolute inset-x-3 z-[800] mx-auto max-w-lg rounded-2xl border border-amber-400 bg-amber-50 p-4 text-amber-950 shadow-lg" style={{ top: "calc(var(--ride-safe-top) + 12px)" }}>
     <p className="flex items-center gap-2 font-semibold"><WifiOff className="size-5 shrink-0" aria-hidden />{title}</p>
-    <p className="mt-2 text-sm">{body} Your trip is still active. Safety and navigation remain available.</p>
+    <p className="mt-2 text-sm">{body} Your trip, safety tools and navigation remain active.</p>
     <Button size="sm" variant="secondary" className="mt-3" onClick={retry}>Retry connection</Button>
   </div> : null;
 
   return <Modal open={attention} onClose={() => undefined} dismissible={false} sheetOnMobile={false} size="sm" title={<span className="flex items-center gap-2"><WifiOff className="size-5 shrink-0" aria-hidden />{title}</span>} description={body}
     footer={<div className="flex flex-wrap gap-2"><Button onClick={retry}>Retry connection</Button><Button variant="ghost" disabled={state.availability === "GOING_ONLINE"} onClick={() => void useDriverStore.getState().setOnline(false)}>Go offline</Button></div>}>
-    <p className="mb-3 text-sm text-[var(--text-secondary)]">Account availability, live connection and device location are checked separately. An ONLINE response alone does not confirm live tracking.</p>
-    <p role="status" className="text-sm text-[var(--text-secondary)]">This notice closes automatically when your connection and location are restored.</p>
+    <p role="status" className="text-sm text-[var(--text-secondary)]">Closes when live tracking resumes.</p>
   </Modal>;
 }

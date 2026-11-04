@@ -137,7 +137,7 @@ test('active trips retain access to their controls under a persistent connection
   f.set({ ride: { connection: 'offline', ride: { status: 'IN_PROGRESS' } } });
   const host = await mount(f.Guard);
   assert.equal(host.querySelector('[role=dialog]'), null);
-  assert.match(host.querySelector('[role=alert]').textContent, /Safety and navigation remain available/);
+  assert.match(host.querySelector('[role=alert]').textContent, /safety tools and navigation remain active/);
   await flush(() => host.querySelector('button').click()); assert.equal(f.calls.retry, 1);
 });
 
