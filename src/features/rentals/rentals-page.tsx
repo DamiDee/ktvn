@@ -18,7 +18,7 @@ import BookingContact from "@/features/paid-rides/scheduling/booking-contact";
 import { rentalService } from "./service";
 import { RentalError, validateRental, type Rental } from "./contract";
 import { ScheduledRoutePicker } from "@/features/paid-rides/scheduling/scheduled-route-picker";
-import { rentalPickupPlace, rentalPickupText } from "./pickup";
+import { rentalPickupPlace, rentalPickupText, rentalPickupLabel } from "./pickup";
 const zone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "Africa/Lagos";
 function RentalForm({ record, busy, onSave, onClose }: { record?: Rental; busy: boolean; onSave: (input: ReturnType<typeof validateRental>) => Promise<void>; onClose: () => void }) {
   const [timezone] = useState(zone);
@@ -33,9 +33,8 @@ function RentalForm({ record, busy, onSave, onClose }: { record?: Rental; busy: 
     <p className="text-sm text-ink-secondary">Choose at least 24 consecutive hours. Choose a car category and our team will confirm the arrangement. Submitting this request does not reserve or pay for a vehicle.</p>
     <VehicleChoices value={carType} disabled={busy} onChange={setCarType} />
     <div className="grid gap-4 sm:grid-cols-2"><Input label={`Start · ${timezone}`} type="datetime-local" required value={start} disabled={busy} onChange={e => setStart(e.target.value)} /><Input label={`End · ${timezone}`} type="datetime-local" required value={end} disabled={busy} onChange={e => setEnd(e.target.value)} /></div>
-    {record && !place && pickup ? <p className="text-sm">Saved pickup: {pickup}. Select it on the map to add coordinates.</p> : null}
+    {record && !place && pickup ? <p className="text-sm">Saved pickup: {rentalPickupLabel(pickup)}. Select it on the map to add coordinates.</p> : null}
     <ScheduledRoutePicker pickupOnly pickup={place} destination={null} disabled={busy} onPendingChange={setLocating} onChange={(_, value) => { setPlace(value); setPickup(value ? rentalPickupText(value) : ""); }} />
-    {place ? <p className="text-xs text-ink-secondary">Latitude {place.point.lat.toFixed(6)} · Longitude {place.point.lng.toFixed(6)}</p> : null}
     <Textarea label="Requirements (optional)" hint="For example, passenger count and luggage space." maxLength={5000} value={notes} disabled={busy} onChange={e => setNotes(e.target.value)} />
     {error ? <p role="alert" className="text-sm text-danger-600">{error}</p> : null}
     <div className="flex gap-3"><Button type="submit" loading={busy} disabled={locating}>{record ? "Save changes" : "Send request"}</Button><Button variant="ghost" disabled={busy} onClick={onClose}>Close</Button></div>
@@ -65,14 +64,14 @@ export function RentalsPage({ admin = false }: { admin?: boolean }) {
   const time = (value: string) => new Intl.DateTimeFormat("en-NG", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
   const content = <div className="space-y-5">
     <p className="text-sm text-ink-secondary">{admin ? "Review the requested car type and assign a driver." : "Rent a car for 24 hours or longer. Choose a car type and our team will confirm availability."}</p>
-    <div className="flex flex-wrap items-end gap-3"><Select label="Status" value={status} disabled={busy} onChange={e => { setStatus(e.target.value); setOffset(0); }} options={[{ value: "", label: "All requests" }, { value: "pending", label: "Pending assignment" }, { value: "assigned", label: "Assigned" }]} /><Button variant="secondary" disabled={busy} onClick={() => void refresh().catch(e => setMessage(scheduleError(e)))}>Refresh requests</Button>{!admin && !form ? <Button disabled={busy || uncertain || !viewerId} onClick={() => setForm("new")}>Request a rental</Button> : null}</div>
+    <div className="flex flex-wrap items-end gap-3"><Select label="Status" value={status} disabled={busy} onChange={e => { setStatus(e.target.value); setOffset(0); }} options={[{ value: "", label: "All requests" }, { value: "pending", label: "Unassigned" }, { value: "assigned", label: "Assigned" }]} /><Button variant="secondary" disabled={busy} onClick={() => void refresh().catch(e => setMessage(scheduleError(e)))}>Refresh requests</Button>{!admin && !form ? <Button disabled={busy || uncertain || !viewerId} onClick={() => setForm("new")}>Request a rental</Button> : null}</div>
     {message ? <p role="status" className="rounded-xl bg-surface-nested p-4 text-sm">{message}</p> : null}
     {uncertain ? <p role="alert" className="text-sm">The last change may have succeeded. Refresh requests and check for it before making another change.</p> : null}
     {form && !admin ? <RentalForm key={form === "new" ? "new" : form.id} record={form === "new" ? undefined : form} busy={busy || uncertain} onClose={() => setForm(null)} onSave={input => mutate(() => form === "new" ? rentalService.create(input) : rentalService.update(form.id, input))} /> : null}
     {viewer.isPending || list.isLoading ? <p role="status">Loading rental requests…</p> : null}
     {viewer.isError || list.isError ? <p role="alert">Requests could not load. Check your connection and sign-in, then refresh.</p> : null}
     <div className="space-y-4">{list.data?.map(record => <Card key={record.id} className="space-y-4">
-      <div className="flex flex-wrap justify-between gap-2"><h2 className="font-semibold">{record.pickupLocation}</h2><span className="text-sm">{record.status === "pending" ? "Pending assignment" : "Assigned"}</span></div>
+      <div className="flex flex-wrap justify-between gap-2"><h2 className="font-semibold">{rentalPickupLabel(record.pickupLocation)}</h2>{record.status === "assigned" ? <span className="text-sm">Assigned</span> : null}</div>
       <dl className="grid gap-3 text-sm sm:grid-cols-2"><div><dt className="text-ink-secondary">Start</dt><dd>{time(record.startsAt)}</dd></div><div><dt className="text-ink-secondary">End</dt><dd>{time(record.endsAt)}</dd></div></dl>
       {record.carType ? <p className="text-sm font-semibold">{record.carType}</p> : null}
       {record.driverId && viewerId ? <BookingContact userId={record.driverId} viewerId={viewerId} label="Assigned driver" /> : null}

@@ -31,7 +31,7 @@ async function mount(Component) {
 }
 async function flush(callback = () => {}) { await act(async () => { await callback(); await Promise.resolve(); await Promise.resolve(); }); }
 const deferred = () => { let resolve; const promise = new Promise((done) => { resolve = done; }); return { promise, resolve }; };
-function fixture({ availability = 'ONLINE', connection = 'open', recover, request, update } = {}) {
+function fixture({ availability = 'ONLINE', connection = 'open', recover, request, update, permission = 'granted' } = {}) {
   let current = true;
   const calls = { recover: 0, publish: [], retry: 0, notifications: 0 };
   const fix = { point: { lat: 9.06, lng: 7.49 }, timestamp: Date.now(), accuracyMeters: 15, heading: 0, speedMps: 0 };
@@ -43,7 +43,7 @@ function fixture({ availability = 'ONLINE', connection = 'open', recover, reques
     setOnline: async (online) => driver.setState((s) => ({ state: { ...s.state, availability: online ? 'ONLINE' : 'OFFLINE' } })),
   }));
   const presence = create(() => ({ phase: 'idle', error: null }));
-  const location = create(() => ({ fix, status: 'granted', request: request ?? (async () => fix) }));
+  const location = create(() => ({ fix: request ? null : fix, status: 'granted', request: request ?? (async () => fix) }));
   const client = { get status() { return driver.getState().state.ride.connection; }, onEvent: () => () => {}, onStatus: () => () => {}, onReconnected: () => () => {}, connect() {}, disconnect() {}, subscribeToDriver() {}, unsubscribeFromDriver() {}, subscribeToRide() {}, unsubscribeFromRide() {}, reconnectNow() { calls.retry++; } };
   const dependencies = {
     '@/lib/account-session': { accountSession: { capture: () => ({ isCurrent: () => current }), isBlocked: () => false } },
@@ -53,7 +53,7 @@ function fixture({ availability = 'ONLINE', connection = 'open', recover, reques
     '../hooks/use-wake-lock': { useWakeLock: () => 'active' },
     '../realtime': { getRealtimeClient: () => client },
     '../location/use-location': { useDriverLocationReporter() {} },
-    '../location/location-store': { useLocationStore: location },
+    '../location/location-store': { useLocationStore: location, locationPermissionState: async () => permission },
     './driver-store': { useDriverStore: driver },
     './passenger-store': { usePassengerStore() {} },
     './driver-presence-store': { useDriverPresenceStore: presence },
@@ -123,7 +123,7 @@ test('manual offline or account changes fence delayed location recovery', async 
 
 test('idle drivers see a blocking offline notice, it closes on recovery, and intentional offline stays quiet', async () => {
   const f = fixture({ connection: 'reconnecting' }); const host = await mount(f.Guard);
-  assert.match(host.querySelector('[role=dialog]').textContent, /You are offline/);
+  assert.match(host.querySelector('[role=dialog]').textContent, /Live connection interrupted/);
   assert.equal(f.calls.notifications, 1);
   await flush(() => { f.set({ ride: { connection: 'open', ride: null } }); f.presence.setState({ phase: 'ready' }); });
   assert.equal(host.querySelector('[role=dialog]'), null);
@@ -164,4 +164,12 @@ test('periodic reconciliation repairs presence while a socket still appears open
   assert.equal(f.calls.recover, 2); assert.equal(f.calls.publish.length, 2);
   assert.equal(f.presence.getState().phase, 'ready');
   await flush(() => gate.resolve());
+});
+
+test('background recovery does not request a permission prompt', async () => {
+ let requests = 0;
+ const f = fixture({ permission: 'prompt', request: async () => { requests++; return null; } });
+ await mount(f.Session);
+ assert.equal(requests, 0); assert.equal(f.calls.publish.length, 0);
+ assert.equal(f.presence.getState().phase, 'failed');
 });

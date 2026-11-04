@@ -38,14 +38,16 @@ export function DriverConnectionGuard() {
     previous.current = attention;
   }, [attention]);
 
-  const title = disconnected ? "You are offline" : stale || locationStatus === "denied" ? "Your live location is unavailable" : "Restoring your online status";
+  const title = disconnected ? "Live connection interrupted" : stale || locationStatus === "denied" ? "Your live location is unavailable" : "Restoring your online status";
   const body = disconnected
     ? "Your live connection to K-Rides has been interrupted. New ride requests and live location updates may not reach you. We are reconnecting automatically."
+    : locationStatus === "unavailable" || locationStatus === "timeout" || locationStatus === "unsupported"
+      ? "Your device could not provide a current location. On a laptop, enable Location Services for your browser in system settings and allow location for this site. If it still cannot locate you, use a location-enabled phone for driving."
     : locationStatus === "denied"
       ? "Location access is blocked for K-Rides. Allow location access in your browser settings, then retry. Your live location cannot update until access is restored."
       : presence.error ?? (stale && presence.phase === "ready"
         ? "Your location has stopped updating. Keep K-Rides open while we try again, or use Retry connection."
-        : "Please keep K-Rides open while we confirm your online status and send your current location.");
+        : "Your account may be marked online, but we still need to confirm a fresh location update. Select Retry connection to allow location access.");
   const retry = () => { void useLocationStore.getState().request(); getRealtimeClient().reconnectNow(); };
 
   if (live) return attention ? <div role="alert" className="absolute inset-x-3 z-[800] mx-auto max-w-lg rounded-2xl border border-amber-400 bg-amber-50 p-4 text-amber-950 shadow-lg" style={{ top: "calc(var(--ride-safe-top) + 12px)" }}>
@@ -56,6 +58,7 @@ export function DriverConnectionGuard() {
 
   return <Modal open={attention} onClose={() => undefined} dismissible={false} sheetOnMobile={false} size="sm" title={<span className="flex items-center gap-2"><WifiOff className="size-5 shrink-0" aria-hidden />{title}</span>} description={body}
     footer={<div className="flex flex-wrap gap-2"><Button onClick={retry}>Retry connection</Button><Button variant="ghost" disabled={state.availability === "GOING_ONLINE"} onClick={() => void useDriverStore.getState().setOnline(false)}>Go offline</Button></div>}>
+    <p className="mb-3 text-sm text-[var(--text-secondary)]">Account availability, live connection and device location are checked separately. An ONLINE response alone does not confirm live tracking.</p>
     <p role="status" className="text-sm text-[var(--text-secondary)]">This notice closes automatically when your connection and location are restored.</p>
   </Modal>;
 }

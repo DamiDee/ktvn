@@ -143,3 +143,10 @@ test("scheduled channels share the driver socket, ref-count, deduplicate event I
   assert.deepEqual(next.sent, [{ type: "subscribe", channel: "scheduled:booking-1" }]);
   client.unsubscribeFromSchedule("booking-1");assert.deepEqual(next.sent[1], { type: "unsubscribe", channel: "scheduled:booking-1" });
 });
+
+test('repeated resume events preserve an in-progress WebSocket handshake', t => {
+ const client = setup(t); client.connect(); const socket = FakeSocket.instances[0];
+ client.reconnectNow(); client.reconnectNow();
+ assert.equal(FakeSocket.instances.length, 1); assert.equal(socket.readyState, FakeSocket.CONNECTING);
+ socket.open(); assert.equal(client.status, 'open');
+});

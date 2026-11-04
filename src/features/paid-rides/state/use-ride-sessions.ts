@@ -8,7 +8,7 @@ import { useLifecycleRecovery } from "../hooks/use-lifecycle-recovery";
 import { useWakeLock } from "../hooks/use-wake-lock";
 import { getRealtimeClient } from "../realtime";
 import { useDriverLocationReporter } from "../location/use-location";
-import { useLocationStore } from "../location/location-store";
+import { locationPermissionState, useLocationStore } from "../location/location-store";
 import { useDriverStore } from "./driver-store";
 import { usePassengerStore } from "./passenger-store";
 import { useDriverPresenceStore } from "./driver-presence-store";
@@ -154,7 +154,13 @@ export function useDriverSession() {
           return;
         }
         recoveryError = "We need a fresh location. Allow location access and keep this page open.";
-        const fix = await useLocationStore.getState().request();
+        const cached = useLocationStore.getState().fix;
+        const fresh = useLocationStore.getState().status === "granted" && cached && Date.now() - cached.timestamp <= PAID_RIDES_CONFIG.location.maxFixAgeMs;
+        // Background recovery cannot ask for a new permission prompt. The guard's
+        // retry button requests location directly from the user's gesture.
+        const permission = fresh ? "granted" : await locationPermissionState();
+        if (!current()) return;
+        const fix = fresh ? cached : permission === "granted" ? await useLocationStore.getState().request() : null;
         if (!current()) return;
         if (!fix || Date.now() - fix.timestamp > PAID_RIDES_CONFIG.location.maxFixAgeMs) {
           throw new Error("Fresh location unavailable");

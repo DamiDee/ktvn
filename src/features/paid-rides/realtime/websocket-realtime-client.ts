@@ -163,6 +163,9 @@ export class WebSocketRealtimeClient implements RideRealtimeClient {
 
   /** Called by lifecycle hooks when the network or the tab comes back. */
   reconnectNow(): void {
+    // Focus and retry events must not repeatedly abort an active handshake.
+    // The existing connection deadline will recover a genuinely stalled attempt.
+    if (this.socket?.readyState === WebSocket.CONNECTING) return;
     this.attempt = 0;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);

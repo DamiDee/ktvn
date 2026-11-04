@@ -11,3 +11,8 @@ export function rentalPickupPlace(text?: string): Place | null {
   if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
   return { id: `rental-${lat},${lng}`, name: match[1], secondary: "", point: { lat, lng }, source: "saved" };
 }
+
+/** Coordinates stay in storage for map editing, not in the address label. */
+export function rentalPickupLabel(text: string): string {
+  return text.replace(/\s*Coordinates:\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*$/, "").trim();
+}
