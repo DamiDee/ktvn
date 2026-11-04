@@ -21,3 +21,15 @@ Contract tests cover duration boundaries, strict payloads, pagination, bodyless 
 ## Rental pickup map
 
 The rides home screen and navigation include “Car rental rides” immediately after Schedule. Rental pickup reuses Google place search, current location and map-pin selection. The API currently accepts only a pickupLocation string and rejects extra fields, so the frontend saves the selected address followed by `Coordinates: latitude, longitude` in that field. Editing restores the pin from that suffix. Existing text-only pickups remain editable without invented coordinates. A future structured coordinate API should add validated latitude/longitude fields and migrate this representation explicitly.
+
+## Updated rental contract — 4 November 2026
+
+This section supersedes the earlier bodyless/offline assignment description. The supplied OpenAPI now requires `carType` (`Van`, `SUV`, `Saloon`) on create/update and `{driverId}` on `POST admin/rentals/{id}/assign`. Optional response fields `carType`, `driverId` and `price` are accepted, including legacy omissions/nulls. Assigned drivers are shown through existing contact access.
+
+Vehicle cards use `GET rental/pricing` (singular, as supplied separately), map lowercase pricing keys to the exact enum casing, and show category illustrations. Returned NGN price strings are displayed as listed naira rates; billing period and the response `price` field's units are not specified, so no per-day total is invented. Confirm the billing period and units before adding duration multiplication. Company registration remains off.
+
+Fare estimation retries transient failures once after 5 seconds, under the existing 15-second request timeout. Loading remains visible during retries; the final failure stops the loading state, explains connection versus fare-service trouble, and allows manual retry. Validation/auth errors do not automatically retry. Focus/reconnect do not silently restart exhausted retries.
+
+Password reset already uses email + six-digit OTP + newPassword, matching the supplied OpenAPI. Login now explicitly labels the email reset link. Production mail delivery still requires the backend mail worker configuration.
+
+The owner confirmed pricing amounts are naira. The vehicle picker now also shows approximate equivalents through a currency selector: USD, GBP, EUR, KES, GHS, ZAR and other supported African currencies. `GET /api/rentals/convert?amount=…` converts a bounded NGN amount using the fixed ExchangeRate-API NGN feed, cached for 24 hours; it returns converted amounts rather than redistributing raw rates. Source attribution and rate dates are visible. Data older than 72 hours is rejected. Conversion failure never prevents displaying the original NGN price, and conversions never change the rental payload or payment currency. The daily versus full-period pricing basis remains unconfirmed, so duration multiplication is still intentionally absent.

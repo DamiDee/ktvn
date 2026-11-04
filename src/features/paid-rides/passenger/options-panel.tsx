@@ -32,7 +32,7 @@ export function OptionsPanel({ estimate, onCoverChange, bottomOffset }: SheetHos
   const [showDetails, setShowDetails] = useState(false);
   const detailsId = useId();
 
-  const data = estimate.data;
+  const data = estimate.isError || estimate.isFetching ? undefined : estimate.data;
   const options = data?.options ?? [];
   const selected = options.find((option) => option.id === draft.optionId) ?? null;
 
@@ -79,7 +79,7 @@ export function OptionsPanel({ estimate, onCoverChange, bottomOffset }: SheetHos
           <div className="min-w-0 flex-1">
             <h2 className="ride-heading-md truncate">To {draft.destination?.name}</h2>
             <p className="ride-caption ride-num">
-              {routeSummary ?? "Calculating route…"}
+              {routeSummary ?? (estimate.isFetching ? "Calculating fare…" : "Fare unavailable")}
               {data?.route.source === "approximate" ? " · approximate" : ""}
             </p>
           </div>
@@ -107,8 +107,9 @@ export function OptionsPanel({ estimate, onCoverChange, bottomOffset }: SheetHos
         </div>
       }
     >
-      {estimate.isPending ? (
+      {estimate.fetchStatus === "paused" ? <p role="status" className="p-4 text-sm">You appear to be offline. Reconnect to continue calculating your fare.</p> : estimate.isFetching ? (
         <div role="status" className="space-y-2 pb-2" aria-busy aria-label="Loading ride options">
+          <p className="ride-body-sm">{estimate.failureCount > 0 ? "The fare service has not responded successfully. Retrying once after 5 seconds…" : "Getting your fare. Please wait…"}</p>
           <OptionCardSkeleton />
           <OptionCardSkeleton />
           <OptionCardSkeleton />
@@ -116,7 +117,7 @@ export function OptionsPanel({ estimate, onCoverChange, bottomOffset }: SheetHos
       ) : estimate.isError ? (
         <div className="py-6 text-center" role="alert">
           <p className="ride-body font-semibold">We couldn&apos;t price this trip</p>
-          <p className="ride-body-sm mt-1 text-[var(--text-secondary)]">{ERROR_COPY[toRideError(estimate.error).code].body}</p>
+          <p className="ride-body-sm mt-1 text-[var(--text-secondary)]">{["network", "timeout"].includes(toRideError(estimate.error).code) ? "We couldn’t reach the fare service in time. Check your connection, then try again." : toRideError(estimate.error).code === "unavailable" ? "The fare service couldn’t return a valid price. Please try again shortly or change your pickup or destination." : ERROR_COPY[toRideError(estimate.error).code].body}</p>
           <Button variant="subtle" pill className="mt-4" onClick={() => void estimate.refetch()}>
             Try again
           </Button>

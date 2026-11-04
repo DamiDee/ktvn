@@ -252,7 +252,7 @@ export function LoginForm() {
             href="/forgot-password"
             className="kx-tap inline-flex items-center text-[0.8125rem] font-medium text-forest-700 underline-offset-4 hover:underline dark:text-gold-300"
           >
-            Forgot password?
+            Forgot password? Reset by email
           </Link>
         </div> : null}
 

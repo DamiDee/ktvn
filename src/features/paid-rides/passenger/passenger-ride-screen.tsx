@@ -1,4 +1,5 @@
 "use client";
+import { retryEstimate, ESTIMATE_RETRY_DELAY_MS } from "../domain/estimate-retry";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -103,7 +104,10 @@ export function PassengerRideScreen() {
     queryFn: ({ signal }) => getRideService().estimateRide({ pickup: draft.pickup!, destination: draft.destination! }, signal),
     enabled: phase === "ROUTE_PREVIEW" && Boolean(draft.pickup && draft.destination),
     staleTime: 60_000,
-    retry: 1,
+    retry: retryEstimate,
+    retryDelay: ESTIMATE_RETRY_DELAY_MS,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   useEffect(() => {
