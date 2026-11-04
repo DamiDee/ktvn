@@ -4,6 +4,7 @@ import { useEffect, useId, useState } from "react";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, Banknote, ChevronDown, CreditCard, Landmark, UserRound, Users } from "lucide-react";
+import { FareEquivalents } from "../components/fare-equivalents";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { collapseVariants } from "@/lib/motion";
@@ -134,6 +135,7 @@ export function OptionsPanel({ estimate, onCoverChange, bottomOffset }: SheetHos
               />
             ))}
           </div>
+          <p className="ride-caption">Pay in NGN. Equivalents are approximate; bank rates and fees may differ. <a className="underline" href="https://www.exchangerate-api.com" target="_blank" rel="noreferrer">Rates by ExchangeRate-API</a>.</p>
 
           {selected ? (
             <div className="rounded-[var(--ride-radius-md)] bg-[var(--surface-secondary)]">
@@ -187,7 +189,7 @@ function OptionCard({ option, selected, onSelect }: { option: RideOption; select
       disabled={!bookable(option)}
       onClick={onSelect}
       className={cn(
-        "ride-press relative flex w-full items-center gap-3.5 rounded-[var(--ride-radius-lg)] border p-3.5 text-left",
+        "ride-press relative flex w-full flex-wrap items-center gap-3.5 rounded-[var(--ride-radius-lg)] border p-3.5 text-left",
         selected ? "border-transparent" : "border-[var(--border-subtle)] hover:bg-[var(--surface-secondary)]",
         !bookable(option) && "opacity-55",
       )}
@@ -218,6 +220,7 @@ function OptionCard({ option, selected, onSelect }: { option: RideOption; select
         {selected && bookable(option) ? <span className="ride-caption block truncate text-[var(--text-secondary)]">{option.description}</span> : null}
       </span>
       <span className="relative ride-num shrink-0 text-right text-[0.9375rem] font-semibold">{price}</span>
+      <FareEquivalents money={option.fare.total} />
     </button>
   );
 }
