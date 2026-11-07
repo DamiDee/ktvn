@@ -128,7 +128,7 @@ export function SignUpForm() {
           />
 
           <Controller name="phone" control={control} render={({ field }) => (
-            <PhoneInput {...field} error={errors.phone?.message} required disabled={isSubmitting} />
+            <PhoneInput {...field} variant="journey" error={errors.phone?.message} required disabled={isSubmitting} />
           )} />
         </div>
 

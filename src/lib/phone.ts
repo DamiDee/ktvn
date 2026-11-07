@@ -1,10 +1,10 @@
-import { getCountries, getCountryCallingCode, parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
+import { getCountryCallingCode, parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
+import { PHONE_COUNTRY_NAMES } from "./phone-countries.ts";
 
-const names = new Intl.DisplayNames(["en"], { type: "region" });
-export const PHONE_COUNTRIES = getCountries().map((country) => ({
-  value: country,
-  label: `${names.of(country) ?? country} (+${getCountryCallingCode(country)})`,
-})).sort((a, b) => a.label.localeCompare(b.label, "en"));
+export const PHONE_COUNTRIES = PHONE_COUNTRY_NAMES.map(({ value, label }) => ({
+  value,
+  label: `${label} (+${getCountryCallingCode(value)})`,
+}));
 
 /** Store one international number, including its calling code. */
 export function normalizePhone(value: string, country: CountryCode = "NG"): string | undefined {

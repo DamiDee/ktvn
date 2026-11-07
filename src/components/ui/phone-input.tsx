@@ -6,6 +6,7 @@ import { ChevronDown } from "lucide-react";
 import { FieldWrapper } from "./input";
 import { cn } from "@/lib/cn";
 import { phoneInputValue, PHONE_COUNTRIES } from "@/lib/phone";
+import journeyStyles from "./journey-field.module.css";
 
 type PhoneInputProps = {
   value: string;
@@ -16,12 +17,14 @@ type PhoneInputProps = {
   error?: string;
   required?: boolean;
   disabled?: boolean;
+  variant?: "default" | "journey";
 };
 
 export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(function PhoneInput({
-  value, onChange, onBlur, label = "Phone", name, error, required, disabled,
+  value, onChange, onBlur, label = "Phone", name, error, required, disabled, variant = "default",
 }, ref) {
   const inputId = useId();
+  const journey = variant === "journey";
   const [country, setCountry] = useState<CountryCode>(() => parsePhoneNumberFromString(value, "NG")?.country ?? "NG");
   const [input, setInput] = useState(() => {
     const parsed = parsePhoneNumberFromString(value, country);
@@ -39,13 +42,16 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(function
   }
 
   return (
-    <FieldWrapper label={label} htmlFor={inputId} error={error} required={required} className="min-w-0">
-      <div className={cn(
+    <FieldWrapper label={journey ? undefined : label} htmlFor={inputId} error={error} required={required} className="min-w-0">
+      <div className={journey ? cn(journeyStyles.field, error && journeyStyles.invalid, disabled && journeyStyles.disabled) : cn(
         "flex h-11 items-center rounded-[var(--kx-radius-sm)] border bg-surface text-[0.9375rem] text-ink transition-[border-color,box-shadow] focus-within:ring-4",
         error ? "border-danger-500/60 focus-within:border-danger-500 focus-within:ring-danger-500/12" : "border-line-strong focus-within:border-gold-500 focus-within:ring-gold-500/10",
         disabled && "cursor-not-allowed opacity-50",
       )}>
-        <div className="relative flex h-full shrink-0 items-center gap-1.5 rounded-l-[var(--kx-radius-sm)] px-3 focus-within:bg-gold-500/10">
+        <div className={cn(
+          "relative flex shrink-0 items-center gap-1.5 focus-within:bg-gold-500/10",
+          journey ? "min-h-11 rounded-lg px-1 text-[0.9375rem] text-ink" : "h-full rounded-l-[var(--kx-radius-sm)] px-3",
+        )}>
           <span aria-hidden className="tabular-nums">+{getCountryCallingCode(country)}</span>
           <ChevronDown aria-hidden className="size-3.5 text-ink-muted" />
           <select
@@ -68,14 +74,23 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(function
           </select>
         </div>
         <span aria-hidden className="h-5 w-px shrink-0 bg-line-strong" />
-        <input
-          ref={ref} id={inputId} name={name} type="tel" autoComplete="tel-national"
-          className="h-full min-w-0 flex-1 rounded-r-[var(--kx-radius-sm)] bg-transparent px-3 outline-none placeholder:text-ink-muted disabled:cursor-not-allowed"
-          placeholder="Phone number" value={input} required={required} disabled={disabled}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? `${inputId}-description` : undefined}
-          onBlur={onBlur} onChange={(event) => updatePhone(event.target.value, country)}
-        />
+        <div className={journey ? journeyStyles.body : "h-full min-w-0 flex-1"}>
+          <input
+            ref={ref} id={inputId} name={name} type="tel" autoComplete="tel-national"
+            className={journey ? journeyStyles.input : "h-full w-full rounded-r-[var(--kx-radius-sm)] bg-transparent px-3 outline-none placeholder:text-ink-muted disabled:cursor-not-allowed"}
+            placeholder={journey ? " " : "Phone number"} value={input} required={required} disabled={disabled}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? `${inputId}-description` : undefined}
+            onBlur={onBlur} onChange={(event) => updatePhone(event.target.value, country)}
+          />
+          {journey ? (
+            <label htmlFor={inputId} className={journeyStyles.label}>
+              {label}
+              {required ? <span className={journeyStyles.required} aria-hidden>*</span> : null}
+            </label>
+          ) : null}
+        </div>
+        {journey ? <span className={journeyStyles.route} aria-hidden /> : null}
       </div>
     </FieldWrapper>
   );
