@@ -5,6 +5,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ShieldAlert, UserX, UserCheck, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { normalizePhone } from "@/lib/phone";
 import { Input, Select } from "@/components/ui/input";
 import { Modal, ConfirmDialog } from "@/components/ui/modal";
 import { StatusChip } from "@/components/ui/badge";
@@ -347,6 +349,7 @@ function CreateUserForm({
 }) {
   const [role, setRole] = useState<ApiRole>("User");
   const [city, setCity] = useState("");
+  const [phone, setPhone] = useState("");
   const [validation, setValidation] = useState("");
   const roles = ROLES.map((item) => paid && item.value === "User" ? { ...item, label: "Passenger", description: "Books paid rides and reserves Freebus seats." } : paid && item.value === "Driver" ? { ...item, description: "Driver access. Vehicle setup and driving approval are handled separately." } : item);
   const chosen = roles.find((r) => r.value === role);
@@ -367,12 +370,17 @@ function CreateUserForm({
           setValidation("The two passwords do not match.");
           return;
         }
+        const internationalPhone = normalizePhone(phone);
+        if (!internationalPhone) {
+          setValidation("Enter a valid phone number with its country code.");
+          return;
+        }
         await onSubmit({
           first_name: value("first_name"),
           last_name: value("last_name"),
           email: value("email"),
           username: value("username"),
-          phone: value("phone"),
+          phone: internationalPhone,
           address: value("address"),
           country: value("country"),
           city: city.trim(),
@@ -389,7 +397,7 @@ function CreateUserForm({
       <Input label="Email" name="email" type="email" required autoComplete="off" />
       <div className="grid gap-4 sm:grid-cols-2">
         <Input label="Username" name="username" required minLength={3} autoComplete="off" />
-        <Input label="Phone" name="phone" type="tel" required autoComplete="off" />
+        <PhoneInput value={phone} onChange={setPhone} required disabled={busy} />
       </div>
       <Input label="Address" name="address" required autoComplete="off" />
       <Input label="Country" name="country" required defaultValue="Nigeria" autoComplete="off" />

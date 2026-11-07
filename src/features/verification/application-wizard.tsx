@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
-import { useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ArrowLeft,
@@ -18,11 +18,12 @@ import {
   LockKeyhole,
   Mail,
   MapPin,
-  Phone,
   ShieldCheck,
   User,
   Wallet,
 } from "lucide-react";
+import { normalizePhone } from "@/lib/phone";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { cn } from "@/lib/cn";
 import { Card, NestedTile } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -339,7 +340,7 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
           setShowMissing(true);
           return;
         }
-        setIdentity(values);
+        setIdentity({ ...values, phone: normalizePhone(values.phone)!, guarantorPhone: values.guarantorPhone ? normalizePhone(values.guarantorPhone) ?? values.guarantorPhone : values.guarantorPhone });
         onNext();
       })}
       noValidate
@@ -371,15 +372,9 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
         />
         <Input label="Username" autoComplete="username" icon={AtSign} error={errors.username?.message} required {...register("username")} />
         <div className="grid gap-5 sm:grid-cols-2">
-          <Input
-            label="Phone"
-            type="tel"
-            placeholder="+234 807 000 0000"
-            icon={Phone}
-            error={errors.phone?.message}
-            required
-            {...register("phone")}
-          />
+          <Controller name="phone" control={control} render={({ field }) => (
+            <PhoneInput {...field} value={field.value ?? ""} label="Phone" error={errors.phone?.message} required />
+          )} />
           <Input
             label="Home address"
             placeholder="FHA Lugbe, Abuja"
@@ -473,15 +468,9 @@ function IdentityStep({ onNext }: { onNext: () => void }) {
               {...register("guarantorName")}
             />
             <div className="grid gap-5 sm:grid-cols-2">
-              <Input
-                label="Guarantor's phone"
-                type="tel"
-                placeholder="+234 802 000 0000"
-                icon={Phone}
-                error={errors.guarantorPhone?.message}
-                required
-                {...register("guarantorPhone")}
-              />
+              <Controller name="guarantorPhone" control={control} render={({ field }) => (
+                <PhoneInput {...field} value={field.value ?? ""} label="Guarantor's phone" error={errors.guarantorPhone?.message} required />
+              )} />
               <Input
                 label="Relationship"
                 placeholder="Family friend"

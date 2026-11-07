@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizePhone } from "../../lib/phone.ts";
 import { DriverTrack } from "../../types/enums.ts";
 import { newPasswordSchema } from "../auth/schemas.ts";
 
@@ -39,7 +40,7 @@ export const identitySchema = z
       .string()
       .trim()
       .min(1, "Enter your phone number")
-      .regex(/^\+?[\d\s-]{7,}$/, "Enter a valid phone number"),
+      .refine((value) => Boolean(normalizePhone(value)), "Enter a valid phone number with its country code"),
     nin: z
       .string()
       .regex(/^\d{11}$/, "Enter the 11-digit NIN exactly as issued"),
@@ -81,7 +82,7 @@ export const identitySchema = z
           context.addIssue({ code: "custom", path: [path], message });
         }
       });
-      if (values.guarantorPhone?.trim() && !/^\+?[\d\s-]{7,}$/.test(values.guarantorPhone.trim())) {
+      if (values.guarantorPhone?.trim() && !normalizePhone(values.guarantorPhone)) {
         context.addIssue({ code: "custom", path: ["guarantorPhone"], message: "Enter a valid guarantor phone number" });
       }
     }

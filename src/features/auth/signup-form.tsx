@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertCircle, ArrowLeft, ArrowRight, AtSign, Globe2, LockKeyhole, Mail, MapPin, Phone, ShieldCheck, User } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRight, AtSign, Globe2, LockKeyhole, Mail, MapPin, ShieldCheck, User } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Input, PasswordInput } from "@/components/ui/input";
@@ -15,6 +15,8 @@ import { LIVE_FREE_BUSES } from "@/lib/freebus-config";
 import { FreebusError } from "@/services/freebus-api";
 import type { Resolver } from "react-hook-form";
 import { useToast } from "@/components/ui/toast";
+import { normalizePhone } from "@/lib/phone";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { CityPicker } from "@/components/ui/city-picker";
 
 const STRENGTH_COLOURS = [
@@ -60,7 +62,7 @@ export function SignUpForm() {
       await userService.signUp({
         fullName: values.fullName,
         email: values.email,
-        phone: values.phone,
+        phone: normalizePhone(values.phone)!,
         password: values.password,
         username: values.username,
         address: values.address,
@@ -125,17 +127,9 @@ export function SignUpForm() {
             {...register("email")}
           />
 
-          <Input
-            variant="journey"
-            label="Phone"
-            type="tel"
-            placeholder="+234 802 000 0000"
-            autoComplete="tel"
-            icon={Phone}
-            error={errors.phone?.message}
-            required
-            {...register("phone")}
-          />
+          <Controller name="phone" control={control} render={({ field }) => (
+            <PhoneInput {...field} error={errors.phone?.message} required disabled={isSubmitting} />
+          )} />
         </div>
 
         {LIVE_FREE_BUSES ? <>

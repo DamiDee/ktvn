@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizePhone } from "../../lib/phone.ts";
 
 /** Validation schemas shared by the auth forms. */
 
@@ -44,7 +45,7 @@ export const signUpSchema = z
     phone: z
       .string()
       .min(1, "Enter your phone number")
-      .regex(/^\+?[\d\s-]{7,}$/, "Enter a valid phone number"),
+      .refine((value) => Boolean(normalizePhone(value)), "Enter a valid phone number with its country code"),
     city: z.string().trim().min(2, "Choose your city or area").max(100, "Use a shorter city or area name").refine((value) => !/[<>\u0000-\u001f]/.test(value), "Enter a valid city or area"),
     password: z
       .string()

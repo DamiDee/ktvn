@@ -189,7 +189,11 @@ export function LiveRideCard({ ride }: { ride: LiveRideSummary }) {
         </div>
       </div>
 
-      {past && ride.createdAt && Number.isFinite(Date.parse(ride.createdAt)) ? <p className="type-meta mt-2 text-ink-muted">{new Date(ride.createdAt).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" })}</p> : null}
+      <p className="type-meta mt-2 text-ink-muted">
+        {ride.createdAt && Number.isFinite(Date.parse(ride.createdAt)) ? (
+          <>Booked <time dateTime={ride.createdAt}>{new Date(ride.createdAt).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Lagos" })}</time></>
+        ) : "Booking date unavailable"}
+      </p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <StatusChip tone={TRACK_TONE[ride.track]}>
           {TRACK_LABEL[ride.track]}
